@@ -32,7 +32,7 @@ class WebSocketHandlerIntegrationTest {
     BlockingQueue<String> messages = new LinkedBlockingDeque<>();
 
     @Test
-    public void testWebSocketMessageBroker() throws Exception {
+    void testWebSocketMessageBroker() throws Exception {
         WebSocketSession session = initWebSocketSession();
 
         // send a message to the server

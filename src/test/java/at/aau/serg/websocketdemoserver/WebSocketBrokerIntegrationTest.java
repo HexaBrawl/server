@@ -33,7 +33,7 @@ class WebSocketBrokerIntegrationTest {
     private final String WEBSOCKET_TOPIC_OBJECT = "/topic/rcv-object";
 
     @Test
-    public void testWebSocketMessageBroker() throws Exception {
+    void testWebSocketMessageBroker() throws Exception {
         BlockingQueue<String> messages = new LinkedBlockingDeque<>(); // Queue of messages from the server.
         StompSession session = initStompSession(WEBSOCKET_TOPIC, new StringMessageConverter(), messages, String.class);
 
@@ -46,7 +46,7 @@ class WebSocketBrokerIntegrationTest {
     }
 
     @Test
-    public void testWebSocketMessageBrokerHandleObject() throws Exception {
+    void testWebSocketMessageBrokerHandleObject() throws Exception {
         BlockingQueue<StompMessage> messages = new LinkedBlockingDeque<>(); // Queue of messages from the server.
         StompSession session = initStompSession(WEBSOCKET_TOPIC_OBJECT, new JacksonJsonMessageConverter(), messages, StompMessage.class);
 
