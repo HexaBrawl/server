@@ -32,8 +32,8 @@ class WebSocketHandlerIntegrationTest {
     BlockingQueue<String> messages = new LinkedBlockingDeque<>();
 
     @Test
-    public void testWebSocketMessageBroker() throws Exception {
-        WebSocketSession session = initStompSession();
+    void testWebSocketMessageBroker() throws Exception {
+        WebSocketSession session = initWebSocketSession();
 
         // send a message to the server
         String message = "Test message";
@@ -46,7 +46,7 @@ class WebSocketHandlerIntegrationTest {
     /**
      * @return The basic session for the WebSocket connection.
      */
-    public WebSocketSession initStompSession() throws Exception {
+    public WebSocketSession initWebSocketSession() throws Exception {
         WebSocketClient client = new StandardWebSocketClient();
 
         // connect client to the websocket server
