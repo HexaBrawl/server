@@ -1,4 +1,4 @@
-package at.aau.serg.websocketdemoserver.messaging.dtos;
+package at.aau.hexabrawl.websocketserver.messaging.dtos;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

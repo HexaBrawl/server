@@ -1,4 +1,4 @@
-package at.aau.serg.websocketdemoserver;
+package at.aau.hexabrawl.websocketserver;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

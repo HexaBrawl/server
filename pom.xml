@@ -8,17 +8,17 @@
         <version>4.0.3</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
-    <groupId>at.aau.serg</groupId>
-    <artifactId>WebSocketDemo-Server</artifactId>
+    <groupId>at.aau.hexabrawl</groupId>
+    <artifactId>WebSocket-Server</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>WebSocketDemo-Server</name>
-    <description>WebSocketDemo-Server</description>
+    <name>WebSocket-Server</name>
+    <description>WebSocket-Server</description>
     <properties>
         <java.version>21</java.version>
-        <sonar.organization>aau-se2</sonar.organization>
+        <sonar.organization>hexabrawl</sonar.organization>
         <!-- The projectKey is in the last line of the build.yml template when you create the sonar project -->
         <!-- Or just write ORGANIZATION-NAME_REPO-NAME -->
-        <sonar.projectKey>AAU-SE2_WebSocketDemo-Server</sonar.projectKey>
+        <sonar.projectKey>hexabrawl_server</sonar.projectKey>
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         <sonar.coverage.jacoco.xmlReportPaths>
             ${project.build.directory}/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
