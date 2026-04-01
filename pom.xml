@@ -18,7 +18,7 @@
         <sonar.organization>hexabrawl</sonar.organization>
         <!-- The projectKey is in the last line of the build.yml template when you create the sonar project -->
         <!-- Or just write ORGANIZATION-NAME_REPO-NAME -->
-        <sonar.projectKey>hexabrawl_server</sonar.projectKey>
+        <sonar.projectKey>HexaBrawl_server</sonar.projectKey>
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         <sonar.coverage.jacoco.xmlReportPaths>
             ${project.build.directory}/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
