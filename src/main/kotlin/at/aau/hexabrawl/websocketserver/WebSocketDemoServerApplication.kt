@@ -1,13 +1,11 @@
-package at.aau.hexabrawl.websocketserver;
+package at.aau.hexabrawl.websocketserver
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication
+import org.springframework.boot.runApplication
 
 @SpringBootApplication
-public class WebSocketDemoServerApplication {
+class WebSocketDemoServerApplication
 
-    public static void main(String[] args) {
-        SpringApplication.run(WebSocketDemoServerApplication.class, args);
-    }
-
+fun main(args: Array<String>) {
+    runApplication<WebSocketDemoServerApplication>(*args)
 }

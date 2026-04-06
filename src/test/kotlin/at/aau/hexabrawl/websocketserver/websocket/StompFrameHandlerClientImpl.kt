@@ -1,30 +1,22 @@
-package at.aau.hexabrawl.websocketserver.websocket;
+package at.aau.hexabrawl.websocketserver.websocket
 
-import org.springframework.messaging.simp.stomp.StompFrameHandler;
-import org.springframework.messaging.simp.stomp.StompHeaders;
+import org.springframework.messaging.simp.stomp.StompFrameHandler
+import org.springframework.messaging.simp.stomp.StompHeaders
+import java.lang.reflect.Type
+import java.util.concurrent.BlockingQueue
 
-import java.lang.reflect.Type;
-import java.util.concurrent.BlockingQueue;
+class StompFrameHandlerClientImpl<T>(
+    private val messagesQueue: BlockingQueue<T>,
+    private val payloadType: Class<T>
+) : StompFrameHandler {
 
-public class StompFrameHandlerClientImpl<T> implements StompFrameHandler {
-    private final BlockingQueue<T> messagesQueue;
-    private final Class<T> payloadType;
-
-    public StompFrameHandlerClientImpl(BlockingQueue<T> receivedMessagesQueue, Class<T> payloadType) {
-        messagesQueue = receivedMessagesQueue;
-        this.payloadType = payloadType;
+    override fun getPayloadType(headers: StompHeaders): Type {
+        return payloadType
     }
 
-    @Override
-    public Type getPayloadType(StompHeaders headers) {
-        return this.payloadType;
-    }
-
-    @Override
-    @SuppressWarnings("unchecked")
-    public void handleFrame(StompHeaders headers, Object payload) {
+    @Suppress("UNCHECKED_CAST")
+    override fun handleFrame(headers: StompHeaders, payload: Any?) {
         // add the new message to the queue of received messages
-        messagesQueue.add((T) payload);
+        messagesQueue.add(payload as T)
     }
-
 }

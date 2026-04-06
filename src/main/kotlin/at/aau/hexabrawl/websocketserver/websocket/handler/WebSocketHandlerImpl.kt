@@ -1,33 +1,24 @@
-package at.aau.hexabrawl.websocketserver.websocket.handler;
+package at.aau.hexabrawl.websocketserver.websocket.handler
 
-import org.springframework.web.socket.*;
+import org.springframework.web.socket.*
 
-public class WebSocketHandlerImpl implements WebSocketHandler {
+class WebSocketHandlerImpl : WebSocketHandler {
 
-
-    @Override
-    public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-
+    override fun afterConnectionEstablished(session: WebSocketSession) {
     }
 
-    @Override
-    public void handleMessage(WebSocketSession session, WebSocketMessage<?> message) throws Exception {
+    override fun handleMessage(session: WebSocketSession, message: WebSocketMessage<*>) {
         // TODO handle the messages here
-        session.sendMessage(new TextMessage("echo from handler: " + message.getPayload()));
+        session.sendMessage(TextMessage("echo from handler: ${message.payload}"))
     }
 
-    @Override
-    public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
-
+    override fun handleTransportError(session: WebSocketSession, exception: Throwable) {
     }
 
-    @Override
-    public void afterConnectionClosed(WebSocketSession session, CloseStatus closeStatus) throws Exception {
-
+    override fun afterConnectionClosed(session: WebSocketSession, closeStatus: CloseStatus) {
     }
 
-    @Override
-    public boolean supportsPartialMessages() {
-        return false;
+    override fun supportsPartialMessages(): Boolean {
+        return false
     }
 }

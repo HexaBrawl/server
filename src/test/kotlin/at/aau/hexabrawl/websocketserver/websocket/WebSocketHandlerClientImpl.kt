@@ -1,41 +1,29 @@
-package at.aau.hexabrawl.websocketserver.websocket;
+package at.aau.hexabrawl.websocketserver.websocket
 
-import org.springframework.web.socket.CloseStatus;
-import org.springframework.web.socket.WebSocketHandler;
-import org.springframework.web.socket.WebSocketMessage;
-import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.CloseStatus
+import org.springframework.web.socket.WebSocketHandler
+import org.springframework.web.socket.WebSocketMessage
+import org.springframework.web.socket.WebSocketSession
+import java.util.concurrent.BlockingQueue
 
-import java.util.concurrent.BlockingQueue;
+class WebSocketHandlerClientImpl(
+    private val messagesQueue: BlockingQueue<String>
+) : WebSocketHandler {
 
-public class WebSocketHandlerClientImpl implements WebSocketHandler {
-    private BlockingQueue<String> messagesQueue;
-
-    public WebSocketHandlerClientImpl(BlockingQueue<String> receivedMessagesQueue){
-        messagesQueue = receivedMessagesQueue;
+    override fun afterConnectionEstablished(session: WebSocketSession) {
     }
 
-    @Override
-    public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-
+    override fun handleMessage(session: WebSocketSession, message: WebSocketMessage<*>) {
+        messagesQueue.add(message.payload as String)
     }
 
-    @Override
-    public void handleMessage(WebSocketSession session, WebSocketMessage<?> message) throws Exception {
-        messagesQueue.add((String) message.getPayload());
+    override fun handleTransportError(session: WebSocketSession, exception: Throwable) {
     }
 
-    @Override
-    public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
-
+    override fun afterConnectionClosed(session: WebSocketSession, closeStatus: CloseStatus) {
     }
 
-    @Override
-    public void afterConnectionClosed(WebSocketSession session, CloseStatus closeStatus) throws Exception {
-
-    }
-
-    @Override
-    public boolean supportsPartialMessages() {
-        return false;
+    override fun supportsPartialMessages(): Boolean {
+        return false
     }
 }
