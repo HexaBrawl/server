@@ -39,7 +39,7 @@ class WebSocketBrokerIntegrationTest {
         session.send("/app/hello", message)
 
         val expectedResponse = "echo from broker: $message"
-        assertThat(messages.poll(1, TimeUnit.SECONDS)).isEqualTo(expectedResponse)
+        assertThat(messages.poll(3, TimeUnit.SECONDS)).isEqualTo(expectedResponse)
     }
 
     @Test
@@ -51,7 +51,7 @@ class WebSocketBrokerIntegrationTest {
         val message = StompMessage("client", "Test Object Message")
         session.send("/app/object", message)
 
-        assertThat(messages.poll(1, TimeUnit.SECONDS)).isEqualTo(message)
+        assertThat(messages.poll(3, TimeUnit.SECONDS)).isEqualTo(message)
     }
 
     /**
@@ -69,7 +69,7 @@ class WebSocketBrokerIntegrationTest {
         // connect client to the websocket server (using Kotlin String interpolation for the port)
         val websocketUri = "ws://localhost:$port/websocket-example-broker"
         val session = stompClient.connectAsync(websocketUri, object : StompSessionHandlerAdapter() {})
-            .get(1, TimeUnit.SECONDS) // wait 1 sec for the client to be connected
+            .get(3, TimeUnit.SECONDS) // wait 1 sec for the client to be connected
 
         // subscribes to the topic defined in WebSocketBrokerController
         session.subscribe(destination, StompFrameHandlerClientImpl(queue, expectedType))

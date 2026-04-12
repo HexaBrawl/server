@@ -15,9 +15,9 @@ class WebSocketBrokerController {
         const val MAX_PLAYERS = 2
     }
 
-    // =========================
+    // ************
     // JOIN (REST)
-    // =========================
+    // ************
     @PostMapping("/joinTest")
     @ResponseBody
     fun joinTest(@RequestBody name: String): GameState {
@@ -56,9 +56,9 @@ class WebSocketBrokerController {
 
         return gameState
     }
-    // =========================
+    // *********************
     // Send Hello to Server
-    // =========================
+    // *********************
 
     @MessageMapping("/hello")
     @SendTo("/topic/hello-response")
@@ -66,9 +66,9 @@ class WebSocketBrokerController {
         return "echo from broker: $message"
     }
 
-    // =========================
+    // *******************************************************************
     // Sends the same object back to all subscribers of /topic/rcv-object
-    // =========================
+    // *******************************************************************
 
     @MessageMapping("/object")
     @SendTo("/topic/rcv-object")
@@ -76,9 +76,18 @@ class WebSocketBrokerController {
         return message
     }
 
-    // =========================
+    // *****************
+    // JOIN (WebSocket)
+    // *****************
+    @MessageMapping("/join")
+    @SendTo("/topic/game")
+    fun join(playerName: String): GameState {
+        return handleJoin(playerName)
+    }
+
+    // *****************
     // INIT (WebSocket)
-    // =========================
+    // *****************
     @MessageMapping("/init")
     @SendTo("/topic/game")
     fun init(): GameState {
@@ -86,9 +95,9 @@ class WebSocketBrokerController {
         return gameState
     }
 
-    // =========================
+    // *****************
     // MOVE (WebSocket)
-    // =========================
+    // *****************
     @MessageMapping("/move")
     @SendTo("/topic/game")
     fun handleMove(move: Move): GameState {
