@@ -1,0 +1,22 @@
+name: Deploy to se2-demo.aau.at
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy via SSH
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: se2-demo.aau.at
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ~/hexabrawl
+            git pull origin main
+            docker compose up -d --build
