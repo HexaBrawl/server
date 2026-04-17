@@ -1,6 +1,7 @@
 package at.aau.hexabrawl.websocketserver
 
 import at.aau.hexabrawl.websocketserver.websocket.broker.GameState
+import at.aau.hexabrawl.websocketserver.websocket.broker.GameStatus
 import at.aau.hexabrawl.websocketserver.websocket.broker.GameUnit
 import at.aau.hexabrawl.websocketserver.websocket.broker.Move
 import at.aau.hexabrawl.websocketserver.websocket.broker.WebSocketBrokerController
@@ -43,6 +44,7 @@ class WebSocketBrokerControllerTest {
         Assertions.assertEquals(2, state.players.size)
         Assertions.assertNotNull(state.currentTurn)
         Assertions.assertEquals(2, state.units.size)
+        Assertions.assertEquals(GameStatus.IN_PROGRESS, state.status)
     }
 
     @Test
@@ -167,5 +169,17 @@ class WebSocketBrokerControllerTest {
         val result = controller.handleMove(Move("Alice", "MOVE", 0, 0, 1, 1))
 
         assertTrue(result.units.isEmpty())
+    }
+
+    @Test
+    fun `game stays waiting when only one player joins`() {
+        val controller = WebSocketBrokerController()
+
+        val state = controller.join("Alice")
+
+        assertEquals(1, state.players.size)
+        assertEquals(GameStatus.WAITING_FOR_PLAYERS, state.status)
+        assertNull(state.currentTurn)
+        assertTrue(state.units.isEmpty())
     }
 }

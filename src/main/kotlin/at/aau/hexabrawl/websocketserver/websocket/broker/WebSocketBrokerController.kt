@@ -15,9 +15,9 @@ class WebSocketBrokerController {
         const val MAX_PLAYERS = 2
     }
 
-    // ************
-    // JOIN (REST)
-    // ************
+    // *******************************************
+    // JOIN (REST) only for Testing with postman
+    // *******************************************
     @PostMapping("/joinTest")
     @ResponseBody
     fun joinTest(@RequestBody name: String): GameState {
@@ -50,7 +50,7 @@ class WebSocketBrokerController {
             gameState.units.add(GameUnit(p2, 5, 5))
 
             gameState.currentTurn = p1
-
+            gameState.status = GameStatus.IN_PROGRESS
             println("GAME STARTED")
         }
 
@@ -105,7 +105,8 @@ class WebSocketBrokerController {
         println("Move from: ${move.player}")
 
         // Reject if game not started
-        if (gameState.currentTurn == null) {
+        //if (gameState.currentTurn == null) {
+        if (gameState.status == GameStatus.WAITING_FOR_PLAYERS) {
             println("REJECTED: Game not started")
             return gameState
         }
