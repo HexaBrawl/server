@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
+import at.aau.hexabrawl.websocketserver.websocket.broker.GameStatus
+
 class GameStateTest {
 
     private lateinit var gameState: GameState
@@ -21,6 +23,7 @@ class GameStateTest {
         assertEquals(0, gameState.players.size)
         assertEquals(0, gameState.units.size)
         assertNull(gameState.currentTurn)
+        assertEquals(GameStatus.WAITING_FOR_PLAYERS, gameState.status)
     }
 
     @Test
@@ -91,4 +94,11 @@ class GameStateTest {
         assertEquals(0, move.toX)
         assertEquals(0, move.toY)
     }
+
+    @Test
+    fun `game state starts with status WAITING_FOR_PLAYERS`() {
+        assertEquals(GameStatus.WAITING_FOR_PLAYERS, gameState.status)
+    }
+
+
 }
