@@ -1,0 +1,88 @@
+package at.aau.hexabrawl.websocketserver.websocket.broker
+import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+
+class GameServiceTest {
+
+    private lateinit var gameService: GameService
+
+    @BeforeEach
+    fun setup() {
+        gameService = GameService()
+    }
+
+    @Test
+    fun `test duplicate join and max players`() {
+        // 1. Erster Join
+        gameService.handleJoin("Alice")
+        val stateAfterAlice = gameService.getCurrentState()
+        assertThat(stateAfterAlice.players).containsExactly("Alice")
+
+        // 2. Doppelter Join (Alice versucht nochmal) -> Darf nichts ändern
+        gameService.handleJoin("Alice")
+        assertThat(gameService.getCurrentState().players.size).isEqualTo(1)
+
+        // 3. Zweiter Spieler
+        gameService.handleJoin("Bob")
+        assertThat(gameService.getCurrentState().status).isEqualTo(GameStatus.IN_PROGRESS)
+
+        // 4. Dritter Spieler (Charlie) -> Darf nicht rein (MAX_PLAYERS = 2)
+        gameService.handleJoin("Charlie")
+        assertThat(gameService.getCurrentState().players).doesNotContain("Charlie")
+    }
+
+    @Test
+    fun `test reset functionality`() {
+        gameService.handleJoin("Alice")
+        gameService.resetGame()
+        val state = gameService.getCurrentState()
+
+        assertThat(state.players).isEmpty()
+        assertThat(state.status).isEqualTo(GameStatus.WAITING_FOR_PLAYERS)
+    }
+
+    @Test
+    fun `test invalid moves`() {
+        // Vorbereitung: Spiel mit Alice und Bob starten
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        // Aktueller Stand: Alice ist am Zug (laut GameService Logik)
+        val stateBefore = gameService.getCurrentState()
+        val initialX = stateBefore.units.first { it.player == "Alice" }.x
+        val initialY = stateBefore.units.first { it.player == "Alice" }.y
+
+        // 1. TEST: Bob versucht zu ziehen, obwohl Alice dran ist (REJECTION)
+        val moveBob = Move(player = "Bob", toX = 1, toY = 1)
+        gameService.handleMove(moveBob)
+
+        // Check: Koordinaten von Bob dürfen sich nicht geändert haben
+        val bobUnit = gameService.getCurrentState().units.first { it.player == "Bob" }
+        assertThat(bobUnit.x).isNotEqualTo(1)
+
+        // 2. TEST: Alice macht einen gültigen Zug
+        val moveAlice = Move(player = "Alice", toX = 4, toY = 4)
+        gameService.handleMove(moveAlice)
+
+        val aliceUnit = gameService.getCurrentState().units.first { it.player == "Alice" }
+        assertThat(aliceUnit.x).isEqualTo(4)
+        assertThat(aliceUnit.y).isEqualTo(4)
+
+        // 3. TEST: Zugwechsel prüfen (Nach Alice muss Bob dran sein)
+        assertThat(gameService.getCurrentState().currentTurn).isEqualTo("Bob")
+    }
+
+    @Test
+    fun `test move rejected when game not started`() {
+        // Nur Alice ist da, Spiel ist WAITING_FOR_PLAYERS
+        gameService.handleJoin("Alice")
+
+        val move = Move(player = "Alice", toX = 1, toY = 1)
+        gameService.handleMove(move)
+
+        // Status muss immer noch WAITING sein
+        assertThat(gameService.getCurrentState().status).isEqualTo(GameStatus.WAITING_FOR_PLAYERS)
+    }
+
+}
