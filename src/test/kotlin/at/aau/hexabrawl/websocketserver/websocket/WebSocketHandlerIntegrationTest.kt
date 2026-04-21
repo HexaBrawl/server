@@ -1,7 +1,6 @@
-package at.aau.hexabrawl.websocketserver
+package at.aau.hexabrawl.websocketserver.websocket
 
-import at.aau.hexabrawl.websocketserver.websocket.WebSocketHandlerClientImpl
-import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.springframework.boot.test.context.SpringBootTest
@@ -36,7 +35,7 @@ class WebSocketHandlerIntegrationTest {
         session.sendMessage(TextMessage(message))
 
         val expectedResponse = "echo from handler: $message"
-        assertThat(messages.poll(1, TimeUnit.SECONDS)).isEqualTo(expectedResponse)
+        Assertions.assertThat(messages.poll(1, TimeUnit.SECONDS)).isEqualTo(expectedResponse)
     }
 
     /**

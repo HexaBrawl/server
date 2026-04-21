@@ -1,8 +1,8 @@
-package at.aau.hexabrawl.websocketserver
+package at.aau.hexabrawl.websocketserver.controller
 
-import at.aau.hexabrawl.websocketserver.messaging.dtos.StompMessage
+import at.aau.hexabrawl.websocketserver.model.StompMessage
 import at.aau.hexabrawl.websocketserver.websocket.StompFrameHandlerClientImpl
-import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.springframework.boot.test.context.SpringBootTest
@@ -39,7 +39,7 @@ class WebSocketBrokerIntegrationTest {
         session.send("/app/hello", message)
 
         val expectedResponse = "echo from broker: $message"
-        assertThat(messages.poll(3, TimeUnit.SECONDS)).isEqualTo(expectedResponse)
+        Assertions.assertThat(messages.poll(3, TimeUnit.SECONDS)).isEqualTo(expectedResponse)
     }
 
     @Test
@@ -51,17 +51,17 @@ class WebSocketBrokerIntegrationTest {
         val message = StompMessage("client", "Test Object Message")
         session.send("/app/object", message)
 
-        assertThat(messages.poll(3, TimeUnit.SECONDS)).isEqualTo(message)
+        Assertions.assertThat(messages.poll(3, TimeUnit.SECONDS)).isEqualTo(message)
     }
 
     /**
      * @return The Stomp session for the WebSocket connection (Stomp - WebSocket is comparable to HTTP - TCP).
      */
     private fun <T> initStompSession(
-            destination: String,
-            messageConverter: MessageConverter,
-            queue: BlockingQueue<T>,
-            expectedType: Class<T>
+        destination: String,
+        messageConverter: MessageConverter,
+        queue: BlockingQueue<T>,
+        expectedType: Class<T>
     ): StompSession {
         val stompClient = WebSocketStompClient(StandardWebSocketClient())
         stompClient.messageConverter = messageConverter
