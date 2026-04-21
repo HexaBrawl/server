@@ -1,4 +1,4 @@
-package at.aau.hexabrawl.websocketserver.websocket.broker
+package at.aau.hexabrawl.websocketserver.model
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -49,9 +49,9 @@ class GameServiceTest {
         gameService.handleJoin("Bob")
 
         // Aktueller Stand: Alice ist am Zug (laut GameService Logik)
-        val stateBefore = gameService.getCurrentState()
-        val initialX = stateBefore.units.first { it.player == "Alice" }.x
-        val initialY = stateBefore.units.first { it.player == "Alice" }.y
+        //val stateBefore = gameService.getCurrentState()
+        //val initialX = stateBefore.units.first { it.player == "Alice" }.x
+        //val initialY = stateBefore.units.first { it.player == "Alice" }.y
 
         // 1. TEST: Bob versucht zu ziehen, obwohl Alice dran ist (REJECTION)
         val moveBob = Move(player = "Bob", toX = 1, toY = 1)

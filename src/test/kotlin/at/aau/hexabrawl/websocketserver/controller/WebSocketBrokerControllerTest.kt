@@ -1,16 +1,22 @@
-package at.aau.hexabrawl.websocketserver
+package at.aau.hexabrawl.websocketserver.controller
 
-import at.aau.hexabrawl.websocketserver.websocket.broker.GameService
-import at.aau.hexabrawl.websocketserver.websocket.broker.GameState
-import at.aau.hexabrawl.websocketserver.websocket.broker.GameStatus
-import at.aau.hexabrawl.websocketserver.websocket.broker.GameUnit
-import at.aau.hexabrawl.websocketserver.websocket.broker.Move
-import at.aau.hexabrawl.websocketserver.websocket.broker.WebSocketBrokerController
+
+import at.aau.hexabrawl.websocketserver.model.GameService
+import at.aau.hexabrawl.websocketserver.model.GameState
+import at.aau.hexabrawl.websocketserver.model.GameStatus
+import at.aau.hexabrawl.websocketserver.model.GameUnit
+import at.aau.hexabrawl.websocketserver.model.Move
+import at.aau.hexabrawl.websocketserver.controller.WebSocketBrokerController
 import org.junit.jupiter.api.Assertions.*
+
+import at.aau.hexabrawl.websocketserver.model.GameState
+import at.aau.hexabrawl.websocketserver.model.GameStatus
+import at.aau.hexabrawl.websocketserver.model.GameUnit
+import at.aau.hexabrawl.websocketserver.model.Move
+
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-
 
 class WebSocketBrokerControllerTest {
 
@@ -104,28 +110,28 @@ class WebSocketBrokerControllerTest {
     fun `move object is created correctly`() {
         val move = Move("Alice", "MOVE", 1, 1, 2, 2)
 
-        assertEquals("Alice", move.player)
-        assertEquals("MOVE", move.type)
-        assertEquals(1, move.fromX)
-        assertEquals(2, move.toX)
+        Assertions.assertEquals("Alice", move.player)
+        Assertions.assertEquals("MOVE", move.type)
+        Assertions.assertEquals(1, move.fromX)
+        Assertions.assertEquals(2, move.toX)
     }
 
     @Test
     fun `game unit is initialized correctly`() {
         val unit = GameUnit("Alice", 2, 3)
 
-        assertEquals("Alice", unit.player)
-        assertEquals(2, unit.x)
-        assertEquals(3, unit.y)
+        Assertions.assertEquals("Alice", unit.player)
+        Assertions.assertEquals(2, unit.x)
+        Assertions.assertEquals(3, unit.y)
     }
 
     @Test
     fun `game state initializes empty`() {
         val state = GameState()
 
-        assertTrue(state.players.isEmpty())
-        assertTrue(state.units.isEmpty())
-        assertNull(state.currentTurn)
+        Assertions.assertTrue(state.players.isEmpty())
+        Assertions.assertTrue(state.units.isEmpty())
+        Assertions.assertNull(state.currentTurn)
     }
 
     @Test
@@ -144,10 +150,10 @@ class WebSocketBrokerControllerTest {
         val aliceUnit = result.units.find { it.player == "Alice" }
         val bobUnit = result.units.find { it.player == "Bob" }
 
-        assertEquals(3, aliceUnit?.x)
-        assertEquals(3, aliceUnit?.y)
-        assertEquals(6, bobUnit?.x)
-        assertEquals(6, bobUnit?.y)
+        Assertions.assertEquals(3, aliceUnit?.x)
+        Assertions.assertEquals(3, aliceUnit?.y)
+        Assertions.assertEquals(6, bobUnit?.x)
+        Assertions.assertEquals(6, bobUnit?.y)
     }
 
     @Test
@@ -162,8 +168,8 @@ class WebSocketBrokerControllerTest {
         val bobUnit = result.units.find { it.player == "Bob" }
 
         // Position should NOT change
-        assertEquals(5, bobUnit?.x)
-        assertEquals(5, bobUnit?.y)
+        Assertions.assertEquals(5, bobUnit?.x)
+        Assertions.assertEquals(5, bobUnit?.y)
     }
 
     @Test
@@ -172,7 +178,7 @@ class WebSocketBrokerControllerTest {
 
         val result = controller.handleMove(Move("Alice", "MOVE", 0, 0, 1, 1))
 
-        assertTrue(result.units.isEmpty())
+        Assertions.assertTrue(result.units.isEmpty())
     }
 
     @Test
@@ -181,10 +187,10 @@ class WebSocketBrokerControllerTest {
 
         val state = controller.join("Alice")
 
-        assertEquals(1, state.players.size)
-        assertEquals(GameStatus.WAITING_FOR_PLAYERS, state.status)
-        assertNull(state.currentTurn)
-        assertTrue(state.units.isEmpty())
+        Assertions.assertEquals(1, state.players.size)
+        Assertions.assertEquals(GameStatus.WAITING_FOR_PLAYERS, state.status)
+        Assertions.assertNull(state.currentTurn)
+        Assertions.assertTrue(state.units.isEmpty())
     }
 
     @Test

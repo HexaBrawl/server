@@ -1,4 +1,4 @@
-package at.aau.hexabrawl.websocketserver.websocket.handler
+package at.aau.hexabrawl.websocketserver.websocket
 
 import org.springframework.web.socket.*
 

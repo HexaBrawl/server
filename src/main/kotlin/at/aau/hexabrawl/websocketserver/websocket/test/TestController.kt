@@ -1,5 +1,7 @@
 package at.aau.hexabrawl.websocketserver.websocket.test
 
+import at.aau.hexabrawl.websocketserver.model.GameState
+import at.aau.hexabrawl.websocketserver.model.Move
 import at.aau.hexabrawl.websocketserver.websocket.broker.*
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.web.bind.annotation.*
@@ -7,7 +9,7 @@ import org.springframework.web.bind.annotation.*
 @RestController
 @RequestMapping("/test")
 class TestController(
-    private val broker: WebSocketBrokerController,
+    private val gameService: GameService,
     // Template ermöglicht das manuelle Senden an WebSocket-Topics
     private val messagingTemplate: SimpMessagingTemplate
 ) {

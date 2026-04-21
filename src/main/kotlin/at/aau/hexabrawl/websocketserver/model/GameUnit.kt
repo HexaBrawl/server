@@ -1,4 +1,4 @@
-package at.aau.hexabrawl.websocketserver.websocket.broker
+package at.aau.hexabrawl.websocketserver.model
 
 data class GameUnit(
     var player: String = "",

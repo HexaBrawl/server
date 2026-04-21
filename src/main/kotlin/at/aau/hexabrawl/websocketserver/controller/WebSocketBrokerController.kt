@@ -1,9 +1,18 @@
-package at.aau.hexabrawl.websocketserver.websocket.broker
+package at.aau.hexabrawl.websocketserver.controller
 
-import at.aau.hexabrawl.websocketserver.messaging.dtos.StompMessage
+import at.aau.hexabrawl.websocketserver.model.GameState
+import at.aau.hexabrawl.websocketserver.model.Move
+import at.aau.hexabrawl.websocketserver.model.StompMessage
 import org.springframework.messaging.handler.annotation.MessageMapping
 import org.springframework.messaging.handler.annotation.SendTo
 import org.springframework.stereotype.Controller
+
+<<<<<<< HEAD:src/main/kotlin/at/aau/hexabrawl/websocketserver/websocket/broker/WebSocketBrokerController.kt
+=======
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.ResponseBody
+>>>>>>> origin/main:src/main/kotlin/at/aau/hexabrawl/websocketserver/controller/WebSocketBrokerController.kt
 
 @Controller
 class WebSocketBrokerController(

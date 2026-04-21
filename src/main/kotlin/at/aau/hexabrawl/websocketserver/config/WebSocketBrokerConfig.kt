@@ -1,4 +1,4 @@
-package at.aau.hexabrawl.websocketserver.websocket.broker
+package at.aau.hexabrawl.websocketserver.config
 
 import org.springframework.context.annotation.Configuration
 import org.springframework.messaging.simp.config.MessageBrokerRegistry
@@ -19,4 +19,3 @@ class WebSocketBrokerConfig : WebSocketMessageBrokerConfigurer {
             .setAllowedOrigins("*")
     }
 }
-
