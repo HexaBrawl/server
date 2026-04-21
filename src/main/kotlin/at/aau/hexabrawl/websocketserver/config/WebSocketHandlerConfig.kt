@@ -1,5 +1,6 @@
-package at.aau.hexabrawl.websocketserver.websocket.handler
+package at.aau.hexabrawl.websocketserver.config
 
+import at.aau.hexabrawl.websocketserver.websocket.WebSocketHandlerImpl
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.socket.config.annotation.EnableWebSocket
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer

@@ -1,10 +1,16 @@
-package at.aau.hexabrawl.websocketserver.websocket.broker
+package at.aau.hexabrawl.websocketserver.controller
 
-import at.aau.hexabrawl.websocketserver.messaging.dtos.StompMessage
+import at.aau.hexabrawl.websocketserver.model.StompMessage
+import at.aau.hexabrawl.websocketserver.model.GameState
+import at.aau.hexabrawl.websocketserver.model.GameStatus
+import at.aau.hexabrawl.websocketserver.model.GameUnit
+import at.aau.hexabrawl.websocketserver.model.Move
 import org.springframework.messaging.handler.annotation.MessageMapping
 import org.springframework.messaging.handler.annotation.SendTo
 import org.springframework.stereotype.Controller
-import org.springframework.web.bind.annotation.*
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.ResponseBody
 
 @Controller
 class WebSocketBrokerController {

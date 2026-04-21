@@ -1,6 +1,10 @@
-package at.aau.hexabrawl.websocketserver.websocket.handler
+package at.aau.hexabrawl.websocketserver.websocket
 
-import org.springframework.web.socket.*
+import org.springframework.web.socket.CloseStatus
+import org.springframework.web.socket.TextMessage
+import org.springframework.web.socket.WebSocketHandler
+import org.springframework.web.socket.WebSocketMessage
+import org.springframework.web.socket.WebSocketSession
 
 class WebSocketHandlerImpl : WebSocketHandler {
 

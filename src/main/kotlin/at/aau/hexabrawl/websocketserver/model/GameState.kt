@@ -1,4 +1,6 @@
-package at.aau.hexabrawl.websocketserver.websocket.broker
+package at.aau.hexabrawl.websocketserver.model
+
+import at.aau.hexabrawl.websocketserver.model.GameUnit
 
 enum class GameStatus {
     WAITING_FOR_PLAYERS,
