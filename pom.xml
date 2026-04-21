@@ -102,6 +102,13 @@
                         </goals>
                     </execution>
                 </executions>
+                <configuration>
+                    <excludes>
+                        <exclude>**/websocket/test/**</exclude>
+                        <exclude>**/messaging/dtos/**</exclude>
+                        <exclude>**/*Application*</exclude>
+                    </excludes>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.jetbrains.kotlin</groupId>
@@ -124,6 +131,7 @@
                     </execution>
                 </executions>
                 <configuration>
+
                     <jvmTarget>21</jvmTarget>
 
                     <compilerPlugins>

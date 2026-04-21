@@ -1,5 +1,6 @@
 package at.aau.hexabrawl.websocketserver
 
+import at.aau.hexabrawl.websocketserver.websocket.broker.GameService
 import at.aau.hexabrawl.websocketserver.websocket.broker.GameState
 import at.aau.hexabrawl.websocketserver.websocket.broker.GameStatus
 import at.aau.hexabrawl.websocketserver.websocket.broker.GameUnit
@@ -14,10 +15,13 @@ import org.junit.jupiter.api.Test
 class WebSocketBrokerControllerTest {
 
     private lateinit var controller: WebSocketBrokerController
+    private lateinit var gameService: GameService
 
     @BeforeEach
     fun setup() {
-        controller = WebSocketBrokerController()
+
+        gameService = GameService()
+        controller = WebSocketBrokerController(gameService)
     }
 
     @Test
@@ -126,7 +130,7 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `multiple moves update unit positions correctly`() {
-        val controller = WebSocketBrokerController()
+        val controller = WebSocketBrokerController(gameService)
 
         controller.handleJoin("Alice")
         controller.handleJoin("Bob")
@@ -148,7 +152,7 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `move does nothing when wrong player`() {
-        val controller = WebSocketBrokerController()
+        val controller = WebSocketBrokerController(gameService)
 
         controller.handleJoin("Alice")
         controller.handleJoin("Bob")
@@ -164,7 +168,7 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `move ignored when game not started`() {
-        val controller = WebSocketBrokerController()
+        val controller = WebSocketBrokerController(gameService)
 
         val result = controller.handleMove(Move("Alice", "MOVE", 0, 0, 1, 1))
 
@@ -173,7 +177,7 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `game stays waiting when only one player joins`() {
-        val controller = WebSocketBrokerController()
+        val controller = WebSocketBrokerController(gameService)
 
         val state = controller.join("Alice")
 
@@ -181,5 +185,45 @@ class WebSocketBrokerControllerTest {
         assertEquals(GameStatus.WAITING_FOR_PLAYERS, state.status)
         assertNull(state.currentTurn)
         assertTrue(state.units.isEmpty())
+    }
+
+    @Test
+    fun `move rejected when not players turn`() {
+        val controller = WebSocketBrokerController(gameService)
+
+        controller.handleJoin("Alice")
+        controller.handleJoin("Bob")
+
+        val move = Move(player = "Bob", toX = 1, toY = 1)
+
+        val state = controller.handleMove(move)
+
+        Assertions.assertEquals("Alice", state.currentTurn)
+    }
+
+    @Test
+    fun `turn switches after valid move`() {
+        val controller = WebSocketBrokerController(gameService)
+
+        controller.handleJoin("Alice")
+        controller.handleJoin("Bob")
+
+        val move = Move(player = "Alice", toX = 3, toY = 3)
+
+        val state = controller.handleMove(move)
+
+        Assertions.assertEquals("Bob", state.currentTurn)
+    }
+
+    @Test
+    fun `init returns current state`() {
+        val controller = WebSocketBrokerController(gameService)
+
+        controller.handleJoin("Alice")
+        controller.handleJoin("Bob")
+
+        val state = controller.init()
+
+        assertEquals(2, state.players.size)
     }
 }
