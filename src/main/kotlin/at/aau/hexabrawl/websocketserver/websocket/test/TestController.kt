@@ -29,17 +29,23 @@ class TestController(
         return state
     }
 
-    @PostMapping("/reset")
+
+    @PostMapping("/init")
     @ResponseBody
-    fun reset(): GameState {
-        val state = gameService.resetGame()
+    fun init(): GameState {
+        // ALLES auf Null (für einen komplett sauberen Testlauf)
+        val state = gameService.initializeGame() // Deine bisherige resetGame() Logik
         messagingTemplate.convertAndSend("/topic/game", state)
         return state
     }
 
-    @PostMapping("/state")
+    @PostMapping("/reset")
     @ResponseBody
-    fun state(): GameState {
-        return gameService.getCurrentState()
+    fun reset(): GameState {
+        // SPIELER BEHALTEN, aber Spielstand auf Anfang
+        val state = gameService.resetToStartCondition()
+        messagingTemplate.convertAndSend("/topic/game", state)
+        return state
     }
+
 }

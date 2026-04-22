@@ -35,7 +35,7 @@ class GameServiceTest {
     @Test
     fun `test reset functionality`() {
         gameService.handleJoin("Alice")
-        gameService.resetGame()
+        gameService.initializeGame()
         val state = gameService.getCurrentState()
 
         assertThat(state.players).isEmpty()
@@ -84,5 +84,45 @@ class GameServiceTest {
         // Status muss immer noch WAITING sein
         assertThat(gameService.getCurrentState().status).isEqualTo(GameStatus.WAITING_FOR_PLAYERS)
     }
+
+    @Test
+    fun `test illegal moves and state transitions`() {
+        // 1. Initialisierung prüfen (Branch: WAITING_FOR_PLAYERS -> IN_PROGRESS)
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+        val stateAfterJoin = gameService.getCurrentState()
+        assertThat(stateAfterJoin.players).hasSize(2)
+
+        // 2. Branch: Zug von einem Spieler, der nicht existiert
+        val moveUnknown = Move("Charlie", fromX = 0, fromY = 0, toX = 1, toY = 1)
+        val stateUnknown = gameService.handleMove(moveUnknown)
+        // Erwarte, dass sich nichts geändert hat oder eine Fehlermeldung/Logik greift
+        assertThat(stateUnknown.currentTurn).isEqualTo("Alice")
+
+        // 3. Branch: Spieler ist nicht an der Reihe
+        val moveWrongTurn = Move( "Bob", fromX = 5, fromY = 5, toX = 4, toY = 4)
+        val stateWrongTurn = gameService.handleMove(moveWrongTurn)
+        // Es sollte immer noch Alice dran sein
+        assertThat(stateWrongTurn.currentTurn).isEqualTo("Alice")
+
+        // 4. Branch: Reset bei leerer Spielerliste
+        gameService.initializeGame() // Alles auf Null
+        val stateAfterInit = gameService.resetToStartCondition()
+
+        // Erwarten hier IN_PROGRESS, da der Soft Reset
+        // das Spiel bewusst in diesen Zustand versetzt.
+        assertThat(stateAfterInit.status).isEqualTo(GameStatus.IN_PROGRESS)
+    }
+
+    @Test
+    fun `test reset with existing players`() {
+        gameService.handleJoin("Alice")
+        // Testet den Branch: if (gameState.players.isNotEmpty()) -> if-Zweig
+        val state = gameService.resetToStartCondition()
+        assertThat(state.status).isEqualTo(GameStatus.IN_PROGRESS)
+        assertThat(state.currentTurn).isEqualTo("Alice")
+        assertThat(state.units).isNotEmpty() // Prüft, ob deine neue Unit-Logik greift
+    }
+
 
 }

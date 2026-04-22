@@ -58,14 +58,46 @@ class GameService {
         return gameState
     }
 
-    // Zum Testen
-    fun resetGame(): GameState = synchronized(lock) {
+
+
+    // ALLES AUF NULL - Für /test/init
+    fun initializeGame(): GameState = synchronized(lock) {
         gameState.players.clear()
         gameState.units.clear()
         gameState.currentTurn = null
         gameState.status = GameStatus.WAITING_FOR_PLAYERS
-        println("Service: GAME RESET")
+        println("Service: GAME INITIALIZED - Everything cleared")
         return gameState
     }
+
+    // SPIELER BEHALTEN - Für /test/reset
+    fun resetToStartCondition(): GameState = synchronized(lock) {
+        gameState.units.clear() // Alte Einheiten löschen
+
+        // Für jeden verbliebenen Spieler eine neue Start-Einheit erstellen
+        gameState.players.forEachIndexed { index, playerName ->
+            // Jedem Spieler eine feste Startposition zuordnen
+            // Beispiel: Spieler 1 bei (0,0), Spieler 2 bei (5,5) - passe die Werte an dein Grid an!
+            val startX = if (index == 0) 2 else 5
+            val startY = if (index == 0) 2 else 5
+
+            val newUnit = GameUnit(
+                player = playerName,
+                x = startX,
+                y = startY
+            )
+
+            gameState.units.add(newUnit)
+        }
+
+        gameState.currentTurn = gameState.players.firstOrNull()
+        gameState.status = GameStatus.IN_PROGRESS
+
+        println("Service: Reset - Units for ${gameState.players} recreated at start positions.")
+        return gameState
+    }
+
+
+
 
 }
