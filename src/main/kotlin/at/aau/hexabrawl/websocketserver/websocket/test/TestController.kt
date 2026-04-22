@@ -1,8 +1,8 @@
 package at.aau.hexabrawl.websocketserver.websocket.test
 
+import at.aau.hexabrawl.websocketserver.model.GameService
 import at.aau.hexabrawl.websocketserver.model.GameState
 import at.aau.hexabrawl.websocketserver.model.Move
-import at.aau.hexabrawl.websocketserver.websocket.broker.*
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.web.bind.annotation.*
 
@@ -10,52 +10,36 @@ import org.springframework.web.bind.annotation.*
 @RequestMapping("/test")
 class TestController(
     private val gameService: GameService,
-    // Template ermöglicht das manuelle Senden an WebSocket-Topics
     private val messagingTemplate: SimpMessagingTemplate
 ) {
 
-    /*@PostMapping("/join")
-    fun join(@RequestBody name: String): GameState {
-        return broker.handleJoin(name)
-    }*/
     @PostMapping("/join")
+    @ResponseBody
     fun join(@RequestBody name: String): GameState {
-        val state = broker.handleJoin(name)
-        // Informiert alle WebSocket-Clients (Handy) über den neuen Player
+        val state = gameService.handleJoin(name)
         messagingTemplate.convertAndSend("/topic/game", state)
         return state
     }
 
-    /*@PostMapping("/move")
-    fun move(@RequestBody move: Move): GameState {
-        return broker.handleMove(move)
-    }*/
     @PostMapping("/move")
+    @ResponseBody
     fun move(@RequestBody move: Move): GameState {
-        val state = broker.handleMove(move)
-        // Das triggert das 'GAME UPDATE' Log in deinem MyStomp.kt
-        messagingTemplate.convertAndSend("/topic/game", state)
-        return state
-    }
-
-    /*@GetMapping("/init")
-    fun init(): GameState {
-        return broker.init()
-    }*/
-    @GetMapping("/init")
-    fun init(): GameState {
-        val state = broker.init()
+        val state = gameService.handleMove(move)
         messagingTemplate.convertAndSend("/topic/game", state)
         return state
     }
 
     @PostMapping("/reset")
+    @ResponseBody
     fun reset(): GameState {
-        val state = broker.resetGameFromTest() // Wir erstellen gleich die Brücke im Broker
-        // Optional: Alle verbundenen Handys informieren, dass das Spiel gelöscht wurde
+        val state = gameService.resetGame()
         messagingTemplate.convertAndSend("/topic/game", state)
         return state
     }
 
-
+    @PostMapping("/state")
+    @ResponseBody
+    fun state(): GameState {
+        return gameService.getCurrentState()
+    }
 }
