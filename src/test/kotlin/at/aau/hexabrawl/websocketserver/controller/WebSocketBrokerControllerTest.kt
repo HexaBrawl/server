@@ -2,19 +2,9 @@ package at.aau.hexabrawl.websocketserver.controller
 
 
 import at.aau.hexabrawl.websocketserver.model.GameService
-import at.aau.hexabrawl.websocketserver.model.GameState
-import at.aau.hexabrawl.websocketserver.model.GameStatus
-import at.aau.hexabrawl.websocketserver.model.GameUnit
-import at.aau.hexabrawl.websocketserver.model.Move
+import at.aau.hexabrawl.websocketserver.model.*
 import at.aau.hexabrawl.websocketserver.controller.WebSocketBrokerController
 import org.junit.jupiter.api.Assertions.*
-
-import at.aau.hexabrawl.websocketserver.model.GameState
-import at.aau.hexabrawl.websocketserver.model.GameStatus
-import at.aau.hexabrawl.websocketserver.model.GameUnit
-import at.aau.hexabrawl.websocketserver.model.Move
-
-import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
