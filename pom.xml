@@ -23,6 +23,11 @@
         <sonar.coverage.jacoco.xmlReportPaths>
             ${project.build.directory}/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
         </sonar.coverage.jacoco.xmlReportPaths>
+
+        <sonar.coverage.exclusions>
+            **/websocket/test/**
+        </sonar.coverage.exclusions>
+
         <kotlin.version>2.2.0</kotlin.version>
     </properties>
 
