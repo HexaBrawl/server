@@ -48,5 +48,4 @@ class WebSocketBrokerController(
 
     fun handleJoin(name: String) = gameService.handleJoin(name)
     fun handleMove(move: Move) = gameService.handleMove(move)
-    //fun resetGameFromTest() = gameService.initializeGame()
 }

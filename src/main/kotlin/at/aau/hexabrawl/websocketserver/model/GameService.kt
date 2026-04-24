@@ -14,12 +14,11 @@ class GameService {
 
     fun handleJoin(playerName: String): GameState = synchronized(lock) {
         // Spieler hinzufügen, falls noch nicht vorhanden und Platz ist
-        if (!gameState.players.contains(playerName)) {
-            if (gameState.players.size < MAX_PLAYERS) {
-                gameState.players.add(playerName)
-                println("Service JOIN: $playerName")
-            }
+
+        if (!gameState.players.contains(playerName) && gameState.players.size < MAX_PLAYERS) {
+            gameState.players.add(playerName)
         }
+
 
         // Automatischer Start bei 2 Spielern
         if (gameState.players.size == 2 && gameState.units.isEmpty()) {
