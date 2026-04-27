@@ -1,7 +1,7 @@
 package at.aau.hexabrawl.websocketserver.model
 
 data class Move(
-    var player: String = "",
+    var player: Player? = null,
     var type: String = "",
     var fromX: Int = 0,
     var fromY: Int = 0,

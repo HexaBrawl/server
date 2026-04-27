@@ -7,8 +7,8 @@ enum class GameStatus {
 }
 
 data class GameState(
-    val players: MutableList<String> = mutableListOf(),
+    val players: MutableList<Player> = mutableListOf(),
     val units: MutableList<GameUnit> = mutableListOf(),
-    var currentTurn: String? = null,
+    var currentTurn: Player? = null,
     var status: GameStatus = GameStatus.WAITING_FOR_PLAYERS
 )
