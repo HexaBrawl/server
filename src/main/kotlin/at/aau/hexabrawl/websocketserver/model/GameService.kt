@@ -12,11 +12,12 @@ class GameService {
         const val MAX_PLAYERS = 2
     }
 
-    fun handleJoin(playerName: String): GameState = synchronized(lock) {
+    fun handleJoin(playerName: String, sessionId:String=""): GameState = synchronized(lock) {
         // Spieler hinzufügen, falls noch nicht vorhanden und Platz ist
 
-        if (!gameState.players.contains(playerName) && gameState.players.size < MAX_PLAYERS) {
-            gameState.players.add(playerName)
+        if (!gameState.players.any{it.name == playerName} && gameState.players.size < MAX_PLAYERS) {
+            val color = if (gameState.players.isEmpty()) PlayerColor.RED else PlayerColor.BLUE
+            gameState.players.add(Player(playerName, sessionId,color))
         }
 
 
