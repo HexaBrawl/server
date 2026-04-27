@@ -27,10 +27,10 @@ class GameService {
             val p2 = gameState.players[1]
 
             // Start-Einheiten setzen
-            gameState.units.add(GameUnit(p1, 2, 2))
-            gameState.units.add(GameUnit(p2, 5, 5))
+            gameState.units.add(GameUnit(p1.name, 2, 2))
+            gameState.units.add(GameUnit(p2.name, 5, 5))
 
-            gameState.currentTurn = p1
+            gameState.currentTurn = p1.name
             gameState.status = GameStatus.IN_PROGRESS
             println("Service: GAME STARTED")
         }
@@ -39,16 +39,16 @@ class GameService {
 
     fun handleMove(move: Move): GameState = synchronized(lock) {
         if (gameState.status != GameStatus.IN_PROGRESS) return gameState
-        if (move.player != gameState.currentTurn) return gameState
+        if (move.player?.name != gameState.currentTurn) return gameState
 
-        gameState.units.firstOrNull { it.player == move.player }?.apply {
+        gameState.units.firstOrNull { it.player == move.player?.name }?.apply {
             x = move.toX
             y = move.toY
         }
 
         // Spielerwechsel
         val (p1, p2) = gameState.players
-        gameState.currentTurn = if (gameState.currentTurn == p1) p2 else p1
+        gameState.currentTurn = if (gameState.currentTurn == p1.name) p2.name else p1.name
 
         return gameState
     }
@@ -75,14 +75,14 @@ class GameService {
         gameState.units.clear() // Alte Einheiten löschen
 
         // Für jeden verbliebenen Spieler eine neue Start-Einheit erstellen
-        gameState.players.forEachIndexed { index, playerName ->
+        gameState.players.forEachIndexed { index, player ->
             // Jedem Spieler eine feste Startposition zuordnen
             // Beispiel: Spieler 1 bei (0,0), Spieler 2 bei (5,5) - passe die Werte an dein Grid an!
             val startX = if (index == 0) 2 else 5
             val startY = if (index == 0) 2 else 5
 
             val newUnit = GameUnit(
-                player = playerName,
+                player = player.name,
                 x = startX,
                 y = startY
             )
@@ -90,7 +90,7 @@ class GameService {
             gameState.units.add(newUnit)
         }
 
-        gameState.currentTurn = gameState.players.firstOrNull()
+        gameState.currentTurn = gameState.players.firstOrNull()?.name
         gameState.status = GameStatus.IN_PROGRESS
 
         println("Service: Reset - Units for ${gameState.players} recreated at start positions.")
