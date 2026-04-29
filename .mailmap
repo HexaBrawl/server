@@ -1,7 +1,28 @@
-Legat Stefan <stefan.l2k2@gmail.com>   <stlegat@edu.aau.at>
-Beißwänger Sonja  <sonjabei@edu.aau.at>
+# Format: Korrekter Name <Uni-Email> Falscher Name <Falsche Email>
+
+# Legat Stefan
+Legat Stefan <stlegat@edu.aau.at> Stefan Legat <162748224+STEFANLEGAT2002@users.noreply.github.com>
+Legat Stefan <stlegat@edu.aau.at> STEFANLEGAT2002 <stefan.l2k2@gmail.com>
+Legat Stefan <stlegat@edu.aau.at> Stefan <stefan.l2k2@gmail.com>
+
+# Sulzer Josef (djamn & j1sulzer)
+Sulzer Josef <j1sulzer@edu.aau.at> 
+
+Sulzer Josef <j1sulzer@edu.aau.at> j1sulzer <101431930+j1sulzer@users.noreply.github.com>
+
+# Beißwänger Sonja 
+Beißwänger Sonja <sonjabei@edu.aau.at>
+Beißwänger Sonja <sonjabei@edu.aau.at> =SonjaBeisswaenger <=sonjabei@edu.aau.at>
+
+# Cekic Aldin (AlCe999 & Aldin)
+Cekic Aldin <aldince@edu.aau.at> AlCe999 <149901453+AlCe999@users.noreply.github.com>
+Cekic Aldin <aldince@edu.aau.at> Aldin <aldin@PCN.at>
+
+# Manuel Kotzent (ManKotzent)
+Manuel Kotzent <mankotzent@edu.aau.at> <137501602+ManKotzent@users.noreply.github.com>
+Manuel Kotzent <mankotzent@edu.aau.at> ManKotzent
+Manuel Kotzent <mankotzent@edu.aau.at> Manuel Kotzent
+
+# Weitere Teammitglieder zur Sicherheit (Mapping auf korrekte Namensform)
 Aleksowska Anja <anjaal@edu.aau.at>
-Cekic Aldin <aldince@edu.aau.at>
 Hobel Nicolas <nihobel@edu.aau.at>
-Sulzer Josef <j1sulzer@edu.aau.at>
-Manuel Kotzent <mankotzent@edu.aau.at>
