@@ -39,9 +39,9 @@ class GameService {
 
     fun handleMove(move: Move): GameState = synchronized(lock) {
         if (gameState.status != GameStatus.IN_PROGRESS) return gameState
-        if (move.player?.name != gameState.currentTurn) return gameState
+        if (move.player != gameState.currentTurn) return gameState
 
-        gameState.units.firstOrNull { it.player == move.player?.name }?.apply {
+        gameState.units.firstOrNull { it.player == move.player }?.apply {
             x = move.toX
             y = move.toY
         }

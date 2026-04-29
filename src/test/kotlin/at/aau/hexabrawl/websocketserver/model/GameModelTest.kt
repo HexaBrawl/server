@@ -47,7 +47,7 @@ class GameModelTest {
 
     @Test
     fun `game unit default constructor`() {
-        val unit = GameUnit()
+        val unit = GameUnit("")
 
         Assertions.assertEquals("", unit.player)
         Assertions.assertEquals(0, unit.x)
@@ -58,7 +58,7 @@ class GameModelTest {
     fun `game state mutation coverage`() {
         val state = GameState()
 
-        state.players.add("Alice")
+        state.players.add(Player("Alice"))
         state.units.add(GameUnit("Alice", 1, 1))
         state.currentTurn = "Alice"
 

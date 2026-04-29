@@ -17,7 +17,7 @@ class GameServiceTest {
         // 1. Erster Join
         gameService.handleJoin("Alice")
         val stateAfterAlice = gameService.getCurrentState()
-        assertThat(stateAfterAlice.players).containsExactly("Alice")
+        assertThat(stateAfterAlice.players).containsExactly(Player("Alice"))
 
         // 2. Doppelter Join (Alice versucht nochmal) -> Darf nichts ändern
         gameService.handleJoin("Alice")
@@ -29,7 +29,7 @@ class GameServiceTest {
 
         // 4. Dritter Spieler (Charlie) -> Darf nicht rein (MAX_PLAYERS = 2)
         gameService.handleJoin("Charlie")
-        assertThat(gameService.getCurrentState().players).doesNotContain("Charlie")
+        assertThat(gameService.getCurrentState().players).doesNotContain(Player("Charlie"))
     }
 
     @Test

@@ -23,24 +23,24 @@ class GameStateTest {
 
     @Test
     fun `adding one player increases player count to 1`() {
-        gameState.players.add("Alice")
+        gameState.players.add(Player("Alice"))
 
         Assertions.assertEquals(1, gameState.players.size)
     }
 
     @Test
     fun `adding two players increases player count to 2`() {
-        gameState.players.add("Alice")
-        gameState.players.add("Bob")
+        gameState.players.add(Player("Alice"))
+        gameState.players.add(Player("Bob"))
 
         Assertions.assertEquals(2, gameState.players.size)
     }
 
     @Test
     fun `added player is contained in player list`() {
-        gameState.players.add("Alice")
+        gameState.players.add(Player("Alice"))
 
-        Assertions.assertTrue(gameState.players.contains("Alice"))
+        Assertions.assertTrue(gameState.players.any { it.name == "Alice" })
     }
 
     @Test
