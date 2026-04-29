@@ -26,8 +26,8 @@ class GameService {
             val p2 = gameState.players[1]
 
             // Start-Einheiten setzen
-            gameState.units.add(GameUnit(p1, 2, 2))
-            gameState.units.add(GameUnit(p2, 5, 5))
+            gameState.units.add(GameUnit(p1, 2, 2, UnitType.INFANTRY))
+            gameState.units.add(GameUnit(p2, 5, 5, UnitType.INFANTRY))
 
             gameState.currentTurn = p1
             gameState.status = GameStatus.IN_PROGRESS
@@ -83,7 +83,8 @@ class GameService {
             val newUnit = GameUnit(
                 player = playerName,
                 x = startX,
-                y = startY
+                y = startY,
+                UnitType.INFANTRY
             )
 
             gameState.units.add(newUnit)

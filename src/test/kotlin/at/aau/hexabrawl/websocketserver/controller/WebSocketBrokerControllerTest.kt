@@ -109,7 +109,7 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `game unit is initialized correctly`() {
-        val unit = GameUnit("Alice", 2, 3)
+        val unit = GameUnit("Alice", 2, 3, UnitType.INFANTRY)
 
         Assertions.assertEquals("Alice", unit.player)
         Assertions.assertEquals(2, unit.x)

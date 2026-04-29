@@ -38,7 +38,7 @@ class GameModelTest {
 
     @Test
     fun `game unit covers all properties`() {
-        val unit = GameUnit("Bob", 5, 6)
+        val unit = GameUnit("Bob", 5, 6, UnitType.INFANTRY)
 
         Assertions.assertEquals("Bob", unit.player)
         Assertions.assertEquals(5, unit.x)
@@ -46,12 +46,13 @@ class GameModelTest {
     }
 
     @Test
-    fun `game unit default constructor`() {
-        val unit = GameUnit()
+    fun `game unit constructor`() {
+        val unit = GameUnit("", 0, 0, UnitType.INFANTRY)
 
         Assertions.assertEquals("", unit.player)
         Assertions.assertEquals(0, unit.x)
         Assertions.assertEquals(0, unit.y)
+        Assertions.assertEquals(UnitType.INFANTRY, unit.type)
     }
 
     @Test
@@ -59,7 +60,7 @@ class GameModelTest {
         val state = GameState()
 
         state.players.add("Alice")
-        state.units.add(GameUnit("Alice", 1, 1))
+        state.units.add(GameUnit("Alice", 1, 1, UnitType.INFANTRY))
         state.currentTurn = "Alice"
 
         Assertions.assertEquals(1, state.players.size)

@@ -52,7 +52,7 @@ class GameStateTest {
 
     @Test
     fun `game unit can be added to game state`() {
-        val unit = GameUnit(player = "Alice", x = 2, y = 3)
+        val unit = GameUnit(player = "Alice", x = 2, y = 3, type = UnitType.INFANTRY)
         gameState.units.add(unit)
 
         Assertions.assertEquals(1, gameState.units.size)
@@ -60,7 +60,7 @@ class GameStateTest {
 
     @Test
     fun `game unit has correct coordinates`() {
-        val unit = GameUnit(player = "Alice", x = 4, y = 7)
+        val unit = GameUnit(player = "Alice", x = 4, y = 7, type = UnitType.INFANTRY)
 
         Assertions.assertEquals(4, unit.x)
         Assertions.assertEquals(7, unit.y)
