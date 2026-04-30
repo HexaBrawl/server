@@ -25,7 +25,7 @@ class WebSocketBrokerControllerTest {
     fun `player can join game`() {
         val state = controller.handleJoin("Josef")
 
-        Assertions.assertTrue(state.players.contains("Josef"))
+        Assertions.assertTrue(state.players.any { it.name == "Josef" })
         Assertions.assertEquals(1, state.players.size)
     }
 
