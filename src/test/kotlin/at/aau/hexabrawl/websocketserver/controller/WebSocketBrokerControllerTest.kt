@@ -44,7 +44,10 @@ class WebSocketBrokerControllerTest {
 
         Assertions.assertEquals(2, state.players.size)
         Assertions.assertNotNull(state.currentTurn)
-        Assertions.assertEquals(2, state.units.size)
+        Assertions.assertEquals(6, state.units.size)
+        assertTrue(state.units.any { it.type == UnitType.ARCHER })
+        assertTrue(state.units.any { it.type == UnitType.INFANTRY })
+        assertTrue(state.units.any { it.type == UnitType.CAVALRY })
         Assertions.assertEquals(GameStatus.IN_PROGRESS, state.status)
     }
 

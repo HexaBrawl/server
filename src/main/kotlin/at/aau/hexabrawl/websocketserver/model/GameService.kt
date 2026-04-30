@@ -15,8 +15,9 @@ class GameService {
     fun handleJoin(playerName: String): GameState = synchronized(lock) {
         // Spieler hinzufügen, falls noch nicht vorhanden und Platz ist
 
-        if (!gameState.players.contains(playerName) && gameState.players.size < MAX_PLAYERS) {
+       if (!gameState.players.contains(playerName) && gameState.players.size < MAX_PLAYERS) {
             gameState.players.add(playerName)
+
         }
 
 
@@ -26,8 +27,25 @@ class GameService {
             val p2 = gameState.players[1]
 
             // Start-Einheiten setzen
-            gameState.units.add(GameUnit(p1, 2, 2, UnitType.INFANTRY))
-            gameState.units.add(GameUnit(p2, 5, 5, UnitType.INFANTRY))
+            val startPositionsP1 = listOf(
+                Pair(2, 2),  // ARCHER
+                Pair(3, 2),  // INFANTRY
+                Pair(4, 2)   // CAVALRY
+            )
+
+            val startPositionsP2 = listOf(
+                Pair(5, 5),
+                Pair(6, 5),
+                Pair(7, 5)
+            )
+
+            UnitType.values().forEachIndexed { index, type ->
+                val (x1, y1) = startPositionsP1[index]
+                val (x2, y2) = startPositionsP2[index]
+
+                gameState.units.add(GameUnit(p1, x1, y1, type))
+                gameState.units.add(GameUnit(p2, x2, y2, type))
+            }
 
             gameState.currentTurn = p1
             gameState.status = GameStatus.IN_PROGRESS
