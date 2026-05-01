@@ -9,7 +9,7 @@ class GameModelTest {
     fun `move covers all properties`() {
         val move = Move(
             player = "Alice",
-            type = "MOVE",
+            type = UnitType.INFANTRY,
             fromX = 1,
             fromY = 2,
             toX = 3,
@@ -17,7 +17,7 @@ class GameModelTest {
         )
 
         Assertions.assertEquals("Alice", move.player)
-        Assertions.assertEquals("MOVE", move.type)
+        Assertions.assertEquals(UnitType.INFANTRY, move.type)
         Assertions.assertEquals(1, move.fromX)
         Assertions.assertEquals(2, move.fromY)
         Assertions.assertEquals(3, move.toX)
@@ -29,7 +29,7 @@ class GameModelTest {
         val move = Move()
 
         Assertions.assertEquals("", move.player)
-        Assertions.assertEquals("", move.type)
+        Assertions.assertEquals(UnitType.INFANTRY, move.type)
         Assertions.assertEquals(0, move.fromX)
         Assertions.assertEquals(0, move.fromY)
         Assertions.assertEquals(0, move.toX)

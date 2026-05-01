@@ -54,16 +54,48 @@ class GameService {
         return gameState
     }
 
-    fun handleMove(move: Move): GameState = synchronized(lock) {
+    /*fun handleMove(move: Move): GameState = synchronized(lock) {
         if (gameState.status != GameStatus.IN_PROGRESS) return gameState
         if (move.player != gameState.currentTurn) return gameState
 
-        gameState.units.firstOrNull { it.player == move.player }?.apply {
+        val targetOccupied = gameState.units.any {
+            it.x == move.toX && it.y == move.toY
+        }
+        if (targetOccupied) return gameState
+
+        gameState.units.firstOrNull {
+            it.player == move.player && it.type == move.type
+        }?.apply {
             x = move.toX
             y = move.toY
         }
 
         // Spielerwechsel
+        val (p1, p2) = gameState.players
+        gameState.currentTurn = if (gameState.currentTurn == p1) p2 else p1
+
+        return gameState
+    }*/
+
+    fun handleMove(move: Move): GameState = synchronized(lock) {
+        if (gameState.status != GameStatus.IN_PROGRESS) return gameState
+        if (move.player != gameState.currentTurn) return gameState
+
+        val unit = gameState.units.firstOrNull {
+            it.player == move.player && it.type == move.type
+        } ?: return gameState
+
+        val targetOccupied = gameState.units.any {
+            it.x == move.toX &&
+                    it.y == move.toY &&
+                    !(it.player == move.player && it.type == move.type)
+        }
+
+        if (targetOccupied) return gameState
+
+        unit.x = move.toX
+        unit.y = move.toY
+
         val (p1, p2) = gameState.players
         gameState.currentTurn = if (gameState.currentTurn == p1) p2 else p1
 
@@ -94,18 +126,20 @@ class GameService {
         // Für jeden verbliebenen Spieler eine neue Start-Einheit erstellen
         gameState.players.forEachIndexed { index, playerName ->
             // Jedem Spieler eine feste Startposition zuordnen
-            // Beispiel: Spieler 1 bei (0,0), Spieler 2 bei (5,5) - passe die Werte an dein Grid an!
+            // Beispiel: Spieler 1 bei (0,0), Spieler 2 bei (5,5) - Werte an Grid anpassen!
             val startX = if (index == 0) 2 else 5
             val startY = if (index == 0) 2 else 5
 
-            val newUnit = GameUnit(
-                player = playerName,
-                x = startX,
-                y = startY,
-                UnitType.INFANTRY
-            )
+            UnitType.values().forEachIndexed { typeIndex, type ->
+                val newUnit = GameUnit(
+                    player = playerName,
+                    x = startX + typeIndex,
+                    y = startY,
+                    type = type
+                )
+                gameState.units.add(newUnit)
+            }
 
-            gameState.units.add(newUnit)
         }
 
         gameState.currentTurn = gameState.players.firstOrNull()

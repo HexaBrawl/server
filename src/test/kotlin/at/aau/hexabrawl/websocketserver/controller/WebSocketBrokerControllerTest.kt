@@ -62,7 +62,7 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `move is rejected if game not started`() {
-        val move = Move("Josef", "MOVE", 0, 0, 1, 1)
+        val move = Move("Josef", UnitType.INFANTRY, 0, 0, 1, 1)
 
         val state = controller.handleMove(move)
 
@@ -74,7 +74,7 @@ class WebSocketBrokerControllerTest {
         controller.handleJoin("Josef")
         controller.handleJoin("Sebastian")
 
-        val move = Move("Sebastian", "MOVE", 5, 5, 6, 6)
+        val move = Move("Sebastian", UnitType.INFANTRY, 5, 5, 6, 6)
 
         val state = controller.handleMove(move)
 
@@ -87,14 +87,17 @@ class WebSocketBrokerControllerTest {
         controller.handleJoin("Josef")
         controller.handleJoin("Sebastian")
 
-        val move = Move("Josef", "MOVE", 2, 2, 3, 3)
+        val move = Move("Josef", UnitType.INFANTRY, 2, 2, 3, 3)
 
         val state = controller.handleMove(move)
 
-        val unit = state.units.find { it.player == "Josef" }
 
-        Assertions.assertEquals(3, unit?.x)
-        Assertions.assertEquals(3, unit?.y)
+        val josefUnit = state.units.find {
+            it.player == "Josef" && it.type == UnitType.INFANTRY
+        }
+
+        Assertions.assertEquals(3, josefUnit?.x)
+        Assertions.assertEquals(3, josefUnit?.y)
 
         // Turn switched to Sebastian
         Assertions.assertEquals("Sebastian", state.currentTurn)
@@ -102,10 +105,10 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `move object is created correctly`() {
-        val move = Move("Alice", "MOVE", 1, 1, 2, 2)
+        val move = Move("Alice", UnitType.INFANTRY, 1, 1, 2, 2)
 
         Assertions.assertEquals("Alice", move.player)
-        Assertions.assertEquals("MOVE", move.type)
+        Assertions.assertEquals(UnitType.INFANTRY, move.type)
         Assertions.assertEquals(1, move.fromX)
         Assertions.assertEquals(2, move.toX)
     }
@@ -136,13 +139,19 @@ class WebSocketBrokerControllerTest {
         controller.handleJoin("Bob")
 
         // First move
-        controller.handleMove(Move("Alice", "MOVE", 2, 2, 3, 3))
+        controller.handleMove(Move("Alice", UnitType.INFANTRY, 2, 2, 3, 3))
 
         // Second move
-        val result = controller.handleMove(Move("Bob", "MOVE", 5, 5, 6, 6))
+        val result = controller.handleMove(Move("Bob", UnitType.INFANTRY, 5, 5, 6, 6))
 
-        val aliceUnit = result.units.find { it.player == "Alice" }
-        val bobUnit = result.units.find { it.player == "Bob" }
+
+        val aliceUnit = result.units.find {
+            it.player == "Alice" && it.type == UnitType.INFANTRY
+        }
+
+        val bobUnit = result.units.find {
+            it.player == "Bob" && it.type == UnitType.INFANTRY
+        }
 
         Assertions.assertEquals(3, aliceUnit?.x)
         Assertions.assertEquals(3, aliceUnit?.y)
@@ -157,7 +166,7 @@ class WebSocketBrokerControllerTest {
         controller.handleJoin("Alice")
         controller.handleJoin("Bob")
 
-        val result = controller.handleMove(Move("Bob", "MOVE", 5, 5, 7, 7))
+        val result = controller.handleMove(Move("Bob", UnitType.INFANTRY, 5, 5, 7, 7))
 
         val bobUnit = result.units.find { it.player == "Bob" }
 
@@ -170,7 +179,7 @@ class WebSocketBrokerControllerTest {
     fun `move ignored when game not started`() {
         val controller = WebSocketBrokerController(gameService)
 
-        val result = controller.handleMove(Move("Alice", "MOVE", 0, 0, 1, 1))
+        val result = controller.handleMove(Move("Alice", UnitType.INFANTRY, 0, 0, 1, 1))
 
         Assertions.assertTrue(result.units.isEmpty())
     }

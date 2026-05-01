@@ -54,7 +54,7 @@ class GameServiceTest {
         //val initialY = stateBefore.units.first { it.player == "Alice" }.y
 
         // 1. TEST: Bob versucht zu ziehen, obwohl Alice dran ist (REJECTION)
-        val moveBob = Move(player = "Bob", toX = 1, toY = 1)
+        val moveBob = Move(player = "Bob", type = UnitType.INFANTRY, toX = 1, toY = 1)
         gameService.handleMove(moveBob)
 
         // Check: Koordinaten von Bob dürfen sich nicht geändert haben
@@ -62,10 +62,13 @@ class GameServiceTest {
         assertThat(bobUnit.x).isNotEqualTo(1)
 
         // 2. TEST: Alice macht einen gültigen Zug
-        val moveAlice = Move(player = "Alice", toX = 4, toY = 4)
+        val moveAlice = Move(player = "Alice", type = UnitType.INFANTRY, toX = 4, toY = 4)
         gameService.handleMove(moveAlice)
 
-        val aliceUnit = gameService.getCurrentState().units.first { it.player == "Alice" }
+        //val aliceUnit = gameService.getCurrentState().units.first { it.player == "Alice" }
+        val aliceUnit = gameService.getCurrentState().units.first {
+            it.player == "Alice" && it.type == UnitType.INFANTRY
+        }
         assertThat(aliceUnit.x).isEqualTo(4)
         assertThat(aliceUnit.y).isEqualTo(4)
 
@@ -78,7 +81,7 @@ class GameServiceTest {
         // Nur Alice ist da, Spiel ist WAITING_FOR_PLAYERS
         gameService.handleJoin("Alice")
 
-        val move = Move(player = "Alice", toX = 1, toY = 1)
+        val move = Move(player = "Alice", type = UnitType.INFANTRY, toX = 1, toY = 1)
         gameService.handleMove(move)
 
         // Status muss immer noch WAITING sein
@@ -100,7 +103,7 @@ class GameServiceTest {
         assertThat(stateUnknown.currentTurn).isEqualTo("Alice")
 
         // 3. Branch: Spieler ist nicht an der Reihe
-        val moveWrongTurn = Move( "Bob", fromX = 5, fromY = 5, toX = 4, toY = 4)
+        val moveWrongTurn = Move( "Bob", type = UnitType.INFANTRY, fromX = 5, fromY = 5, toX = 4, toY = 4)
         val stateWrongTurn = gameService.handleMove(moveWrongTurn)
         // Es sollte immer noch Alice dran sein
         assertThat(stateWrongTurn.currentTurn).isEqualTo("Alice")
