@@ -1,22 +1,33 @@
-name: Deploy to se2-demo.aau.at
+name: Deploy
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: ["SonarCloud"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
-  deploy:
-    name: Deploy via SSH
+  build-and-push:
+    name: Build and push Docker image
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      contents: read
+      packages: write
     steps:
-      - name: Deploy on server
-        uses: appleboy/ssh-action@v1
+      - uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          host: se2-demo.aau.at
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            cd ~/hexabrawl
-            git pull origin main
-            docker compose up -d --build
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/hexabrawl/server:latest

@@ -1,6 +1,6 @@
 services:
   server:
-    build: .
+    image: ghcr.io/hexabrawl/server:latest
+    restart: unless-stopped
     ports:
       - "53216:53216"
-    restart: unless-stopped
