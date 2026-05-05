@@ -17,7 +17,7 @@ class GameService {
 
        if (!gameState.players.contains(playerName) && gameState.players.size < MAX_PLAYERS) {
             gameState.players.add(playerName)
-
+            println("JOIN: $playerName")
         }
 
 
