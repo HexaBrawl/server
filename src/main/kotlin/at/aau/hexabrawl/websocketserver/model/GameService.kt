@@ -82,7 +82,10 @@ class GameService {
         if (move.player != gameState.currentTurn) return gameState
 
         val unit = gameState.units.firstOrNull {
-            it.player == move.player && it.type == move.type
+            it.player == move.player &&
+                    it.type == move.type &&
+                    it.x == move.fromX &&
+                    it.y == move.fromY
         } ?: return gameState
 
         val targetOccupied = gameState.units.any {

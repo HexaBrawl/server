@@ -87,7 +87,7 @@ class WebSocketBrokerControllerTest {
         controller.handleJoin("Josef")
         controller.handleJoin("Sebastian")
 
-        val move = Move("Josef", UnitType.INFANTRY, 2, 2, 3, 3)
+        val move = Move("Josef", UnitType.INFANTRY, 3, 2, 3, 3)
 
         val state = controller.handleMove(move)
 
@@ -139,10 +139,14 @@ class WebSocketBrokerControllerTest {
         controller.handleJoin("Bob")
 
         // First move
-        controller.handleMove(Move("Alice", UnitType.INFANTRY, 2, 2, 3, 3))
+        controller.handleMove(
+            Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3)
+        )
 
         // Second move
-        val result = controller.handleMove(Move("Bob", UnitType.INFANTRY, 5, 5, 6, 6))
+        val result = controller.handleMove(
+            Move("Bob", UnitType.INFANTRY, 6, 5, 6, 6)
+        )
 
 
         val aliceUnit = result.units.find {
@@ -217,11 +221,17 @@ class WebSocketBrokerControllerTest {
         controller.handleJoin("Alice")
         controller.handleJoin("Bob")
 
-        val move = Move(player = "Alice", toX = 3, toY = 3)
+        // Alice move
+        val state1 = controller.handleMove(
+            Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3)
+        )
+        Assertions.assertEquals("Bob", state1.currentTurn)
 
-        val state = controller.handleMove(move)
-
-        Assertions.assertEquals("Bob", state.currentTurn)
+        // Bob move
+        val state2 = controller.handleMove(
+            Move("Bob", UnitType.INFANTRY, 6, 5, 6, 6)
+        )
+        Assertions.assertEquals("Alice", state2.currentTurn)
     }
 
     @Test

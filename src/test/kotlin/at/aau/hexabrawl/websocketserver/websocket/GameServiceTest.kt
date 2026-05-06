@@ -44,37 +44,51 @@ class GameServiceTest {
 
     @Test
     fun `test invalid moves`() {
-        // Vorbereitung: Spiel mit Alice und Bob starten
+
+        gameService.initializeGame()   // 🔥 DAS HAT GEFEHLT
+
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
 
-        // Aktueller Stand: Alice ist am Zug (laut GameService Logik)
-        //val stateBefore = gameService.getCurrentState()
-        //val initialX = stateBefore.units.first { it.player == "Alice" }.x
-        //val initialY = stateBefore.units.first { it.player == "Alice" }.y
-
-        // 1. TEST: Bob versucht zu ziehen, obwohl Alice dran ist (REJECTION)
-        val moveBob = Move(player = "Bob", type = UnitType.INFANTRY, toX = 1, toY = 1)
-        gameService.handleMove(moveBob)
-
-        // Check: Koordinaten von Bob dürfen sich nicht geändert haben
-        val bobUnit = gameService.getCurrentState().units.first { it.player == "Bob" }
-        assertThat(bobUnit.x).isNotEqualTo(1)
-
-        // 2. TEST: Alice macht einen gültigen Zug
-        val moveAlice = Move(player = "Alice", type = UnitType.INFANTRY, toX = 4, toY = 4)
-        gameService.handleMove(moveAlice)
-
-        //val aliceUnit = gameService.getCurrentState().units.first { it.player == "Alice" }
-        val aliceUnit = gameService.getCurrentState().units.first {
+        val aliceBefore = gameService.getCurrentState().units.first {
             it.player == "Alice" && it.type == UnitType.INFANTRY
         }
-        assertThat(aliceUnit.x).isEqualTo(4)
-        assertThat(aliceUnit.y).isEqualTo(4)
 
-        // 3. TEST: Zugwechsel prüfen (Nach Alice muss Bob dran sein)
+        val bobBefore = gameService.getCurrentState().units.first {
+            it.player == "Bob" && it.type == UnitType.INFANTRY
+        }
+
+        // Bob darf NICHT ziehen
+        gameService.handleMove(
+            Move("Bob", UnitType.INFANTRY,
+                bobBefore.x, bobBefore.y,
+                bobBefore.x + 1, bobBefore.y + 1)
+        )
+
+        val bobAfter = gameService.getCurrentState().units.first {
+            it.player == "Bob" && it.type == UnitType.INFANTRY
+        }
+
+        assertThat(bobAfter.x).isEqualTo(bobBefore.x)
+        assertThat(bobAfter.y).isEqualTo(bobBefore.y)
+
+        // Alice gültiger Move → garantiert freies Feld
+        gameService.handleMove(
+            Move("Alice", UnitType.INFANTRY,
+                aliceBefore.x, aliceBefore.y,
+                0, 0) //  garantiert frei
+        )
+
+        val aliceAfter = gameService.getCurrentState().units.first {
+            it.player == "Alice" && it.type == UnitType.INFANTRY
+        }
+
+        assertThat(aliceAfter.x).isEqualTo(0)
+        assertThat(aliceAfter.y).isEqualTo(0)
+
         assertThat(gameService.getCurrentState().currentTurn).isEqualTo("Bob")
     }
+
 
     @Test
     fun `test move rejected when game not started`() {
