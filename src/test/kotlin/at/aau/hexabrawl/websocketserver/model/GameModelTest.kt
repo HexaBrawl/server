@@ -58,8 +58,7 @@ class GameModelTest {
     @Test
     fun `game state mutation coverage`() {
         val state = GameState()
-
-        state.players.add("Alice")
+        state.players.add(Player("Alice"))
         state.units.add(GameUnit("Alice", 1, 1, UnitType.INFANTRY))
         state.currentTurn = "Alice"
 

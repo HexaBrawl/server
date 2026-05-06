@@ -12,14 +12,13 @@ class GameService {
         const val MAX_PLAYERS = 2
     }
 
-    fun handleJoin(playerName: String): GameState = synchronized(lock) {
+    fun handleJoin(playerName: String, sessionId:String=""): GameState = synchronized(lock) {
         // Spieler hinzufügen, falls noch nicht vorhanden und Platz ist
 
-       if (!gameState.players.contains(playerName) && gameState.players.size < MAX_PLAYERS) {
-            gameState.players.add(playerName)
-            println("JOIN: $playerName")
+        if (!gameState.players.any{it.name == playerName} && gameState.players.size < MAX_PLAYERS) {
+            val color = if (gameState.players.isEmpty()) PlayerColor.RED else PlayerColor.BLUE
+            gameState.players.add(Player(playerName, sessionId,color))
         }
-
 
         // Automatischer Start bei 2 Spielern
         if (gameState.players.size == 2 && gameState.units.isEmpty()) {
@@ -43,11 +42,11 @@ class GameService {
                 val (x1, y1) = startPositionsP1[index]
                 val (x2, y2) = startPositionsP2[index]
 
-                gameState.units.add(GameUnit(p1, x1, y1, type))
-                gameState.units.add(GameUnit(p2, x2, y2, type))
+                gameState.units.add(GameUnit(p1.name, x1, y1, type))
+                gameState.units.add(GameUnit(p2.name, x2, y2, type))
             }
 
-            gameState.currentTurn = p1
+            gameState.currentTurn = p1.name
             gameState.status = GameStatus.IN_PROGRESS
             println("Service: GAME STARTED")
         }
@@ -72,7 +71,7 @@ class GameService {
 
         // Spielerwechsel
         val (p1, p2) = gameState.players
-        gameState.currentTurn = if (gameState.currentTurn == p1) p2 else p1
+        gameState.currentTurn = if (gameState.currentTurn == p1.name) p2.name else p1.name
 
         return gameState
     }*/
@@ -100,7 +99,7 @@ class GameService {
         unit.y = move.toY
 
         val (p1, p2) = gameState.players
-        gameState.currentTurn = if (gameState.currentTurn == p1) p2 else p1
+        gameState.currentTurn = if (gameState.currentTurn == p1.name) p2.name else p1.name
 
         return gameState
     }
@@ -109,8 +108,6 @@ class GameService {
     fun getCurrentState(): GameState = synchronized(lock) {
         return gameState
     }
-
-
 
     // ALLES AUF NULL - Für /test/init
     fun initializeGame(): GameState = synchronized(lock) {
@@ -127,7 +124,7 @@ class GameService {
         gameState.units.clear() // Alte Einheiten löschen
 
         // Für jeden verbliebenen Spieler eine neue Start-Einheit erstellen
-        gameState.players.forEachIndexed { index, playerName ->
+        gameState.players.forEachIndexed { index, player ->
             // Jedem Spieler eine feste Startposition zuordnen
             // Beispiel: Spieler 1 bei (0,0), Spieler 2 bei (5,5) - Werte an Grid anpassen!
             val startX = if (index == 0) 2 else 5
@@ -135,24 +132,20 @@ class GameService {
 
             UnitType.values().forEachIndexed { typeIndex, type ->
                 val newUnit = GameUnit(
-                    player = playerName,
+                    player = player.name,
                     x = startX + typeIndex,
                     y = startY,
                     type = type
                 )
                 gameState.units.add(newUnit)
             }
-
         }
 
-        gameState.currentTurn = gameState.players.firstOrNull()
+        gameState.currentTurn = gameState.players.firstOrNull()?.name
         gameState.status = GameStatus.IN_PROGRESS
 
         println("Service: Reset - Units for ${gameState.players} recreated at start positions.")
         return gameState
     }
-
-
-
 
 }

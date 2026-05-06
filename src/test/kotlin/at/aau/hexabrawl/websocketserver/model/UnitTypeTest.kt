@@ -17,7 +17,12 @@ class UnitTypeTest {
         val state = gameService.gameState
 
         state.players.clear()
-        state.players.addAll(listOf("Alice", "Bob"))
+        state.players.addAll(
+            listOf(
+                Player("Alice"),
+                Player("Bob")
+            )
+        )
 
         state.currentTurn = "Alice"
         state.status = GameStatus.IN_PROGRESS
