@@ -53,29 +53,6 @@ class GameService {
         return gameState
     }
 
-    /*fun handleMove(move: Move): GameState = synchronized(lock) {
-        if (gameState.status != GameStatus.IN_PROGRESS) return gameState
-        if (move.player != gameState.currentTurn) return gameState
-
-        val targetOccupied = gameState.units.any {
-            it.x == move.toX && it.y == move.toY
-        }
-        if (targetOccupied) return gameState
-
-        gameState.units.firstOrNull {
-            it.player == move.player && it.type == move.type
-        }?.apply {
-            x = move.toX
-            y = move.toY
-        }
-
-        // Spielerwechsel
-        val (p1, p2) = gameState.players
-        gameState.currentTurn = if (gameState.currentTurn == p1.name) p2.name else p1.name
-
-        return gameState
-    }*/
-
     fun handleMove(move: Move): GameState = synchronized(lock) {
         if (gameState.status != GameStatus.IN_PROGRESS) return gameState
         if (move.player != gameState.currentTurn) return gameState
