@@ -21,7 +21,7 @@ class TestController(
     @ResponseBody
     fun join(@RequestBody name: String): GameState {
         val state = gameService.handleJoin(name)
-        messagingTemplate.convertAndSend("GAME_TOPIC", state)
+        messagingTemplate.convertAndSend(GAME_TOPIC, state)
         return state
     }
 
@@ -29,7 +29,7 @@ class TestController(
     @ResponseBody
     fun move(@RequestBody move: Move): GameState {
         val state = gameService.handleMove(move)
-        messagingTemplate.convertAndSend("GAME_TOPIC", state)
+        messagingTemplate.convertAndSend(GAME_TOPIC, state)
         return state
     }
 
@@ -38,8 +38,8 @@ class TestController(
     @ResponseBody
     fun init(): GameState {
         // ALLES auf Null (für einen komplett sauberen Testlauf)
-        val state = gameService.initializeGame() // Deine bisherige resetGame() Logik
-        messagingTemplate.convertAndSend("GAME_TOPIC", state)
+        val state = gameService.initializeGame() // bisherige resetGame() Logik
+        messagingTemplate.convertAndSend(GAME_TOPIC, state)
         return state
     }
 
@@ -48,7 +48,7 @@ class TestController(
     fun reset(): GameState {
         // SPIELER BEHALTEN, aber Spielstand auf Anfang
         val state = gameService.resetToStartCondition()
-        messagingTemplate.convertAndSend("GAME_TOPIC", state)
+        messagingTemplate.convertAndSend(GAME_TOPIC, state)
         return state
     }
 
