@@ -10,6 +10,8 @@ import org.springframework.stereotype.Controller
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.ResponseBody
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor
+import org.springframework.messaging.handler.annotation.Header
 
 @Controller
 class WebSocketBrokerController(
@@ -28,10 +30,22 @@ class WebSocketBrokerController(
         return message
     }
 
-    @MessageMapping("/join")
+    /*@MessageMapping("/join")
     @SendTo("/topic/game")
     fun join(playerName: String): GameState {
         return gameService.handleJoin(playerName)
+    }*/
+
+    @MessageMapping("/join")
+    @SendTo("/topic/game")
+    fun join(
+        playerName: String,
+        headerAccessor: SimpMessageHeaderAccessor
+    ): GameState {
+
+        val sessionId = headerAccessor.sessionId ?: ""
+
+        return gameService.handleJoin(playerName, sessionId)
     }
 
     @MessageMapping("/init")

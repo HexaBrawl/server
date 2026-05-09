@@ -5,6 +5,7 @@ import at.aau.hexabrawl.websocketserver.model.GameState
 import at.aau.hexabrawl.websocketserver.model.Move
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.web.bind.annotation.*
+import java.util.UUID
 
 @RestController
 @RequestMapping("/test")
@@ -17,11 +18,24 @@ class TestController(
             const val GAME_TOPIC = "/topic/game"
     }
 
-    @PostMapping("/join")
+    /*@PostMapping("/join")
     @ResponseBody
     fun join(@RequestBody name: String): GameState {
         val state = gameService.handleJoin(name)
         messagingTemplate.convertAndSend(GAME_TOPIC, state)
+        return state
+    }*/
+    @PostMapping("/join")
+    @ResponseBody
+    fun join(@RequestBody name: String): GameState {
+
+        val fakeSessionId = UUID.randomUUID().toString()
+
+        val state =
+            gameService.handleJoin(name, fakeSessionId)
+
+        messagingTemplate.convertAndSend(GAME_TOPIC, state)
+
         return state
     }
 
