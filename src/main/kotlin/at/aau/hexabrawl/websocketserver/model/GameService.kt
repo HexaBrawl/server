@@ -125,4 +125,24 @@ class GameService {
         return gameState
     }
 
+    fun handleDisconnect(sessionId: String): GameState = synchronized(lock) {
+        val player = gameState.players.find { it.sessionId == sessionId }
+            ?: return gameState
+
+        // Spieler und seine Units entfernen
+        gameState.players.remove(player)
+        gameState.units.removeIf { it.player == player.name }
+
+        // Status anpassen
+        if (gameState.status == GameStatus.IN_PROGRESS) {
+            gameState.status = GameStatus.FINISHED
+            gameState.currentTurn = null
+            println("Service: GAME FINISHED - ${player.name} disconnected")
+        } else {
+            println("Service: PLAYER LEFT - ${player.name} disconnected while waiting")
+        }
+
+        return gameState
+    }
+
 }
