@@ -50,10 +50,12 @@
             <version>4.0.3</version>
         </dependency>
 
-        <!-- Health Endpoint -->
+        <!-- Web support for testing (test scope only) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-actuator</artifactId>
+            <artifactId>spring-boot-starter-web</artifactId>
+            <version>4.0.3</version>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
