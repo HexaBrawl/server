@@ -18,13 +18,6 @@ class TestController(
             const val GAME_TOPIC = "/topic/game"
     }
 
-    /*@PostMapping("/join")
-    @ResponseBody
-    fun join(@RequestBody name: String): GameState {
-        val state = gameService.handleJoin(name)
-        messagingTemplate.convertAndSend(GAME_TOPIC, state)
-        return state
-    }*/
     @PostMapping("/join")
     @ResponseBody
     fun join(@RequestBody name: String): GameState {

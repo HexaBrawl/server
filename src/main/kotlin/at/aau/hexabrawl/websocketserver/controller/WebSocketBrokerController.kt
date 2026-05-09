@@ -30,12 +30,6 @@ class WebSocketBrokerController(
         return message
     }
 
-    /*@MessageMapping("/join")
-    @SendTo("/topic/game")
-    fun join(playerName: String): GameState {
-        return gameService.handleJoin(playerName)
-    }*/
-
     @MessageMapping("/join")
     @SendTo("/topic/game")
     fun join(
