@@ -62,4 +62,16 @@ class DisconnectHandlerTest {
 
         assertNull(gameService.gameState.currentTurn)
     }
+
+    @Test
+    fun `disconnect only removes disconnected player units`() {
+        gameService.handleJoin("Alice", "session-1")
+        gameService.handleJoin("Bob", "session-2")
+
+        gameService.handleDisconnect("session-1")
+
+        val bobUnits = gameService.gameState.units.filter { it.player == "Bob" }
+        assertEquals(3, bobUnits.size)
+    }
+
 }
