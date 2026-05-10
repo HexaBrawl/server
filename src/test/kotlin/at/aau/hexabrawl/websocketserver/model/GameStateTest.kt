@@ -52,7 +52,7 @@ class GameStateTest {
 
     @Test
     fun `game unit can be added to game state`() {
-        val unit = GameUnit(player = "Alice", x = 2, y = 3)
+        val unit = GameUnit(player = "Alice", x = 2, y = 3, type = UnitType.INFANTRY)
         gameState.units.add(unit)
 
         Assertions.assertEquals(1, gameState.units.size)
@@ -60,7 +60,7 @@ class GameStateTest {
 
     @Test
     fun `game unit has correct coordinates`() {
-        val unit = GameUnit(player = "Alice", x = 4, y = 7)
+        val unit = GameUnit(player = "Alice", x = 4, y = 7, type = UnitType.INFANTRY)
 
         Assertions.assertEquals(4, unit.x)
         Assertions.assertEquals(7, unit.y)
@@ -68,10 +68,10 @@ class GameStateTest {
 
     @Test
     fun `move can be created with all fields`() {
-        val move = Move(player = "Alice", type = "MOVE", fromX = 1, fromY = 2, toX = 3, toY = 4)
+        val move = Move(player = "Alice", type = UnitType.INFANTRY, fromX = 1, fromY = 2, toX = 3, toY = 4)
 
         Assertions.assertEquals("Alice", move.player)
-        Assertions.assertEquals("MOVE", move.type)
+        Assertions.assertEquals(UnitType.INFANTRY, move.type)
         Assertions.assertEquals(1, move.fromX)
         Assertions.assertEquals(2, move.fromY)
         Assertions.assertEquals(3, move.toX)
@@ -83,7 +83,7 @@ class GameStateTest {
         val move = Move()
 
         Assertions.assertEquals("", move.player)
-        Assertions.assertEquals("", move.type)
+        Assertions.assertEquals(UnitType.INFANTRY, move.type)
         Assertions.assertEquals(0, move.fromX)
         Assertions.assertEquals(0, move.fromY)
         Assertions.assertEquals(0, move.toX)

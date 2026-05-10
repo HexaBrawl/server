@@ -18,8 +18,8 @@ class GameService {
         if (!gameState.players.any{it.name == playerName} && gameState.players.size < MAX_PLAYERS) {
             val color = if (gameState.players.isEmpty()) PlayerColor.RED else PlayerColor.BLUE
             gameState.players.add(Player(playerName, sessionId,color))
+            println("JOIN: $playerName")
         }
-
 
         // Automatischer Start bei 2 Spielern
         if (gameState.players.size == 2 && gameState.units.isEmpty()) {
@@ -27,8 +27,25 @@ class GameService {
             val p2 = gameState.players[1]
 
             // Start-Einheiten setzen
-            gameState.units.add(GameUnit(p1.name, 2, 2))
-            gameState.units.add(GameUnit(p2.name, 5, 5))
+            val startPositionsP1 = listOf(
+                Pair(2, 2),  // ARCHER
+                Pair(3, 2),  // INFANTRY
+                Pair(4, 2)   // CAVALRY
+            )
+
+            val startPositionsP2 = listOf(
+                Pair(5, 5),
+                Pair(6, 5),
+                Pair(7, 5)
+            )
+
+            UnitType.values().forEachIndexed { index, type ->
+                val (x1, y1) = startPositionsP1[index]
+                val (x2, y2) = startPositionsP2[index]
+
+                gameState.units.add(GameUnit(p1.name, x1, y1, type))
+                gameState.units.add(GameUnit(p2.name, x2, y2, type))
+            }
 
             gameState.currentTurn = p1.name
             gameState.status = GameStatus.IN_PROGRESS
@@ -41,12 +58,24 @@ class GameService {
         if (gameState.status != GameStatus.IN_PROGRESS) return gameState
         if (move.player != gameState.currentTurn) return gameState
 
-        gameState.units.firstOrNull { it.player == move.player }?.apply {
-            x = move.toX
-            y = move.toY
+        val unit = gameState.units.firstOrNull {
+            it.player == move.player &&
+                    it.type == move.type &&
+                    it.x == move.fromX &&
+                    it.y == move.fromY
+        } ?: return gameState
+
+        val targetOccupied = gameState.units.any {
+            it.x == move.toX &&
+                    it.y == move.toY &&
+                    !(it.player == move.player && it.type == move.type)
         }
 
-        // Spielerwechsel
+        if (targetOccupied) return gameState
+
+        unit.x = move.toX
+        unit.y = move.toY
+
         val (p1, p2) = gameState.players
         gameState.currentTurn = if (gameState.currentTurn == p1.name) p2.name else p1.name
 
@@ -57,8 +86,6 @@ class GameService {
     fun getCurrentState(): GameState = synchronized(lock) {
         return gameState
     }
-
-
 
     // ALLES AUF NULL - Für /test/init
     fun initializeGame(): GameState = synchronized(lock) {
@@ -77,17 +104,19 @@ class GameService {
         // Für jeden verbliebenen Spieler eine neue Start-Einheit erstellen
         gameState.players.forEachIndexed { index, player ->
             // Jedem Spieler eine feste Startposition zuordnen
-            // Beispiel: Spieler 1 bei (0,0), Spieler 2 bei (5,5) - passe die Werte an dein Grid an!
+            // Beispiel: Spieler 1 bei (0,0), Spieler 2 bei (5,5) - Werte an Grid anpassen!
             val startX = if (index == 0) 2 else 5
             val startY = if (index == 0) 2 else 5
 
-            val newUnit = GameUnit(
-                player = player.name,
-                x = startX,
-                y = startY
-            )
-
-            gameState.units.add(newUnit)
+            UnitType.values().forEachIndexed { typeIndex, type ->
+                val newUnit = GameUnit(
+                    player = player.name,
+                    x = startX + typeIndex,
+                    y = startY,
+                    type = type
+                )
+                gameState.units.add(newUnit)
+            }
         }
 
         gameState.currentTurn = gameState.players.firstOrNull()?.name
@@ -96,8 +125,5 @@ class GameService {
         println("Service: Reset - Units for ${gameState.players} recreated at start positions.")
         return gameState
     }
-
-
-
 
 }
