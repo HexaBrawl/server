@@ -18,6 +18,7 @@ class GameService {
         if (!gameState.players.any{it.name == playerName} && gameState.players.size < MAX_PLAYERS) {
             val color = if (gameState.players.isEmpty()) PlayerColor.RED else PlayerColor.BLUE
             gameState.players.add(Player(playerName, sessionId,color))
+            println("JOIN: $playerName")
         }
 
         // Automatischer Start bei 2 Spielern

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor
 
 class WebSocketBrokerControllerTest {
 
@@ -191,8 +192,9 @@ class WebSocketBrokerControllerTest {
     @Test
     fun `game stays waiting when only one player joins`() {
         val controller = WebSocketBrokerController(gameService)
+        val headerAccessor = SimpMessageHeaderAccessor.create()
 
-        val state = controller.join("Alice")
+        val state = controller.join("Alice", headerAccessor)
 
         Assertions.assertEquals(1, state.players.size)
         Assertions.assertEquals(GameStatus.WAITING_FOR_PLAYERS, state.status)
