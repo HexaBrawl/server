@@ -39,7 +39,7 @@ class GameService {
                 Pair(7, 5)
             )
 
-            UnitType.values().forEachIndexed { index, type ->
+            UnitType.entries.forEachIndexed { index, type ->
                 val (x1, y1) = startPositionsP1[index]
                 val (x2, y2) = startPositionsP2[index]
 
@@ -108,7 +108,7 @@ class GameService {
             val startX = if (index == 0) 2 else 5
             val startY = if (index == 0) 2 else 5
 
-            UnitType.values().forEachIndexed { typeIndex, type ->
+            UnitType.entries.forEachIndexed { typeIndex, type ->
                 val newUnit = GameUnit(
                     player = player.name,
                     x = startX + typeIndex,
@@ -123,6 +123,26 @@ class GameService {
         gameState.status = GameStatus.IN_PROGRESS
 
         println("Service: Reset - Units for ${gameState.players} recreated at start positions.")
+        return gameState
+    }
+
+    fun handleDisconnect(sessionId: String): GameState = synchronized(lock) {
+        val player = gameState.players.find { it.sessionId == sessionId }
+            ?: return gameState
+
+        // Spieler und seine Units entfernen
+        gameState.players.remove(player)
+        gameState.units.removeIf { it.player == player.name }
+
+        // Status anpassen
+        if (gameState.status == GameStatus.IN_PROGRESS) {
+            gameState.status = GameStatus.FINISHED
+            gameState.currentTurn = null
+            println("Service: GAME FINISHED - ${player.name} disconnected")
+        } else {
+            println("Service: PLAYER LEFT - ${player.name} disconnected while waiting")
+        }
+
         return gameState
     }
 
