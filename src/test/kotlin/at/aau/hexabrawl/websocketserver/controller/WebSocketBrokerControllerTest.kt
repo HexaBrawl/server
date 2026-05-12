@@ -1,13 +1,13 @@
 package at.aau.hexabrawl.websocketserver.controller
 
 
-import at.aau.hexabrawl.websocketserver.model.GameService
 import at.aau.hexabrawl.websocketserver.model.*
-import at.aau.hexabrawl.websocketserver.controller.WebSocketBrokerController
-import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.mockito.Mockito
+import org.mockito.Mockito.mock
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
 
 class WebSocketBrokerControllerTest {
@@ -17,46 +17,45 @@ class WebSocketBrokerControllerTest {
 
     @BeforeEach
     fun setup() {
-
         gameService = GameService()
         controller = WebSocketBrokerController(gameService)
     }
 
     @Test
     fun `player can join game`() {
-        val state = controller.handleJoin("Josef")
+        val state = controller.handleJoin("Josef", "session-1")
 
-        Assertions.assertTrue(state.players.any { it.name == "Josef" })
+        assertTrue(state.players.any { it.name == "Josef" })
         Assertions.assertEquals(1, state.players.size)
     }
 
     @Test
     fun `duplicate player is not added`() {
-        controller.handleJoin("Josef")
-        val state = controller.handleJoin("Josef")
+        controller.handleJoin("Josef", "session-1")
+        val state = controller.handleJoin("Josef", "session-1")
 
         Assertions.assertEquals(1, state.players.size)
     }
 
     @Test
     fun `game starts when two players join`() {
-        controller.handleJoin("Josef")
-        val state = controller.handleJoin("Sebastian")
+        controller.handleJoin("Josef", "session-1")
+        val state = controller.handleJoin("Sebastian", "session-1")
 
         Assertions.assertEquals(2, state.players.size)
-        Assertions.assertNotNull(state.currentTurn)
+        assertNotNull(state.currentTurn)
         Assertions.assertEquals(6, state.units.size)
         assertTrue(state.units.any { it.type == UnitType.ARCHER })
         assertTrue(state.units.any { it.type == UnitType.INFANTRY })
         assertTrue(state.units.any { it.type == UnitType.CAVALRY })
-        Assertions.assertEquals(GameStatus.IN_PROGRESS, state.status)
+        assertEquals(GameStatus.IN_PROGRESS, state.status)
     }
 
     @Test
     fun `third player cannot join`() {
-        controller.handleJoin("Josef")
-        controller.handleJoin("Sebastian")
-        val state = controller.handleJoin("Gustav")
+        controller.handleJoin("Josef", "session-1")
+        controller.handleJoin("Sebastian", "session-2")
+        val state = controller.handleJoin("Gustav", "session-3")
 
         Assertions.assertEquals(2, state.players.size)
     }
@@ -67,26 +66,26 @@ class WebSocketBrokerControllerTest {
 
         val state = controller.handleMove(move)
 
-        Assertions.assertNull(state.currentTurn)
+        assertNull(state.currentTurn)
     }
 
     @Test
     fun `wrong player cannot move`() {
-        controller.handleJoin("Josef")
-        controller.handleJoin("Sebastian")
+        controller.handleJoin("Josef", "session-1")
+        controller.handleJoin("Sebastian", "session-2")
 
         val move = Move("Sebastian", UnitType.INFANTRY, 5, 5, 6, 6)
 
         val state = controller.handleMove(move)
 
         // Turn should still be Josef
-        Assertions.assertEquals("Josef", state.currentTurn)
+        assertEquals("Josef", state.currentTurn)
     }
 
     @Test
     fun `player can move and turn switches`() {
-        controller.handleJoin("Josef")
-        controller.handleJoin("Sebastian")
+        controller.handleJoin("Josef", "session-1")
+        controller.handleJoin("Sebastian", "session-2")
 
         val move = Move("Josef", UnitType.INFANTRY, 3, 2, 3, 3)
 
@@ -101,15 +100,15 @@ class WebSocketBrokerControllerTest {
         Assertions.assertEquals(3, josefUnit?.y)
 
         // Turn switched to Sebastian
-        Assertions.assertEquals("Sebastian", state.currentTurn)
+        assertEquals("Sebastian", state.currentTurn)
     }
 
     @Test
     fun `move object is created correctly`() {
         val move = Move("Alice", UnitType.INFANTRY, 1, 1, 2, 2)
 
-        Assertions.assertEquals("Alice", move.player)
-        Assertions.assertEquals(UnitType.INFANTRY, move.type)
+        assertEquals("Alice", move.player)
+        assertEquals(UnitType.INFANTRY, move.type)
         Assertions.assertEquals(1, move.fromX)
         Assertions.assertEquals(2, move.toX)
     }
@@ -118,7 +117,7 @@ class WebSocketBrokerControllerTest {
     fun `game unit is initialized correctly`() {
         val unit = GameUnit("Alice", 2, 3, UnitType.INFANTRY)
 
-        Assertions.assertEquals("Alice", unit.player)
+        assertEquals("Alice", unit.player)
         Assertions.assertEquals(2, unit.x)
         Assertions.assertEquals(3, unit.y)
     }
@@ -127,17 +126,17 @@ class WebSocketBrokerControllerTest {
     fun `game state initializes empty`() {
         val state = GameState()
 
-        Assertions.assertTrue(state.players.isEmpty())
-        Assertions.assertTrue(state.units.isEmpty())
-        Assertions.assertNull(state.currentTurn)
+        assertTrue(state.players.isEmpty())
+        assertTrue(state.units.isEmpty())
+        assertNull(state.currentTurn)
     }
 
     @Test
     fun `multiple moves update unit positions correctly`() {
         val controller = WebSocketBrokerController(gameService)
 
-        controller.handleJoin("Alice")
-        controller.handleJoin("Bob")
+        controller.handleJoin("Alice", "session-1")
+        controller.handleJoin("Bob", "session-2")
 
         // First move
         controller.handleMove(
@@ -168,8 +167,8 @@ class WebSocketBrokerControllerTest {
     fun `move does nothing when wrong player`() {
         val controller = WebSocketBrokerController(gameService)
 
-        controller.handleJoin("Alice")
-        controller.handleJoin("Bob")
+        controller.handleJoin("Alice", "session-1")
+        controller.handleJoin("Bob", "session-2")
 
         val result = controller.handleMove(Move("Bob", UnitType.INFANTRY, 5, 5, 7, 7))
 
@@ -186,7 +185,7 @@ class WebSocketBrokerControllerTest {
 
         val result = controller.handleMove(Move("Alice", UnitType.INFANTRY, 0, 0, 1, 1))
 
-        Assertions.assertTrue(result.units.isEmpty())
+        assertTrue(result.units.isEmpty())
     }
 
     @Test
@@ -197,54 +196,133 @@ class WebSocketBrokerControllerTest {
         val state = controller.join("Alice", headerAccessor)
 
         Assertions.assertEquals(1, state.players.size)
-        Assertions.assertEquals(GameStatus.WAITING_FOR_PLAYERS, state.status)
-        Assertions.assertNull(state.currentTurn)
-        Assertions.assertTrue(state.units.isEmpty())
+        assertEquals(GameStatus.WAITING_FOR_PLAYERS, state.status)
+        assertNull(state.currentTurn)
+        assertTrue(state.units.isEmpty())
     }
 
     @Test
     fun `move rejected when not players turn`() {
         val controller = WebSocketBrokerController(gameService)
 
-        controller.handleJoin("Alice")
-        controller.handleJoin("Bob")
+        controller.handleJoin("Alice", "session-1")
+        controller.handleJoin("Bob", "session-2")
 
         val move = Move(player = "Bob", toX = 1, toY = 1)
 
         val state = controller.handleMove(move)
 
-        Assertions.assertEquals("Alice", state.currentTurn)
+        assertEquals("Alice", state.currentTurn)
     }
 
     @Test
     fun `turn switches after valid move`() {
         val controller = WebSocketBrokerController(gameService)
 
-        controller.handleJoin("Alice")
-        controller.handleJoin("Bob")
+        controller.handleJoin("Alice", "session-1")
+        controller.handleJoin("Bob", "session-2")
 
         // Alice move
         val state1 = controller.handleMove(
             Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3)
         )
-        Assertions.assertEquals("Bob", state1.currentTurn)
+        assertEquals("Bob", state1.currentTurn)
 
         // Bob move
         val state2 = controller.handleMove(
             Move("Bob", UnitType.INFANTRY, 6, 5, 6, 6)
         )
-        Assertions.assertEquals("Alice", state2.currentTurn)
+        assertEquals("Alice", state2.currentTurn)
     }
 
     @Test
     fun `init returns current state`() {
         val controller = WebSocketBrokerController(gameService)
 
-        controller.handleJoin("Alice")
-        controller.handleJoin("Bob")
+        controller.handleJoin("Alice", "session-1")
+        controller.handleJoin("Bob", "session-2")
 
         val state = controller.init()
 
         assertEquals(2, state.players.size)
+    }
+
+    @Test
+    fun `join stores sessionId`() {
+
+        val state = controller.handleJoin(
+            "Alice",
+            "session-1"
+        )
+
+        assertEquals(
+            "session-1",
+            state.players[0].sessionId
+        )
+    }
+
+    @Test
+    fun `join with empty sessionId still adds player`() {
+
+        val state = gameService.handleJoin(
+            "Alice",
+            ""
+        )
+
+        assertEquals(1, state.players.size)
+        assertEquals("Alice", state.players[0].name)
+        assertEquals("", state.players[0].sessionId)
+    }
+
+    @Test
+    fun `join uses empty sessionId when header sessionId is null`() {
+
+        val headerAccessor =
+            mock(SimpMessageHeaderAccessor::class.java)
+
+        Mockito.`when`(
+            headerAccessor.sessionId
+        ).thenReturn(null)
+
+        val state =
+            controller.join(
+                "Alice",
+                headerAccessor
+            )
+
+        assertEquals(
+            "",
+            state.players[0].sessionId
+        )
+    }
+
+    @Test
+    fun `player can join game with sessionId`() {
+
+        val headerAccessor =
+            Mockito.mock(SimpMessageHeaderAccessor::class.java)
+
+        Mockito.`when`(
+            headerAccessor.sessionId
+        ).thenReturn("session-1")
+
+        val state = controller.join(
+            "Josef",
+            headerAccessor
+        )
+
+        assertTrue(
+            state.players.any { it.name == "Josef" }
+        )
+
+        Assertions.assertEquals(
+            1,
+            state.players.size
+        )
+
+        Assertions.assertEquals(
+            "session-1",
+            state.players[0].sessionId
+        )
     }
 }
