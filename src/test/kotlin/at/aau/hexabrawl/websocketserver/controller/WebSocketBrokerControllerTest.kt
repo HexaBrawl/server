@@ -2,7 +2,6 @@ package at.aau.hexabrawl.websocketserver.controller
 
 
 import at.aau.hexabrawl.websocketserver.model.*
-import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -26,7 +25,7 @@ class WebSocketBrokerControllerTest {
         val state = controller.handleJoin("Josef", "session-1")
 
         assertTrue(state.players.any { it.name == "Josef" })
-        Assertions.assertEquals(1, state.players.size)
+        assertEquals(1, state.players.size)
     }
 
     @Test
@@ -34,7 +33,7 @@ class WebSocketBrokerControllerTest {
         controller.handleJoin("Josef", "session-1")
         val state = controller.handleJoin("Josef", "session-1")
 
-        Assertions.assertEquals(1, state.players.size)
+        assertEquals(1, state.players.size)
     }
 
     @Test
@@ -42,9 +41,9 @@ class WebSocketBrokerControllerTest {
         controller.handleJoin("Josef", "session-1")
         val state = controller.handleJoin("Sebastian", "session-1")
 
-        Assertions.assertEquals(2, state.players.size)
+        assertEquals(2, state.players.size)
         assertNotNull(state.currentTurn)
-        Assertions.assertEquals(6, state.units.size)
+        assertEquals(6, state.units.size)
         assertTrue(state.units.any { it.type == UnitType.ARCHER })
         assertTrue(state.units.any { it.type == UnitType.INFANTRY })
         assertTrue(state.units.any { it.type == UnitType.CAVALRY })
@@ -57,7 +56,7 @@ class WebSocketBrokerControllerTest {
         controller.handleJoin("Sebastian", "session-2")
         val state = controller.handleJoin("Gustav", "session-3")
 
-        Assertions.assertEquals(2, state.players.size)
+        assertEquals(2, state.players.size)
     }
 
     @Test
@@ -96,8 +95,8 @@ class WebSocketBrokerControllerTest {
             it.player == "Josef" && it.type == UnitType.INFANTRY
         }
 
-        Assertions.assertEquals(3, josefUnit?.x)
-        Assertions.assertEquals(3, josefUnit?.y)
+        assertEquals(3, josefUnit?.x)
+        assertEquals(3, josefUnit?.y)
 
         // Turn switched to Sebastian
         assertEquals("Sebastian", state.currentTurn)
@@ -109,8 +108,8 @@ class WebSocketBrokerControllerTest {
 
         assertEquals("Alice", move.player)
         assertEquals(UnitType.INFANTRY, move.type)
-        Assertions.assertEquals(1, move.fromX)
-        Assertions.assertEquals(2, move.toX)
+        assertEquals(1, move.fromX)
+        assertEquals(2, move.toX)
     }
 
     @Test
@@ -118,8 +117,8 @@ class WebSocketBrokerControllerTest {
         val unit = GameUnit("Alice", 2, 3, UnitType.INFANTRY)
 
         assertEquals("Alice", unit.player)
-        Assertions.assertEquals(2, unit.x)
-        Assertions.assertEquals(3, unit.y)
+        assertEquals(2, unit.x)
+        assertEquals(3, unit.y)
     }
 
     @Test
@@ -157,10 +156,10 @@ class WebSocketBrokerControllerTest {
             it.player == "Bob" && it.type == UnitType.INFANTRY
         }
 
-        Assertions.assertEquals(3, aliceUnit?.x)
-        Assertions.assertEquals(3, aliceUnit?.y)
-        Assertions.assertEquals(6, bobUnit?.x)
-        Assertions.assertEquals(6, bobUnit?.y)
+        assertEquals(3, aliceUnit?.x)
+        assertEquals(3, aliceUnit?.y)
+        assertEquals(6, bobUnit?.x)
+        assertEquals(6, bobUnit?.y)
     }
 
     @Test
@@ -175,8 +174,8 @@ class WebSocketBrokerControllerTest {
         val bobUnit = result.units.find { it.player == "Bob" }
 
         // Position should NOT change
-        Assertions.assertEquals(5, bobUnit?.x)
-        Assertions.assertEquals(5, bobUnit?.y)
+        assertEquals(5, bobUnit?.x)
+        assertEquals(5, bobUnit?.y)
     }
 
     @Test
@@ -195,7 +194,7 @@ class WebSocketBrokerControllerTest {
 
         val state = controller.join("Alice", headerAccessor)
 
-        Assertions.assertEquals(1, state.players.size)
+        assertEquals(1, state.players.size)
         assertEquals(GameStatus.WAITING_FOR_PLAYERS, state.status)
         assertNull(state.currentTurn)
         assertTrue(state.units.isEmpty())
@@ -315,12 +314,12 @@ class WebSocketBrokerControllerTest {
             state.players.any { it.name == "Josef" }
         )
 
-        Assertions.assertEquals(
+        assertEquals(
             1,
             state.players.size
         )
 
-        Assertions.assertEquals(
+        assertEquals(
             "session-1",
             state.players[0].sessionId
         )
