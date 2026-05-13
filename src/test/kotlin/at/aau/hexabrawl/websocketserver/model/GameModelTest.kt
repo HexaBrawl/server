@@ -1,6 +1,7 @@
 package at.aau.hexabrawl.websocketserver.model
 
 import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 class GameModelTest {
@@ -65,5 +66,27 @@ class GameModelTest {
         Assertions.assertEquals(1, state.players.size)
         Assertions.assertEquals(1, state.units.size)
         Assertions.assertEquals("Alice", state.currentTurn)
+    }
+
+    @Test
+    fun `test ErrorMessage and ErrorCode structure`() {
+        val message = ErrorMessage(ErrorCode.INVALID_MOVE, "Test Fehler")
+
+        assertEquals(ErrorCode.INVALID_MOVE, message.errorCode)
+        assertEquals("Test Fehler", message.message)
+    }
+
+    @Test
+    fun `ErrorMessage and ErrorCode coverage`() {
+        val error = ErrorMessage(ErrorCode.GAME_FULL, "Spiel ist voll")
+        Assertions.assertEquals(ErrorCode.GAME_FULL, error.errorCode)
+        Assertions.assertEquals("Spiel ist voll", error.message)
+    }
+
+    @Test
+    fun `StompMessage coverage`() {
+        val msg = StompMessage("Server", "Test-Inhalt")
+        Assertions.assertEquals("Server", msg.from)
+        Assertions.assertEquals("Test-Inhalt", msg.text)
     }
 }
