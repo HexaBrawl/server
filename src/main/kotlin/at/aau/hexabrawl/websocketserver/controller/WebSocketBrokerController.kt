@@ -54,6 +54,7 @@ class WebSocketBrokerController(
         return gameService.handleMove(move)
     }
 
-    fun handleJoin(name: String) = gameService.handleJoin(name)
+
+    fun handleJoin(name: String, sessionId: String) = gameService.handleJoin(name, sessionId)
     fun handleMove(move: Move) = gameService.handleMove(move)
 }
