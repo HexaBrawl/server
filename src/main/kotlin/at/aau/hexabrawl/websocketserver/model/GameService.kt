@@ -7,6 +7,7 @@ class GameService {
 
     val gameState = GameState()
     val lock = Any()
+    private val combatService = CombatService()
 
     companion object {
         const val MAX_PLAYERS = 2
@@ -65,13 +66,21 @@ class GameService {
                     it.y == move.fromY
         } ?: return gameState
 
-        val targetOccupied = gameState.units.any {
-            it.x == move.toX &&
-                    it.y == move.toY &&
-                    !(it.player == move.player && it.type == move.type)
+        val friendlyOnTarget = gameState.units.any {
+            it.x == move.toX && it.y == move.toY && it.player == move.player
+        }
+        if (friendlyOnTarget) return gameState
+
+        val enemyOnTarget = gameState.units.firstOrNull {
+            it.x == move.toX && it.y == move.toY && it.player != move.player
         }
 
-        if (targetOccupied) return gameState
+        if (enemyOnTarget != null) {
+            val result = combatService.resolveCombat(unit, enemyOnTarget)
+            combatService.applyCombatResult(result, unit, enemyOnTarget, gameState)
+            switchTurn()
+            return gameState
+        }
 
         unit.x = move.toX
         unit.y = move.toY
@@ -80,6 +89,11 @@ class GameService {
         gameState.currentTurn = if (gameState.currentTurn == p1.name) p2.name else p1.name
 
         return gameState
+    }
+
+    private fun switchTurn() {
+        val (p1, p2) = gameState.players
+        gameState.currentTurn = if (gameState.currentTurn == p1.name) p2.name else p1.name
     }
 
     // WICHTIG FÜR TEST  Nur den aktuellen Stand lesen
