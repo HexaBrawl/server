@@ -1,5 +1,8 @@
 package at.aau.hexabrawl.websocketserver.model
 
+import org.springframework.stereotype.Service
+
+@Service
 class CombatService {
 
     /**

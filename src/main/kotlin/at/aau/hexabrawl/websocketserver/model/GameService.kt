@@ -3,11 +3,12 @@ package at.aau.hexabrawl.websocketserver.model
 import org.springframework.stereotype.Service
 
 @Service
-class GameService {
+class GameService(
+    private val combatService: CombatService
+) {
 
     val gameState = GameState()
     val lock = Any()
-    private val combatService = CombatService()
 
     companion object {
         const val MAX_PLAYERS = 2
