@@ -45,7 +45,8 @@ class CombatServiceTest {
 
         assertEquals(3, attacker.x)
         assertEquals(3, attacker.y)
-        assertFalse(gameState.units.contains(defender))
+        assertEquals(UnitType.SKELETON, defender.type)
+        assertTrue(gameState.units.contains(defender))
         assertTrue(gameState.units.contains(attacker))
     }
 
@@ -58,8 +59,8 @@ class CombatServiceTest {
         val result = combatService.resolveCombat(attacker, defender)
         combatService.applyCombatResult(result, attacker, defender, gameState)
 
-        assertFalse(gameState.units.contains(attacker))
-        assertFalse(gameState.units.contains(defender))
+        assertEquals(UnitType.SKELETON, attacker.type)
+        assertEquals(UnitType.SKELETON, defender.type)
     }
 
     @Test
@@ -71,7 +72,8 @@ class CombatServiceTest {
         val result = combatService.resolveCombat(attacker, defender)
         combatService.applyCombatResult(result, attacker, defender, gameState)
 
-        assertFalse(gameState.units.contains(attacker))
+        assertEquals(UnitType.SKELETON, attacker.type)
+        assertTrue(gameState.units.contains(attacker))
         assertTrue(gameState.units.contains(defender))
         assertEquals(3, defender.x)
     }
