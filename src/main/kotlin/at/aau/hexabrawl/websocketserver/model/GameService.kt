@@ -67,13 +67,20 @@ class GameService {
                     it.y == move.fromY
         } ?: return gameState
 
+        val skeletonOnTarget = gameState.units.any {
+            it.x == move.toX && it.y == move.toY && it.type == UnitType.SKELETON
+        }
+        if (skeletonOnTarget) return gameState
+
         val friendlyOnTarget = gameState.units.any {
             it.x == move.toX && it.y == move.toY && it.player == move.player
         }
         if (friendlyOnTarget) return gameState
 
         val enemyOnTarget = gameState.units.firstOrNull {
-            it.x == move.toX && it.y == move.toY && it.player != move.player
+            it.x == move.toX && it.y == move.toY &&
+                    it.player != move.player &&
+                    it.type != UnitType.SKELETON
         }
 
         if (enemyOnTarget != null) {
