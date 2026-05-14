@@ -62,6 +62,7 @@ class GameService {
         val unit = gameState.units.firstOrNull {
             it.player == move.player &&
                     it.type == move.type &&
+                    it.type != UnitType.SKELETON &&
                     it.x == move.fromX &&
                     it.y == move.fromY
         } ?: return gameState
