@@ -39,4 +39,15 @@ class DisconnectHandlerComponentTest {
 
         assert(gameService.gameState.players.isEmpty())
     }
+
+    @Test
+    fun `handleDisconnect does not broadcast when player not found`() {
+        val event = Mockito.mock(SessionDisconnectEvent::class.java)
+        Mockito.`when`(event.sessionId).thenReturn("unknown-session")
+
+        handler.handleDisconnect(event)
+
+        Mockito.verifyNoInteractions(messagingTemplate)
+    }
+
 }
