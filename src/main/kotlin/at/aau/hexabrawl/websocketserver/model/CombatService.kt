@@ -11,6 +11,9 @@ class CombatService {
      * Voraussetzung: Adjacency-Check und Eigentumsprüfung bereits durch Move-Logik validiert.
      */
     fun resolveCombat(attacker: GameUnit, defender: GameUnit): CombatResult {
+        require(attacker.type != UnitType.SKELETON) { "SKELETON cannot attack" }
+        require(defender.type != UnitType.SKELETON) { "SKELETON cannot be attacked" }
+
         return when {
             attacker.type.beats(defender.type) -> CombatResult(
                 attackerSurvived = true,
