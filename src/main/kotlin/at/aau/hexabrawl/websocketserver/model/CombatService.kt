@@ -39,8 +39,7 @@ class CombatService {
         }
     }
 
-    fun applyCombatResult(result: CombatResult, attacker: GameUnit, defender: GameUnit, gameState: GameState)
-    {
+    fun applyCombatResult(result: CombatResult, attacker: GameUnit, defender: GameUnit) {
         if (!result.defenderSurvived) defender.type = UnitType.SKELETON
         if (!result.attackerSurvived) {
             attacker.type = UnitType.SKELETON

@@ -86,7 +86,7 @@ class GameService(
 
         if (enemyOnTarget != null) {
             val result = combatService.resolveCombat(unit, enemyOnTarget)
-            combatService.applyCombatResult(result, unit, enemyOnTarget, gameState)
+            combatService.applyCombatResult(result, unit, enemyOnTarget)
             switchTurn()
             return gameState
         }
