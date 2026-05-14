@@ -16,7 +16,7 @@ class WebSocketBrokerControllerTest {
 
     @BeforeEach
     fun setup() {
-        gameService = GameService()
+        gameService = GameService(CombatService())
         controller = WebSocketBrokerController(gameService)
     }
 

@@ -9,7 +9,7 @@ class GameServiceTest {
 
     @BeforeEach
     fun setup() {
-        gameService = GameService()
+        gameService = GameService(CombatService())
     }
 
     @Test

@@ -8,7 +8,7 @@ import org.springframework.web.socket.messaging.SessionDisconnectEvent
 
 class DisconnectHandlerComponentTest {
 
-    private val gameService = GameService()
+    private val gameService = GameService(CombatService())
     private val messagingTemplate = Mockito.mock(SimpMessagingTemplate::class.java)
     private val handler = DisconnectHandler(gameService, messagingTemplate)
 

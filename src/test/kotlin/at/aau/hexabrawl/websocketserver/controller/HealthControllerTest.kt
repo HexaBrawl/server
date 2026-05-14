@@ -1,5 +1,6 @@
 package at.aau.hexabrawl.websocketserver.controller
 
+import at.aau.hexabrawl.websocketserver.model.CombatService
 import at.aau.hexabrawl.websocketserver.model.GameService
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -7,7 +8,7 @@ import org.springframework.http.HttpStatus
 
 class HealthControllerTest {
 
-    private val gameService = GameService()
+    private val gameService = GameService(CombatService())
     private val controller = HealthController(gameService)
 
     @Test

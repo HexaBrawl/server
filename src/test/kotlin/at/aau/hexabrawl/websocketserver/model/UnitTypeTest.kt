@@ -11,7 +11,7 @@ class UnitTypeTest {
 
     @BeforeEach
     fun setup() {
-        gameService = GameService()
+        gameService = GameService(CombatService())
         gameState = gameService.gameState
 
         val state = gameService.gameState
