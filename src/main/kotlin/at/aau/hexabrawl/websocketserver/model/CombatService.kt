@@ -35,9 +35,9 @@ class CombatService {
 
     fun applyCombatResult(result: CombatResult, attacker: GameUnit, defender: GameUnit, gameState: GameState)
     {
-        if (!result.defenderSurvived) gameState.units.remove(defender)
+        if (!result.defenderSurvived) defender.type = UnitType.SKELETON
         if (!result.attackerSurvived) {
-            gameState.units.remove(attacker)
+            attacker.type = UnitType.SKELETON
         } else {
             attacker.x = result.tileX
             attacker.y = result.tileY
