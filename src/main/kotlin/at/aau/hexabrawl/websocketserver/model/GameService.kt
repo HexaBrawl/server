@@ -40,7 +40,7 @@ class GameService {
                 Pair(7, 5)
             )
 
-            UnitType.entries.forEachIndexed { index, type ->
+            UnitType.entries.filter { it != UnitType.SKELETON }.forEachIndexed { index, type ->
                 val (x1, y1) = startPositionsP1[index]
                 val (x2, y2) = startPositionsP2[index]
 
@@ -122,7 +122,7 @@ class GameService {
             val startX = if (index == 0) 2 else 5
             val startY = if (index == 0) 2 else 5
 
-            UnitType.entries.forEachIndexed { typeIndex, type ->
+            UnitType.entries.filter { it != UnitType.SKELETON }.forEachIndexed { typeIndex, type ->
                 val newUnit = GameUnit(
                     player = player.name,
                     x = startX + typeIndex,
