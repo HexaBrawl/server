@@ -18,7 +18,7 @@ class WebSocketBrokerControllerTest {
 
     @BeforeEach
     fun setup() {
-        gameService = GameService()
+        gameService = GameService(CombatService())
         messagingTemplate = mock(SimpMessagingTemplate::class.java) // Mock erstellen
         controller = WebSocketBrokerController(gameService, messagingTemplate)
 

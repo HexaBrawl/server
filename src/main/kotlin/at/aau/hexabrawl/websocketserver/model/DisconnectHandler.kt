@@ -16,9 +16,12 @@ class DisconnectHandler(
         val sessionId = event.sessionId
         println("DisconnectHandler: Session $sessionId disconnected")
 
+        val playerExists = gameService.gameState.players.any { it.sessionId == sessionId }
+
         val updatedState = gameService.handleDisconnect(sessionId)
 
-        // Broadcast an alle Spieler
-        messagingTemplate.convertAndSend("/topic/game", updatedState)
+        if (playerExists) {
+            messagingTemplate.convertAndSend("/topic/game", updatedState)
+        }
     }
 }

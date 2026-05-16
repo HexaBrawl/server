@@ -3,7 +3,9 @@ package at.aau.hexabrawl.websocketserver.model
 import org.springframework.stereotype.Service
 
 @Service
-class GameService {
+class GameService(
+    private val combatService: CombatService
+) {
 
     val gameState = GameState()
     val lock = Any()
@@ -39,7 +41,7 @@ class GameService {
                 Pair(7, 5)
             )
 
-            UnitType.entries.forEachIndexed { index, type ->
+            UnitType.entries.filter { it != UnitType.SKELETON }.forEachIndexed { index, type ->
                 val (x1, y1) = startPositionsP1[index]
                 val (x2, y2) = startPositionsP2[index]
 
@@ -61,17 +63,33 @@ class GameService {
         val unit = gameState.units.firstOrNull {
             it.player == move.player &&
                     it.type == move.type &&
+                    it.type != UnitType.SKELETON &&
                     it.x == move.fromX &&
                     it.y == move.fromY
         } ?: return gameState
 
-        val targetOccupied = gameState.units.any {
-            it.x == move.toX &&
-                    it.y == move.toY &&
-                    !(it.player == move.player && it.type == move.type)
+        val skeletonOnTarget = gameState.units.any {
+            it.x == move.toX && it.y == move.toY && it.type == UnitType.SKELETON
+        }
+        if (skeletonOnTarget) return gameState
+
+        val friendlyOnTarget = gameState.units.any {
+            it.x == move.toX && it.y == move.toY && it.player == move.player
+        }
+        if (friendlyOnTarget) return gameState
+
+        val enemyOnTarget = gameState.units.firstOrNull {
+            it.x == move.toX && it.y == move.toY &&
+                    it.player != move.player &&
+                    it.type != UnitType.SKELETON
         }
 
-        if (targetOccupied) return gameState
+        if (enemyOnTarget != null) {
+            val result = combatService.resolveCombat(unit, enemyOnTarget)
+            combatService.applyCombatResult(result, unit, enemyOnTarget)
+            switchTurn()
+            return gameState
+        }
 
         unit.x = move.toX
         unit.y = move.toY
@@ -80,6 +98,11 @@ class GameService {
         gameState.currentTurn = if (gameState.currentTurn == p1.name) p2.name else p1.name
 
         return gameState
+    }
+
+    private fun switchTurn() {
+        val (p1, p2) = gameState.players
+        gameState.currentTurn = if (gameState.currentTurn == p1.name) p2.name else p1.name
     }
 
     // WICHTIG FÜR TEST  Nur den aktuellen Stand lesen
@@ -108,7 +131,7 @@ class GameService {
             val startX = if (index == 0) 2 else 5
             val startY = if (index == 0) 2 else 5
 
-            UnitType.entries.forEachIndexed { typeIndex, type ->
+            UnitType.entries.filter { it != UnitType.SKELETON }.forEachIndexed { typeIndex, type ->
                 val newUnit = GameUnit(
                     player = player.name,
                     x = startX + typeIndex,

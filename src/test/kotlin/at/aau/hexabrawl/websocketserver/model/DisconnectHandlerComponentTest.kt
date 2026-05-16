@@ -8,7 +8,7 @@ import org.springframework.web.socket.messaging.SessionDisconnectEvent
 
 class DisconnectHandlerComponentTest {
 
-    private val gameService = GameService()
+    private val gameService = GameService(CombatService())
     private val messagingTemplate = Mockito.mock(SimpMessagingTemplate::class.java)
     private val handler = DisconnectHandler(gameService, messagingTemplate)
 
@@ -39,4 +39,15 @@ class DisconnectHandlerComponentTest {
 
         assert(gameService.gameState.players.isEmpty())
     }
+
+    @Test
+    fun `handleDisconnect does not broadcast when player not found`() {
+        val event = Mockito.mock(SessionDisconnectEvent::class.java)
+        Mockito.`when`(event.sessionId).thenReturn("unknown-session")
+
+        handler.handleDisconnect(event)
+
+        Mockito.verifyNoInteractions(messagingTemplate)
+    }
+
 }

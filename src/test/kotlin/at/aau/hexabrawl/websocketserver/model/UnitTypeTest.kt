@@ -11,7 +11,7 @@ class UnitTypeTest {
 
     @BeforeEach
     fun setup() {
-        gameService = GameService()
+        gameService = GameService(CombatService())
         gameState = gameService.gameState
 
         val state = gameService.gameState
@@ -169,8 +169,9 @@ class UnitTypeTest {
         assertEquals(3, unit.x)
     }
 
+
     @Test
-    fun `move fails if target is occupied`() {
+    fun `move onto enemy tile triggers combat draw`() {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
@@ -178,21 +179,18 @@ class UnitTypeTest {
         val alice = gameService.getCurrentState().units.first {
             it.player == "Alice" && it.type == UnitType.INFANTRY
         }
-
         val bob = gameService.getCurrentState().units.first {
             it.player == "Bob" && it.type == UnitType.INFANTRY
         }
 
         val move = Move("Alice", UnitType.INFANTRY, alice.x, alice.y, bob.x, bob.y)
-
         val state = gameService.handleMove(move)
 
-        val unchanged = state.units.first {
-            it.player == "Alice" && it.type == UnitType.INFANTRY
-        }
-
-        assertEquals(alice.x, unchanged.x)
+        // INFANTRY vs INFANTRY → Draw → beide weg
+        assertNull(state.units.find { it.player == "Alice" && it.type == UnitType.INFANTRY })
+        assertNull(state.units.find { it.player == "Bob"  && it.type == UnitType.INFANTRY })
     }
+
 
     @Test
     fun `move ignored if game not in progress`() {

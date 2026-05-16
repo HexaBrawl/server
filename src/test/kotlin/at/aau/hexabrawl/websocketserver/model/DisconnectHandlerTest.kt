@@ -10,7 +10,7 @@ class DisconnectHandlerTest {
 
     @BeforeEach
     fun setUp() {
-        gameService = GameService()
+        gameService = GameService(CombatService())
     }
 
     @Test
