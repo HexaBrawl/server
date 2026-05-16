@@ -87,7 +87,8 @@ class WebSocketBrokerController(
         return stateAfter
     }
 
-    fun handleJoin(name: String) = gameService.handleJoin(name)
+
+    fun handleJoin(name: String, sessionId: String) = gameService.handleJoin(name, sessionId)
     fun handleMove(move: Move) = gameService.handleMove(move)
 
     private fun sendError(user: String, code: ErrorCode, msg: String) {
