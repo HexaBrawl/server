@@ -87,6 +87,8 @@ class GameService(
         if (enemyOnTarget != null) {
             val result = combatService.resolveCombat(unit, enemyOnTarget)
             combatService.applyCombatResult(result, unit, enemyOnTarget)
+            if (!result.defenderSurvived) gameState.units.remove(enemyOnTarget)
+            if (!result.attackerSurvived) gameState.units.remove(unit)
             switchTurn()
             return gameState
         }
