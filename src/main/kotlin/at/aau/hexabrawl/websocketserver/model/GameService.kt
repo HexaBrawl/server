@@ -68,11 +68,6 @@ class GameService(
                     it.y == move.fromY
         } ?: return gameState
 
-        val skeletonOnTarget = gameState.units.any {
-            it.x == move.toX && it.y == move.toY && it.type == UnitType.SKELETON
-        }
-        if (skeletonOnTarget) return gameState
-
         val friendlyOnTarget = gameState.units.any {
             it.x == move.toX && it.y == move.toY && it.player == move.player
         }
@@ -87,6 +82,8 @@ class GameService(
         if (enemyOnTarget != null) {
             val result = combatService.resolveCombat(unit, enemyOnTarget)
             combatService.applyCombatResult(result, unit, enemyOnTarget)
+            if (!result.defenderSurvived) gameState.units.remove(enemyOnTarget)
+            if (!result.attackerSurvived) gameState.units.remove(unit)
             switchTurn()
             return gameState
         }

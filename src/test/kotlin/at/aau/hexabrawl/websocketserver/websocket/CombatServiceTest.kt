@@ -45,13 +45,10 @@ class CombatServiceTest {
 
         assertEquals(3, attacker.x)
         assertEquals(3, attacker.y)
-        assertEquals(UnitType.SKELETON, defender.type)
-        assertTrue(gameState.units.contains(defender))
-        assertTrue(gameState.units.contains(attacker))
     }
 
     @Test
-    fun both_units_removed_on_draw() {
+    fun attacker_does_not_move_on_draw() {
         val attacker = GameUnit("Alice", 0, 0, UnitType.INFANTRY)
         val defender = GameUnit("Bob",   3, 3, UnitType.INFANTRY)
         gameState.units.addAll(listOf(attacker, defender))
@@ -59,12 +56,12 @@ class CombatServiceTest {
         val result = combatService.resolveCombat(attacker, defender)
         combatService.applyCombatResult(result, attacker, defender)
 
-        assertEquals(UnitType.SKELETON, attacker.type)
-        assertEquals(UnitType.SKELETON, defender.type)
+        assertEquals(0, attacker.x)
+        assertEquals(0, attacker.y)
     }
 
     @Test
-    fun attacker_removed_on_defender_win() {
+    fun attacker_does_not_move_on_defender_win() {
         val attacker = GameUnit("Alice", 0, 0, UnitType.CAVALRY)
         val defender = GameUnit("Bob",   3, 3, UnitType.INFANTRY)
         gameState.units.addAll(listOf(attacker, defender))
@@ -72,10 +69,10 @@ class CombatServiceTest {
         val result = combatService.resolveCombat(attacker, defender)
         combatService.applyCombatResult(result, attacker, defender)
 
-        assertEquals(UnitType.SKELETON, attacker.type)
-        assertTrue(gameState.units.contains(attacker))
-        assertTrue(gameState.units.contains(defender))
+        assertEquals(0, attacker.x)
+        assertEquals(0, attacker.y)
         assertEquals(3, defender.x)
+        assertEquals(3, defender.y)
     }
 
     // Hilfsmethoden

@@ -141,5 +141,27 @@ class GameServiceTest {
         assertThat(state.units).isNotEmpty() // Prüft, ob deine neue Unit-Logik greift
     }
 
+    @Test
+    fun `test combat removes losing unit and winner advances`() {
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+        val aliceInfantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
+        val bobCavalry    = state.units.first { it.player == "Bob"   && it.type == UnitType.CAVALRY  }
+
+        // INFANTRY beats CAVALRY → Alice gewinnt
+        gameService.handleMove(Move(
+            player = "Alice", type = UnitType.INFANTRY,
+            fromX = aliceInfantry.x, fromY = aliceInfantry.y,
+            toX = bobCavalry.x, toY = bobCavalry.y
+        ))
+
+        val updated = gameService.getCurrentState()
+        assertThat(updated.units.none { it.player == "Bob" && it.type == UnitType.CAVALRY }).isTrue()
+        val aliceAfter = updated.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
+        assertThat(aliceAfter.x).isEqualTo(bobCavalry.x)
+        assertThat(aliceAfter.y).isEqualTo(bobCavalry.y)
+    }
 
 }
