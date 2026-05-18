@@ -1,29 +1,34 @@
 package at.aau.hexabrawl.websocketserver.controller
 
-
 import at.aau.hexabrawl.websocketserver.model.*
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.mockito.Mockito
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.*
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
+import org.springframework.messaging.simp.SimpMessagingTemplate
 
 class WebSocketBrokerControllerTest {
 
     private lateinit var controller: WebSocketBrokerController
     private lateinit var gameService: GameService
+    private lateinit var messagingTemplate: SimpMessagingTemplate // Neu für Issue #24
+    private lateinit var headerAccessor: SimpMessageHeaderAccessor // Neu für Issue #24
 
     @BeforeEach
     fun setup() {
         gameService = GameService(CombatService())
-        controller = WebSocketBrokerController(gameService)
+        messagingTemplate = mock(SimpMessagingTemplate::class.java) // Mock erstellen
+        controller = WebSocketBrokerController(gameService, messagingTemplate)
+
+        headerAccessor = mock(SimpMessageHeaderAccessor::class.java)
+        `when`(headerAccessor.sessionId).thenReturn("test-session")
     }
 
     @Test
     fun `player can join game`() {
         val state = controller.handleJoin("Josef", "session-1")
-
         assertTrue(state.players.any { it.name == "Josef" })
         assertEquals(1, state.players.size)
     }
@@ -90,7 +95,6 @@ class WebSocketBrokerControllerTest {
 
         val state = controller.handleMove(move)
 
-
         val josefUnit = state.units.find {
             it.player == "Josef" && it.type == UnitType.INFANTRY
         }
@@ -132,8 +136,6 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `multiple moves update unit positions correctly`() {
-        val controller = WebSocketBrokerController(gameService)
-
         controller.handleJoin("Alice", "session-1")
         controller.handleJoin("Bob", "session-2")
 
@@ -146,7 +148,6 @@ class WebSocketBrokerControllerTest {
         val result = controller.handleMove(
             Move("Bob", UnitType.INFANTRY, 6, 5, 6, 6)
         )
-
 
         val aliceUnit = result.units.find {
             it.player == "Alice" && it.type == UnitType.INFANTRY
@@ -164,8 +165,6 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `move does nothing when wrong player`() {
-        val controller = WebSocketBrokerController(gameService)
-
         controller.handleJoin("Alice", "session-1")
         controller.handleJoin("Bob", "session-2")
 
@@ -180,8 +179,6 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `move ignored when game not started`() {
-        val controller = WebSocketBrokerController(gameService)
-
         val result = controller.handleMove(Move("Alice", UnitType.INFANTRY, 0, 0, 1, 1))
 
         assertTrue(result.units.isEmpty())
@@ -189,10 +186,9 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `game stays waiting when only one player joins`() {
-        val controller = WebSocketBrokerController(gameService)
-        val headerAccessor = SimpMessageHeaderAccessor.create()
+        val localHeaderAccessor = SimpMessageHeaderAccessor.create()
 
-        val state = controller.join("Alice", headerAccessor)
+        val state = controller.join("Alice", localHeaderAccessor)!!
 
         assertEquals(1, state.players.size)
         assertEquals(GameStatus.WAITING_FOR_PLAYERS, state.status)
@@ -202,8 +198,6 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `move rejected when not players turn`() {
-        val controller = WebSocketBrokerController(gameService)
-
         controller.handleJoin("Alice", "session-1")
         controller.handleJoin("Bob", "session-2")
 
@@ -216,8 +210,6 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `turn switches after valid move`() {
-        val controller = WebSocketBrokerController(gameService)
-
         controller.handleJoin("Alice", "session-1")
         controller.handleJoin("Bob", "session-2")
 
@@ -236,8 +228,6 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `init returns current state`() {
-        val controller = WebSocketBrokerController(gameService)
-
         controller.handleJoin("Alice", "session-1")
         controller.handleJoin("Bob", "session-2")
 
@@ -248,7 +238,6 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `join stores sessionId`() {
-
         val state = controller.handleJoin(
             "Alice",
             "session-1"
@@ -262,7 +251,6 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `join with empty sessionId still adds player`() {
-
         val state = gameService.handleJoin(
             "Alice",
             ""
@@ -275,19 +263,14 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `join uses empty sessionId when header sessionId is null`() {
+        val localHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
 
-        val headerAccessor =
-            mock(SimpMessageHeaderAccessor::class.java)
+        `when`(localHeaderAccessor.sessionId).thenReturn(null)
 
-        Mockito.`when`(
-            headerAccessor.sessionId
-        ).thenReturn(null)
-
-        val state =
-            controller.join(
-                "Alice",
-                headerAccessor
-            )
+        val state = controller.join(
+            "Alice",
+            localHeaderAccessor
+        )!!
 
         assertEquals(
             "",
@@ -297,31 +280,80 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `player can join game with sessionId`() {
+        val localHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
 
-        val headerAccessor =
-            Mockito.mock(SimpMessageHeaderAccessor::class.java)
-
-        Mockito.`when`(
-            headerAccessor.sessionId
-        ).thenReturn("session-1")
+        `when`(localHeaderAccessor.sessionId).thenReturn("session-1")
 
         val state = controller.join(
             "Josef",
-            headerAccessor
-        )
+            localHeaderAccessor
+        )!!
 
         assertTrue(
             state.players.any { it.name == "Josef" }
         )
+        assertEquals(1, state.players.size)
+        assertEquals("session-1", state.players[0].sessionId)
+    }
 
-        assertEquals(
-            1,
-            state.players.size
+    @Test
+    fun `join via websocket sends GAME_FULL error when full`() {
+        controller.handleJoin("P1", "session-1")
+        controller.handleJoin("P2", "session-2")
+
+        val result = controller.join("P3", headerAccessor)
+
+        assertNull(result)
+        verify(messagingTemplate).convertAndSendToUser(
+            eq("test-session"),
+            eq("/queue/errors"),
+            argThat { it is ErrorMessage && it.errorCode == ErrorCode.GAME_FULL }
         )
+    }
 
-        assertEquals(
-            "session-1",
-            state.players[0].sessionId
+    @Test
+    fun `move via websocket sends GAME_NOT_STARTED error`() {
+        val move = Move(player = "P1")
+
+        val result = controller.move(move, headerAccessor)
+
+        assertNull(result)
+        verify(messagingTemplate).convertAndSendToUser(
+            eq("test-session"),
+            eq("/queue/errors"),
+            argThat { it is ErrorMessage && it.errorCode == ErrorCode.GAME_NOT_STARTED }
+        )
+    }
+
+    @Test
+    fun `move via websocket sends NOT_YOUR_TURN error`() {
+        controller.handleJoin("P1", "session-1")
+        controller.handleJoin("P2", "session-2")
+
+        val move = Move(player = "P2")
+        val result = controller.move(move, headerAccessor)
+
+        assertNull(result)
+        verify(messagingTemplate).convertAndSendToUser(
+            eq("test-session"),
+            eq("/queue/errors"),
+            argThat { it is ErrorMessage && it.errorCode == ErrorCode.NOT_YOUR_TURN }
+        )
+    }
+
+    @Test
+    fun `move via websocket sends INVALID_MOVE error`() {
+        controller.handleJoin("P1", "session-1")
+        controller.handleJoin("P2", "session-2")
+
+        val move = Move(player = "P1", fromX = 0, fromY = 0, toX = 9, toY = 9)
+        val result = controller.move(move, headerAccessor)
+
+        assertNull(result)
+        verify(messagingTemplate).convertAndSendToUser(
+            eq("test-session"),
+            eq("/queue/errors"),
+            argThat { it is ErrorMessage && it.errorCode == ErrorCode.INVALID_MOVE }
         )
     }
 }
