@@ -61,27 +61,26 @@ class GameService(
     fun handleJoin(
         playerName: String,
         sessionId: String = ""
-    ): GameState =
-        handleJoin(this.gameState, playerName, sessionId)
+    ): GameState = handleJoin(this.gameState, playerName, sessionId)
 
-    fun handleMove(move: Move): GameState = synchronized(lock) {
-        if (gameState.status != GameStatus.IN_PROGRESS) return gameState
-        if (move.player != gameState.currentTurn) return gameState
+    fun handleMove(state: GameState, move: Move): GameState = synchronized(state.lock) {
+        if (state.status != GameStatus.IN_PROGRESS) return state
+        if (move.player != state.currentTurn) return state
 
-        val unit = gameState.units.firstOrNull {
+        val unit = state.units.firstOrNull {
             it.player == move.player &&
                     it.type == move.type &&
                     it.type != UnitType.SKELETON &&
                     it.x == move.fromX &&
                     it.y == move.fromY
-        } ?: return gameState
+        } ?: return state
 
-        val friendlyOnTarget = gameState.units.any {
+        val friendlyOnTarget = state.units.any {
             it.x == move.toX && it.y == move.toY && it.player == move.player
         }
-        if (friendlyOnTarget) return gameState
+        if (friendlyOnTarget) return state
 
-        val enemyOnTarget = gameState.units.firstOrNull {
+        val enemyOnTarget = state.units.firstOrNull {
             it.x == move.toX && it.y == move.toY &&
                     it.player != move.player &&
                     it.type != UnitType.SKELETON
@@ -90,24 +89,40 @@ class GameService(
         if (enemyOnTarget != null) {
             val result = combatService.resolveCombat(unit, enemyOnTarget)
             combatService.applyCombatResult(result, unit, enemyOnTarget)
-            if (!result.defenderSurvived) gameState.units.remove(enemyOnTarget)
-            if (!result.attackerSurvived) gameState.units.remove(unit)
-            switchTurn()
-            return gameState
+            if (!result.defenderSurvived) state.units.remove(enemyOnTarget)
+            if (!result.attackerSurvived) state.units.remove(unit)
+            switchTurn(state)
+            return state
         }
 
         unit.x = move.toX
         unit.y = move.toY
 
-        val (p1, p2) = gameState.players
-        gameState.currentTurn = if (gameState.currentTurn == p1.name) p2.name else p1.name
+        val (p1, p2) = state.players
+        state.currentTurn = if (state.currentTurn == p1.name) p2.name else p1.name
 
-        return gameState
+        return state
     }
+
+    //Bridge Method handleMove
+    fun handleMove(
+        move: Move
+    ): GameState = handleMove(this.gameState, move)
 
     private fun switchTurn() {
         val (p1, p2) = gameState.players
         gameState.currentTurn = if (gameState.currentTurn == p1.name) p2.name else p1.name
+    }
+
+    private fun switchTurn(state: GameState) {
+
+        val (p1, p2) = state.players
+
+        state.currentTurn =
+            if (state.currentTurn == p1.name)
+                p2.name
+            else
+                p1.name
     }
 
     // WICHTIG FÜR TEST  Nur den aktuellen Stand lesen

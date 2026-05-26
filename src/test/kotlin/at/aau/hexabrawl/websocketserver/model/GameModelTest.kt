@@ -2,6 +2,7 @@ package at.aau.hexabrawl.websocketserver.model
 
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class GameModelTest {
@@ -100,7 +101,7 @@ class GameModelTest {
 
         gameService.handleJoin(
             state1,
-            "Alice",
+            "Josef",
             "session-1"
         )
 
@@ -108,7 +109,7 @@ class GameModelTest {
         assertEquals(0, state2.players.size)
 
         assertEquals(
-            "Alice",
+            "Josef",
             state1.players[0].name
         )
     }
@@ -119,7 +120,7 @@ class GameModelTest {
         val gameService = GameService(CombatService())
 
         gameService.handleJoin(
-            "Alice",
+            "Josef",
             "session-1"
         )
 
@@ -129,8 +130,69 @@ class GameModelTest {
         )
 
         assertEquals(
-            "Alice",
+            "Josef",
             gameService.gameState.players[0].name
         )
+    }
+
+    @Test
+    fun `handleMove only modifies provided state`() {
+        val gameService = GameService(CombatService())
+
+        val state1 = GameState()
+        val state2 = GameState()
+
+        gameService.handleJoin(state1, "Josef", "s1")
+        gameService.handleJoin(state1, "Marie", "s2")
+
+        val move = Move(
+            "Josef",
+            UnitType.INFANTRY,
+            3,
+            2,
+            3,
+            3
+        )
+
+        gameService.handleMove(state1, move)
+
+        val movedUnit =
+            state1.units.find {
+                it.player == "Josef" &&
+                        it.type == UnitType.INFANTRY
+            }
+
+        assertEquals(3, movedUnit?.x)
+        assertEquals(3, movedUnit?.y)
+
+        assertTrue(state2.units.isEmpty())
+    }
+
+    @Test
+    fun `legacy handleMove bridge still uses gameState`() {
+        val gameService = GameService(CombatService())
+
+        gameService.handleJoin("Josef", "s1")
+        gameService.handleJoin("Marie", "s2")
+
+        val move = Move(
+            "Josef",
+            UnitType.INFANTRY,
+            3,
+            2,
+            3,
+            3
+        )
+
+        gameService.handleMove(move)
+
+        val movedUnit =
+            gameService.gameState.units.find {
+                it.player == "Josef" &&
+                        it.type == UnitType.INFANTRY
+            }
+
+        assertEquals(3, movedUnit?.x)
+        assertEquals(3, movedUnit?.y)
     }
 }
