@@ -89,4 +89,48 @@ class GameModelTest {
         Assertions.assertEquals("Server", msg.from)
         Assertions.assertEquals("Test-Inhalt", msg.text)
     }
+
+    @Test
+    fun `handleJoin only modifies provided state`() {
+
+        val gameService = GameService(CombatService())
+
+        val state1 = GameState()
+        val state2 = GameState()
+
+        gameService.handleJoin(
+            state1,
+            "Alice",
+            "session-1"
+        )
+
+        assertEquals(1, state1.players.size)
+        assertEquals(0, state2.players.size)
+
+        assertEquals(
+            "Alice",
+            state1.players[0].name
+        )
+    }
+
+    @Test
+    fun `legacy handleJoin bridge still uses gameState`() {
+
+        val gameService = GameService(CombatService())
+
+        gameService.handleJoin(
+            "Alice",
+            "session-1"
+        )
+
+        assertEquals(
+            1,
+            gameService.gameState.players.size
+        )
+
+        assertEquals(
+            "Alice",
+            gameService.gameState.players[0].name
+        )
+    }
 }

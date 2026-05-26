@@ -14,19 +14,19 @@ class GameService(
         const val MAX_PLAYERS = 2
     }
 
-    fun handleJoin(playerName: String, sessionId:String=""): GameState = synchronized(lock) {
+    fun handleJoin(state: GameState, playerName: String, sessionId:String=""): GameState = synchronized(state.lock) {
         // Spieler hinzufügen, falls noch nicht vorhanden und Platz ist
 
-        if (!gameState.players.any{it.name == playerName} && gameState.players.size < MAX_PLAYERS) {
-            val color = if (gameState.players.isEmpty()) PlayerColor.RED else PlayerColor.BLUE
-            gameState.players.add(Player(playerName, sessionId,color))
+        if (!state.players.any{it.name == playerName} && state.players.size < MAX_PLAYERS) {
+            val color = if (state.players.isEmpty()) PlayerColor.RED else PlayerColor.BLUE
+            state.players.add(Player(playerName, sessionId,color))
             println("JOIN: $playerName")
         }
 
         // Automatischer Start bei 2 Spielern
-        if (gameState.players.size == 2 && gameState.units.isEmpty()) {
-            val p1 = gameState.players[0]
-            val p2 = gameState.players[1]
+        if (state.players.size == 2 && state.units.isEmpty()) {
+            val p1 = state.players[0]
+            val p2 = state.players[1]
 
             // Start-Einheiten setzen
             val startPositionsP1 = listOf(
@@ -45,16 +45,24 @@ class GameService(
                 val (x1, y1) = startPositionsP1[index]
                 val (x2, y2) = startPositionsP2[index]
 
-                gameState.units.add(GameUnit(p1.name, x1, y1, type))
-                gameState.units.add(GameUnit(p2.name, x2, y2, type))
+                state.units.add(GameUnit(p1.name, x1, y1, type))
+                state.units.add(GameUnit(p2.name, x2, y2, type))
             }
 
-            gameState.currentTurn = p1.name
-            gameState.status = GameStatus.IN_PROGRESS
+            state.currentTurn = p1.name
+            state.status = GameStatus.IN_PROGRESS
             println("Service: GAME STARTED")
         }
-        return gameState
+        return state
+
     }
+
+    //Bridge Method handleJoin
+    fun handleJoin(
+        playerName: String,
+        sessionId: String = ""
+    ): GameState =
+        handleJoin(this.gameState, playerName, sessionId)
 
     fun handleMove(move: Move): GameState = synchronized(lock) {
         if (gameState.status != GameStatus.IN_PROGRESS) return gameState
