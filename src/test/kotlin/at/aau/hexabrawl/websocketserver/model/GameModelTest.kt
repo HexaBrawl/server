@@ -195,4 +195,49 @@ class GameModelTest {
         assertEquals(3, movedUnit?.x)
         assertEquals(3, movedUnit?.y)
     }
+
+    @Test
+    fun `handleDisconnect only modifies provided state`() {
+
+        val gameService = GameService(CombatService())
+
+        val state1 = GameState()
+        val state2 = GameState()
+
+        gameService.handleJoin(
+            state1,
+            "Josef",
+            "s1"
+        )
+
+        gameService.handleDisconnect(
+            state1,
+            "s1"
+        )
+
+        assertTrue(state1.players.isEmpty())
+        assertTrue(state2.players.isEmpty())
+
+        assertEquals(
+            GameStatus.WAITING_FOR_PLAYERS,
+            state2.status
+        )
+    }
+
+    @Test
+    fun `legacy handleDisconnect bridge still uses gameState`() {
+
+        val gameService = GameService(CombatService())
+
+        gameService.handleJoin(
+            "Josef",
+            "s1"
+        )
+
+        gameService.handleDisconnect("s1")
+
+        assertTrue(
+            gameService.gameState.players.isEmpty()
+        )
+    }
 }

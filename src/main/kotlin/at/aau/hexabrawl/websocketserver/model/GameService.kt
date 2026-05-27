@@ -169,24 +169,29 @@ class GameService(
         return gameState
     }
 
-    fun handleDisconnect(sessionId: String): GameState = synchronized(lock) {
-        val player = gameState.players.find { it.sessionId == sessionId }
-            ?: return gameState
+    fun handleDisconnect(state: GameState, sessionId: String): GameState = synchronized(state.lock) {
+        val player = state.players.find { it.sessionId == sessionId }
+            ?: return state
 
         // Spieler und seine Units entfernen
-        gameState.players.remove(player)
-        gameState.units.removeIf { it.player == player.name }
+        state.players.remove(player)
+        state.units.removeIf { it.player == player.name }
 
         // Status anpassen
-        if (gameState.status == GameStatus.IN_PROGRESS) {
-            gameState.status = GameStatus.FINISHED
-            gameState.currentTurn = null
+        if (state.status == GameStatus.IN_PROGRESS) {
+            state.status = GameStatus.FINISHED
+            state.currentTurn = null
             println("Service: GAME FINISHED - ${player.name} disconnected")
         } else {
             println("Service: PLAYER LEFT - ${player.name} disconnected while waiting")
         }
 
-        return gameState
+        return state
     }
+
+    //Bridge Method handleDisconnect
+    fun handleDisconnect(
+        sessionId: String
+    ): GameState = handleDisconnect(this.gameState, sessionId)
 
 }
