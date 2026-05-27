@@ -1,8 +1,6 @@
 package at.aau.hexabrawl.websocketserver.model
 
-import org.junit.jupiter.api.Assertions
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class GameModelTest {
@@ -18,43 +16,43 @@ class GameModelTest {
             toY = 4
         )
 
-        Assertions.assertEquals("Alice", move.player)
-        Assertions.assertEquals(UnitType.INFANTRY, move.type)
-        Assertions.assertEquals(1, move.fromX)
-        Assertions.assertEquals(2, move.fromY)
-        Assertions.assertEquals(3, move.toX)
-        Assertions.assertEquals(4, move.toY)
+        assertEquals("Alice", move.player)
+        assertEquals(UnitType.INFANTRY, move.type)
+        assertEquals(1, move.fromX)
+        assertEquals(2, move.fromY)
+        assertEquals(3, move.toX)
+        assertEquals(4, move.toY)
     }
 
     @Test
     fun `move default constructor coverage`() {
         val move = Move()
 
-        Assertions.assertEquals("", move.player)
-        Assertions.assertEquals(UnitType.INFANTRY, move.type)
-        Assertions.assertEquals(0, move.fromX)
-        Assertions.assertEquals(0, move.fromY)
-        Assertions.assertEquals(0, move.toX)
-        Assertions.assertEquals(0, move.toY)
+        assertEquals("", move.player)
+        assertEquals(UnitType.INFANTRY, move.type)
+        assertEquals(0, move.fromX)
+        assertEquals(0, move.fromY)
+        assertEquals(0, move.toX)
+        assertEquals(0, move.toY)
     }
 
     @Test
     fun `game unit covers all properties`() {
         val unit = GameUnit("Bob", 5, 6, UnitType.INFANTRY)
 
-        Assertions.assertEquals("Bob", unit.player)
-        Assertions.assertEquals(5, unit.x)
-        Assertions.assertEquals(6, unit.y)
+        assertEquals("Bob", unit.player)
+        assertEquals(5, unit.x)
+        assertEquals(6, unit.y)
     }
 
     @Test
     fun `game unit constructor`() {
         val unit = GameUnit("", 0, 0, UnitType.INFANTRY)
 
-        Assertions.assertEquals("", unit.player)
-        Assertions.assertEquals(0, unit.x)
-        Assertions.assertEquals(0, unit.y)
-        Assertions.assertEquals(UnitType.INFANTRY, unit.type)
+        assertEquals("", unit.player)
+        assertEquals(0, unit.x)
+        assertEquals(0, unit.y)
+        assertEquals(UnitType.INFANTRY, unit.type)
     }
 
     @Test
@@ -64,9 +62,9 @@ class GameModelTest {
         state.units.add(GameUnit("Alice", 1, 1, UnitType.INFANTRY))
         state.currentTurn = "Alice"
 
-        Assertions.assertEquals(1, state.players.size)
-        Assertions.assertEquals(1, state.units.size)
-        Assertions.assertEquals("Alice", state.currentTurn)
+        assertEquals(1, state.players.size)
+        assertEquals(1, state.units.size)
+        assertEquals("Alice", state.currentTurn)
     }
 
     @Test
@@ -80,15 +78,15 @@ class GameModelTest {
     @Test
     fun `ErrorMessage and ErrorCode coverage`() {
         val error = ErrorMessage(ErrorCode.GAME_FULL, "Spiel ist voll")
-        Assertions.assertEquals(ErrorCode.GAME_FULL, error.errorCode)
-        Assertions.assertEquals("Spiel ist voll", error.message)
+        assertEquals(ErrorCode.GAME_FULL, error.errorCode)
+        assertEquals("Spiel ist voll", error.message)
     }
 
     @Test
     fun `StompMessage coverage`() {
         val msg = StompMessage("Server", "Test-Inhalt")
-        Assertions.assertEquals("Server", msg.from)
-        Assertions.assertEquals("Test-Inhalt", msg.text)
+        assertEquals("Server", msg.from)
+        assertEquals("Test-Inhalt", msg.text)
     }
 
     @Test
@@ -240,4 +238,60 @@ class GameModelTest {
             gameService.gameState.players.isEmpty()
         )
     }
+
+    @Test
+    fun `initializeGame only modifies provided state`() {
+
+        val gameService = GameService(CombatService())
+
+        val state1 = GameState()
+        val state2 = GameState()
+
+        gameService.handleJoin(state1, "Josef", "s1")
+
+        gameService.initializeGame(state1)
+
+        assertTrue(state1.players.isEmpty())
+
+        assertTrue(state2.players.isEmpty())
+
+        assertTrue(state2.units.isEmpty())
+    }
+
+    @Test
+    fun `resetToStartCondition only modifies provided state`() {
+
+        val gameService = GameService(CombatService())
+
+        val state1 = GameState()
+        val state2 = GameState()
+
+        gameService.handleJoin(state1, "Josef", "s1")
+        gameService.handleJoin(state1, "Marie", "s2")
+
+        gameService.resetToStartCondition(state1)
+
+        // Spieler bleiben erhalten
+        assertEquals(2, state1.players.size)
+
+        // Units existieren weiterhin
+        assertFalse(state1.units.isEmpty())
+
+        // Zweiter State bleibt unverändert
+        assertTrue(state2.players.isEmpty())
+        assertTrue(state2.units.isEmpty())
+    }
+
+    @Test
+    fun `getCurrentState returns provided state`() {
+
+        val gameService = GameService(CombatService())
+
+        val state1 = GameState()
+
+        val result = gameService.getCurrentState(state1)
+
+        assertSame(state1, result)
+    }
+
 }

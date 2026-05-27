@@ -8,7 +8,6 @@ class GameService(
 ) {
 
     val gameState = GameState()
-    val lock = Any()
 
     companion object {
         const val MAX_PLAYERS = 2
@@ -126,26 +125,35 @@ class GameService(
     }
 
     // WICHTIG FÜR TEST  Nur den aktuellen Stand lesen
-    fun getCurrentState(): GameState = synchronized(lock) {
-        return gameState
+    fun getCurrentState(state: GameState): GameState = synchronized(state.lock) {
+        return state
     }
+
+    //Bridge Method getCurrentState
+    fun getCurrentState(): GameState =
+        getCurrentState(this.gameState)
+
+
 
     // ALLES AUF NULL - Für /test/init
-    fun initializeGame(): GameState = synchronized(lock) {
-        gameState.players.clear()
-        gameState.units.clear()
-        gameState.currentTurn = null
-        gameState.status = GameStatus.WAITING_FOR_PLAYERS
+    fun initializeGame(state: GameState): GameState = synchronized(state.lock) {
+        state.players.clear()
+        state.units.clear()
+        state.currentTurn = null
+        state.status = GameStatus.WAITING_FOR_PLAYERS
         println("Service: GAME INITIALIZED - Everything cleared")
-        return gameState
+        return state
     }
 
+    //Bridge Method initializeGame
+    fun initializeGame(): GameState = initializeGame(this.gameState)
+
     // SPIELER BEHALTEN - Für /test/reset
-    fun resetToStartCondition(): GameState = synchronized(lock) {
-        gameState.units.clear() // Alte Einheiten löschen
+    fun resetToStartCondition(state: GameState): GameState = synchronized(state.lock) {
+        state.units.clear() // Alte Einheiten löschen
 
         // Für jeden verbliebenen Spieler eine neue Start-Einheit erstellen
-        gameState.players.forEachIndexed { index, player ->
+        state.players.forEachIndexed { index, player ->
             // Jedem Spieler eine feste Startposition zuordnen
             // Beispiel: Spieler 1 bei (0,0), Spieler 2 bei (5,5) - Werte an Grid anpassen!
             val startX = if (index == 0) 2 else 5
@@ -158,16 +166,19 @@ class GameService(
                     y = startY,
                     type = type
                 )
-                gameState.units.add(newUnit)
+                state.units.add(newUnit)
             }
         }
 
-        gameState.currentTurn = gameState.players.firstOrNull()?.name
-        gameState.status = GameStatus.IN_PROGRESS
+        state.currentTurn = state.players.firstOrNull()?.name
+        state.status = GameStatus.IN_PROGRESS
 
-        println("Service: Reset - Units for ${gameState.players} recreated at start positions.")
-        return gameState
+        println("Service: Reset - Units for ${state.players} recreated at start positions.")
+        return state
     }
+
+    //Bridge Method resetToStartCondition
+    fun resetToStartCondition(): GameState = resetToStartCondition(this.gameState)
 
     fun handleDisconnect(state: GameState, sessionId: String): GameState = synchronized(state.lock) {
         val player = state.players.find { it.sessionId == sessionId }
