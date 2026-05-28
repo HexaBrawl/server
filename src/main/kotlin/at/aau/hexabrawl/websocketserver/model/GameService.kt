@@ -108,10 +108,6 @@ class GameService(
         move: Move
     ): GameState = handleMove(this.gameState, move)
 
-    private fun switchTurn() {
-        val (p1, p2) = gameState.players
-        gameState.currentTurn = if (gameState.currentTurn == p1.name) p2.name else p1.name
-    }
 
     private fun switchTurn(state: GameState) {
 
