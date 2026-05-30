@@ -356,4 +356,45 @@ class WebSocketBrokerControllerTest {
             argThat { it is ErrorMessage && it.errorCode == ErrorCode.INVALID_MOVE }
         )
     }
+
+    @Test
+    fun `broadcasts new state on success`() {
+        controller.handleJoin("Alice", "session-1")
+        controller.handleJoin("Bob", "session-2")
+
+        val move = Move(
+            player = "Alice",
+            type = UnitType.INFANTRY,
+            fromX = 3,
+            fromY = 2,
+            toX = 3,
+            toY = 3
+        )
+
+        val result = controller.move(move, headerAccessor)
+
+        assertNotNull(result)
+
+        verifyNoInteractions(messagingTemplate)
+    }
+
+    @Test
+    fun `valid move switches turn`() {
+        controller.handleJoin("Alice", "session-1")
+        controller.handleJoin("Bob", "session-2")
+
+        val move = Move(
+            player = "Alice",
+            type = UnitType.INFANTRY,
+            fromX = 3,
+            fromY = 2,
+            toX = 3,
+            toY = 3
+        )
+        val result = controller.move(move, headerAccessor)
+
+        assertNotNull(result)
+
+        assertEquals("Bob", result?.currentTurn)
+    }
 }
