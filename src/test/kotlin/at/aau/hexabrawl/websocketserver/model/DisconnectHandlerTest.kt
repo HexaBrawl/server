@@ -74,4 +74,34 @@ class DisconnectHandlerTest {
         assertEquals(3, bobUnits.size)
     }
 
+    @Test
+    fun `disconnect when opponent still has units declares opponent as winner`() {
+        gameService.handleJoin("Alice", "session-1")
+        gameService.handleJoin("Bob", "session-2")
+
+        gameService.handleDisconnect("session-1")
+
+        val state = gameService.gameState
+        assertEquals(GameStatus.FINISHED, state.status)
+        assertEquals("Bob", state.winner)
+        assertNull(state.currentTurn)
+    }
+
+    @Test
+    fun `disconnect when no player has units left ends as draw`() {
+        gameService.handleJoin("Alice", "session-1")
+        gameService.handleJoin("Bob", "session-2")
+
+        // Bobs Units entfernen, damit nach Alice's Disconnect niemand mehr
+        // Einheiten auf dem Brett hat -> Unentschieden
+        gameService.gameState.units.removeIf { it.player == "Bob" }
+
+        gameService.handleDisconnect("session-1")
+
+        val state = gameService.gameState
+        assertEquals(GameStatus.FINISHED, state.status)
+        assertNull(state.winner)
+        assertNull(state.currentTurn)
+    }
+
 }
