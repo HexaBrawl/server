@@ -222,13 +222,14 @@ class GameService(
         state.players.remove(player)
         state.units.removeIf { it.player == player.name }
 
-        // Status anpassen
-        if (state.status == GameStatus.IN_PROGRESS) {
-            state.status = GameStatus.FINISHED
-            state.currentTurn = null
-            println("Service: GAME FINISHED - ${player.name} disconnected")
+        // Win-Bedingung neu auswerten - kann das Match beenden, wenn jetzt nur
+        // noch ein (oder kein) Spieler mit Einheiten übrig ist.
+        checkWinCondition(state)
+
+        if (state.status == GameStatus.FINISHED) {
+            println("Service: GAME FINISHED - ${player.name} disconnected, winner: ${state.winner}")
         } else {
-            println("Service: PLAYER LEFT - ${player.name} disconnected while waiting")
+            println("Service: PLAYER LEFT - ${player.name} disconnected")
         }
 
         return state
