@@ -91,6 +91,7 @@ class GameService(
             if (!result.defenderSurvived) state.units.remove(enemyOnTarget)
             if (!result.attackerSurvived) state.units.remove(unit)
             switchTurn(state)
+            checkWinCondition(state)
             return state
         }
 
@@ -100,7 +101,44 @@ class GameService(
         val (p1, p2) = state.players
         state.currentTurn = if (state.currentTurn == p1.name) p2.name else p1.name
 
+        checkWinCondition(state)
         return state
+    }
+
+    /**
+     * Checks whether the match has ended after the latest mutation.
+     *
+     * If exactly one player still has at least one non-SKELETON unit on the
+     * board, that player is declared the winner. If no player has any units
+     * left (e.g. last move was a mutual-kill combat), the match ends as a
+     * draw. Otherwise the game continues.
+     *
+     * Only runs while the game is IN_PROGRESS, so calling it from non-success
+     * paths or before game start is harmless.
+     */
+    private fun checkWinCondition(state: GameState) {
+        if (state.status != GameStatus.IN_PROGRESS) return
+
+        val playersWithLivingUnits = state.units
+            .filter { it.type != UnitType.SKELETON }
+            .map { it.player }
+            .distinct()
+
+        when (playersWithLivingUnits.size) {
+            0 -> {
+                state.status = GameStatus.FINISHED
+                state.winner = null
+                state.currentTurn = null
+            }
+            1 -> {
+                state.status = GameStatus.FINISHED
+                state.winner = playersWithLivingUnits[0]
+                state.currentTurn = null
+            }
+            else -> {
+                // >= 2 players still have units: game continues.
+            }
+        }
     }
 
     //Bridge Method handleMove

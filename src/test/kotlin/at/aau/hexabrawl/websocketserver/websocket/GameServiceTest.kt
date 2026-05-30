@@ -164,4 +164,100 @@ class GameServiceTest {
         assertThat(aliceAfter.y).isEqualTo(bobCavalry.y)
     }
 
+    @Test
+    fun `winner is set when last opponent unit dies after move`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+        // Bob behält nur seine CAVALRY (auf der Startposition); ARCHER und INFANTRY entfernen
+        state.units.removeIf { it.player == "Bob" && it.type != UnitType.CAVALRY }
+
+        val aliceInfantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
+        val bobCavalry    = state.units.first { it.player == "Bob"   && it.type == UnitType.CAVALRY  }
+
+        // INFANTRY beats CAVALRY → Bob hat danach 0 Units, Alice gewinnt
+        gameService.handleMove(Move(
+            player = "Alice", type = UnitType.INFANTRY,
+            fromX = aliceInfantry.x, fromY = aliceInfantry.y,
+            toX = bobCavalry.x, toY = bobCavalry.y
+        ))
+
+        val updated = gameService.getCurrentState()
+        assertThat(updated.status).isEqualTo(GameStatus.FINISHED)
+        assertThat(updated.winner).isEqualTo("Alice")
+        assertThat(updated.currentTurn).isNull()
+    }
+
+    @Test
+    fun `match ends as draw when last move kills both combatants`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+        // Beide Spieler haben nur noch je eine INFANTRY → gleicher Typ ⇒ beide sterben im Combat
+        state.units.removeIf { it.type != UnitType.INFANTRY }
+
+        val aliceInf = state.units.first { it.player == "Alice" }
+        val bobInf   = state.units.first { it.player == "Bob" }
+
+        gameService.handleMove(Move(
+            player = "Alice", type = UnitType.INFANTRY,
+            fromX = aliceInf.x, fromY = aliceInf.y,
+            toX = bobInf.x, toY = bobInf.y
+        ))
+
+        val updated = gameService.getCurrentState()
+        assertThat(updated.status).isEqualTo(GameStatus.FINISHED)
+        assertThat(updated.winner).isNull()
+        assertThat(updated.currentTurn).isNull()
+    }
+
+    @Test
+    fun `match continues when opponent still has other units after combat`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+        val aliceInfantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
+        val bobCavalry    = state.units.first { it.player == "Bob"   && it.type == UnitType.CAVALRY  }
+
+        // INFANTRY beats CAVALRY: Bob verliert CAVALRY, hat aber noch ARCHER + INFANTRY
+        gameService.handleMove(Move(
+            player = "Alice", type = UnitType.INFANTRY,
+            fromX = aliceInfantry.x, fromY = aliceInfantry.y,
+            toX = bobCavalry.x, toY = bobCavalry.y
+        ))
+
+        val updated = gameService.getCurrentState()
+        assertThat(updated.status).isEqualTo(GameStatus.IN_PROGRESS)
+        assertThat(updated.winner).isNull()
+        assertThat(updated.currentTurn).isEqualTo("Bob")
+    }
+
+    @Test
+    fun `non-combat move does not end the game`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+        val aliceArcher = state.units.first { it.player == "Alice" && it.type == UnitType.ARCHER }
+
+        // Move auf garantiert leeres Feld → kein Combat, kein Unit-Verlust, kein Win
+        gameService.handleMove(Move(
+            player = "Alice", type = UnitType.ARCHER,
+            fromX = aliceArcher.x, fromY = aliceArcher.y,
+            toX = 0, toY = 0
+        ))
+
+        val updated = gameService.getCurrentState()
+        assertThat(updated.status).isEqualTo(GameStatus.IN_PROGRESS)
+        assertThat(updated.winner).isNull()
+        assertThat(updated.currentTurn).isEqualTo("Bob")
+    }
+
 }
