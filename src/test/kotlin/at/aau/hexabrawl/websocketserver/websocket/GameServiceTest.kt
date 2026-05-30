@@ -171,16 +171,17 @@ class GameServiceTest {
         gameService.handleJoin("Bob")
 
         val state = gameService.getCurrentState()
-        // Bob behält nur die CAVALRY auf (5,5); ARCHER und INFANTRY entfernen
+        // Bob behält nur seine CAVALRY (auf der Startposition); ARCHER und INFANTRY entfernen
         state.units.removeIf { it.player == "Bob" && it.type != UnitType.CAVALRY }
 
         val aliceInfantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
+        val bobCavalry    = state.units.first { it.player == "Bob"   && it.type == UnitType.CAVALRY  }
 
         // INFANTRY beats CAVALRY → Bob hat danach 0 Units, Alice gewinnt
         gameService.handleMove(Move(
             player = "Alice", type = UnitType.INFANTRY,
             fromX = aliceInfantry.x, fromY = aliceInfantry.y,
-            toX = 5, toY = 5
+            toX = bobCavalry.x, toY = bobCavalry.y
         ))
 
         val updated = gameService.getCurrentState()
