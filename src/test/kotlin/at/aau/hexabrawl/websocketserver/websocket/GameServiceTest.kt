@@ -260,4 +260,72 @@ class GameServiceTest {
         assertThat(updated.currentTurn).isEqualTo("Bob")
     }
 
+    @Test
+    fun `base unit is spawned for each player at configured position when game starts`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+        val bases = state.units.filter { it.type == UnitType.BASE }
+
+        assertThat(bases).hasSize(2)
+
+        val aliceBase = bases.first { it.player == "Alice" }
+        val bobBase   = bases.first { it.player == "Bob" }
+
+        assertThat(aliceBase.x).isEqualTo(GameService.BASE_POSITION_P1.first)
+        assertThat(aliceBase.y).isEqualTo(GameService.BASE_POSITION_P1.second)
+        assertThat(bobBase.x).isEqualTo(GameService.BASE_POSITION_P2.first)
+        assertThat(bobBase.y).isEqualTo(GameService.BASE_POSITION_P2.second)
+    }
+
+    @Test
+    fun `move attempt with BASE type is rejected and state unchanged`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+        val aliceBase = state.units.first { it.player == "Alice" && it.type == UnitType.BASE }
+        val turnBefore = state.currentTurn
+
+        // Versuch, die eigene Basis zu bewegen - muss ignoriert werden
+        gameService.handleMove(Move(
+            player = "Alice",
+            type = UnitType.BASE,
+            fromX = aliceBase.x,
+            fromY = aliceBase.y,
+            toX = aliceBase.x + 1,
+            toY = aliceBase.y
+        ))
+
+        val updated = gameService.getCurrentState()
+        val aliceBaseAfter = updated.units.first { it.player == "Alice" && it.type == UnitType.BASE }
+
+        // Basis steht weiterhin auf ihrer Startposition
+        assertThat(aliceBaseAfter.x).isEqualTo(aliceBase.x)
+        assertThat(aliceBaseAfter.y).isEqualTo(aliceBase.y)
+        // currentTurn hat sich nicht geaendert - der Move wurde komplett ignoriert
+        assertThat(updated.currentTurn).isEqualTo(turnBefore)
+    }
+
+    @Test
+    fun `regular units are still spawned alongside BASE`() {
+        // Sanity check: Einfuehrung der BASE darf die regulaeren Start-Units nicht stoeren
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+        val regularTypes = listOf(UnitType.ARCHER, UnitType.INFANTRY, UnitType.CAVALRY)
+
+        regularTypes.forEach { type ->
+            val aliceUnit = state.units.firstOrNull { it.player == "Alice" && it.type == type }
+            val bobUnit   = state.units.firstOrNull { it.player == "Bob"   && it.type == type }
+            assertThat(aliceUnit).withFailMessage("Alice should still have a $type").isNotNull
+            assertThat(bobUnit).withFailMessage("Bob should still have a $type").isNotNull
+        }
+    }
+
 }

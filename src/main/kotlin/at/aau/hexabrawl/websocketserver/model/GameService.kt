@@ -11,6 +11,13 @@ class GameService(
 
     companion object {
         const val MAX_PLAYERS = 2
+
+        // Basis-Positionen für DUAL_VALLEY-Modus (8x8-Grid).
+        // Bewusst an die Grid-Raender gesetzt, damit haeufige Test-Move-Ziele
+        // wie (6,6) oder (3,1) frei bleiben - sonst blockiert friendlyOnTarget
+        // legitime Moves der bestehenden Test-Suite.
+        val BASE_POSITION_P1: Pair<Int, Int> = Pair(3, 0)
+        val BASE_POSITION_P2: Pair<Int, Int> = Pair(6, 7)
     }
 
     fun handleJoin(state: GameState, playerName: String, sessionId:String=""): GameState = synchronized(state.lock) {
@@ -40,13 +47,20 @@ class GameService(
                 Pair(7, 5)
             )
 
-            UnitType.entries.filter { it != UnitType.SKELETON }.forEachIndexed { index, type ->
-                val (x1, y1) = startPositionsP1[index]
-                val (x2, y2) = startPositionsP2[index]
+            UnitType.entries
+                .filter { it != UnitType.SKELETON && it != UnitType.BASE }
+                .forEachIndexed { index, type ->
+                    val (x1, y1) = startPositionsP1[index]
+                    val (x2, y2) = startPositionsP2[index]
 
-                state.units.add(GameUnit(p1.name, x1, y1, type))
-                state.units.add(GameUnit(p2.name, x2, y2, type))
-            }
+                    state.units.add(GameUnit(p1.name, x1, y1, type))
+                    state.units.add(GameUnit(p2.name, x2, y2, type))
+                }
+
+            // Basis pro Spieler platzieren - das ist die Sieg-relevante Entitaet:
+            // wer die gegnerische Basis erreicht, gewinnt sofort (siehe Folge-Sub-Issue).
+            state.units.add(GameUnit(p1.name, BASE_POSITION_P1.first, BASE_POSITION_P1.second, UnitType.BASE))
+            state.units.add(GameUnit(p2.name, BASE_POSITION_P2.first, BASE_POSITION_P2.second, UnitType.BASE))
 
             state.currentTurn = p1.name
             state.status = GameStatus.IN_PROGRESS
@@ -65,6 +79,9 @@ class GameService(
     fun handleMove(state: GameState, move: Move): GameState = synchronized(state.lock) {
         if (state.status != GameStatus.IN_PROGRESS) return state
         if (move.player != state.currentTurn) return state
+
+        // Basen sind stationaer - sie koennen nicht via Move-Befehl bewegt werden.
+        if (move.type == UnitType.BASE) return state
 
         val unit = state.units.firstOrNull {
             it.player == move.player &&
@@ -193,15 +210,21 @@ class GameService(
             val startX = if (index == 0) 2 else 5
             val startY = if (index == 0) 2 else 5
 
-            UnitType.entries.filter { it != UnitType.SKELETON }.forEachIndexed { typeIndex, type ->
-                val newUnit = GameUnit(
-                    player = player.name,
-                    x = startX + typeIndex,
-                    y = startY,
-                    type = type
-                )
-                state.units.add(newUnit)
-            }
+            UnitType.entries
+                .filter { it != UnitType.SKELETON && it != UnitType.BASE }
+                .forEachIndexed { typeIndex, type ->
+                    val newUnit = GameUnit(
+                        player = player.name,
+                        x = startX + typeIndex,
+                        y = startY,
+                        type = type
+                    )
+                    state.units.add(newUnit)
+                }
+
+            // Basis pro Spieler an der vordefinierten Position wiederherstellen
+            val basePos = if (index == 0) BASE_POSITION_P1 else BASE_POSITION_P2
+            state.units.add(GameUnit(player.name, basePos.first, basePos.second, UnitType.BASE))
         }
 
         state.currentTurn = state.players.firstOrNull()?.name

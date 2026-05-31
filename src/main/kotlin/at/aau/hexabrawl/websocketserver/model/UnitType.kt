@@ -4,7 +4,8 @@ enum class UnitType {
     ARCHER,
     INFANTRY,
     CAVALRY,
-    SKELETON;
+    SKELETON,
+    BASE;
 
 
 companion object {
