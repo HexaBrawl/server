@@ -11,7 +11,7 @@ class GameService(
 
     companion object {
         const val MAX_PLAYERS = 2
-        const val STARTING_GOLD = 10
+        const val STARTING_GOLD = 6
     }
 
     fun handleJoin(state: GameState, playerName: String, sessionId:String=""): GameState = synchronized(state.lock) {
