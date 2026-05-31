@@ -356,4 +356,34 @@ class WebSocketBrokerControllerTest {
             argThat { it is ErrorMessage && it.errorCode == ErrorCode.INVALID_MOVE }
         )
     }
+
+    @Test
+    fun `move via websocket rejected when game status is FINISHED`() {
+        controller.handleJoin("Alice", "session-1")
+        controller.handleJoin("Bob", "session-2")
+
+        gameService.gameState.status = GameStatus.FINISHED
+
+        val move = Move(
+            player = "Alice",
+            type = UnitType.INFANTRY,
+            fromX = 3,
+            fromY = 2,
+            toX = 3,
+            toY = 3
+        )
+
+        val result = controller.move(move, headerAccessor)
+
+        assertNull(result)
+
+        verify(messagingTemplate).convertAndSendToUser(
+            eq("test-session"),
+            eq("/queue/errors"),
+            argThat { it is ErrorMessage && it.errorCode == ErrorCode.GAME_NOT_STARTED }
+        )
+        verifyNoMoreInteractions(messagingTemplate)
+
+        assertEquals(GameStatus.FINISHED, gameService.gameState.status)
+    }
 }
