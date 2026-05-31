@@ -139,6 +139,9 @@ class WebSocketBrokerControllerTest {
         controller.handleJoin("Alice", "session-1")
         controller.handleJoin("Bob", "session-2")
 
+        // Gold geben, damit sie nach der Runde nicht pleitegehen
+        gameService.getCurrentState().players.forEach { it.gold = 100 }
+
         // First move
         controller.handleMove(
             Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3)
@@ -212,6 +215,9 @@ class WebSocketBrokerControllerTest {
     fun `turn switches after valid move`() {
         controller.handleJoin("Alice", "session-1")
         controller.handleJoin("Bob", "session-2")
+
+        // Gold geben, damit sie nach der Runde nicht pleitegehen
+        gameService.getCurrentState().players.forEach { it.gold = 100 }
 
         // Alice move
         val state1 = controller.handleMove(

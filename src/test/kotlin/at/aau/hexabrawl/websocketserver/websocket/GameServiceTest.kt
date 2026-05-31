@@ -268,4 +268,94 @@ class GameServiceTest {
 
         assertThat(player.gold).isEqualTo(GameService.STARTING_GOLD)
     }
+
+    @Test
+    fun `test applyUpkeep - normaler Abzug (AC6)`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+        // Beide Spieler bekommen genug Gold
+        state.players.forEach { it.gold = 20 }
+
+        // Zug Alice
+        val aliceInf = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, 0, 0))
+
+        // Zug Bob -> Beendet die Runde, applyUpkeep wird getriggert
+        val bobInf = state.units.first { it.player == "Bob" && it.type == UnitType.INFANTRY }
+        gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, 1, 1))
+
+        // Bei 3 Start-Einheiten kostet der Unterhalt 12 Gold (3+4+5). 20 - 12 = 8.
+        assertThat(state.players.first { it.name == "Alice" }.gold).isEqualTo(8)
+        assertThat(state.players.first { it.name == "Bob" }.gold).isEqualTo(8)
+    }
+
+    @Test
+    fun `test applyUpkeep - Grenzfall exakt 0 (AC6)`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+        // Spieler bekommen exakt das Gold für den Unterhalt von 3 Einheiten
+        state.players.forEach { it.gold = 12 }
+
+        val aliceInf = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, 0, 0))
+
+        val bobInf = state.units.first { it.player == "Bob" && it.type == UnitType.INFANTRY }
+        gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, 1, 1))
+
+        val alice = state.players.first { it.name == "Alice" }
+        // Gold muss genau auf 0 fallen, aber die Einheiten müssen bleiben
+        assertThat(alice.gold).isEqualTo(0)
+        assertThat(state.units.count { it.player == "Alice" }).isEqualTo(3)
+    }
+
+    @Test
+    fun `test applyUpkeep - Insolvenz mit Unit-Verlust (AC6)`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+        // Alice hat 1 Gold zu wenig. Bob hat genug.
+        state.players.first { it.name == "Alice" }.gold = 11
+        state.players.first { it.name == "Bob" }.gold = 20
+
+        val aliceInf = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, 0, 0))
+
+        val bobInf = state.units.first { it.player == "Bob" && it.type == UnitType.INFANTRY }
+        gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, 1, 1))
+
+        val alice = state.players.first { it.name == "Alice" }
+        // Alice geht bankrott: Gold = 0, alle Einheiten gnadenlos gelöscht
+        assertThat(alice.gold).isEqualTo(0)
+        assertThat(state.units.count { it.player == "Alice" }).isEqualTo(0)
+    }
+
+    @Test
+    fun `test applyUpkeep - Insolvenz loest Win-Condition aus (AC6)`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+        // Alice hat zu wenig Geld und geht pleite
+        state.players.first { it.name == "Alice" }.gold = 5
+        state.players.first { it.name == "Bob" }.gold = 20
+
+        val aliceInf = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, 0, 0))
+
+        val bobInf = state.units.first { it.player == "Bob" && it.type == UnitType.INFANTRY }
+        gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, 1, 1))
+
+        // Da Alice durch Insolvenz 0 Einheiten hat, muss Bob sofort gewinnen
+        assertThat(state.status).isEqualTo(GameStatus.FINISHED)
+        assertThat(state.winner).isEqualTo("Bob")
+    }
 }
