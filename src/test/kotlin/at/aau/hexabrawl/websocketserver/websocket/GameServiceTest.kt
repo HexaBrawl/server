@@ -17,7 +17,7 @@ class GameServiceTest {
         // 1. Erster Join
         gameService.handleJoin("Alice")
         val stateAfterAlice = gameService.getCurrentState()
-        assertThat(stateAfterAlice.players).containsExactly(Player("Alice"))
+        assertThat(stateAfterAlice.players).containsExactly(Player("Alice", gold = GameService.STARTING_GOLD))
 
         // 2. Doppelter Join (Alice versucht nochmal) -> Darf nichts ändern
         gameService.handleJoin("Alice")
@@ -260,4 +260,12 @@ class GameServiceTest {
         assertThat(updated.currentTurn).isEqualTo("Bob")
     }
 
+    @Test
+    fun `player receives starting gold on join`() {
+        gameService.handleJoin("Alice")
+
+        val player = gameService.getCurrentState().players.first { it.name == "Alice" }
+
+        assertThat(player.gold).isEqualTo(GameService.STARTING_GOLD)
+    }
 }
