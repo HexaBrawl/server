@@ -79,6 +79,9 @@ class GameService(
         if (state.status != GameStatus.IN_PROGRESS) return state
         if (move.player != state.currentTurn) return state
 
+        // Basen sind stationaer - sie koennen nicht via Move-Befehl bewegt werden.
+        if (move.type == UnitType.BASE) return state
+
         val unit = state.units.firstOrNull {
             it.player == move.player &&
                     it.type == move.type &&
