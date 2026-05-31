@@ -11,6 +11,12 @@ class GameService(
 
     companion object {
         const val MAX_PLAYERS = 2
+
+        // Basis-Positionen für DUAL_VALLEY-Modus (8x8-Grid)
+        // P1 BASE liegt direkt über der Unit-Reihe (Reihe y=2),
+        // P2 BASE liegt direkt unter der Unit-Reihe (Reihe y=5).
+        val BASE_POSITION_P1: Pair<Int, Int> = Pair(3, 1)
+        val BASE_POSITION_P2: Pair<Int, Int> = Pair(6, 6)
     }
 
     fun handleJoin(state: GameState, playerName: String, sessionId:String=""): GameState = synchronized(state.lock) {
@@ -40,13 +46,20 @@ class GameService(
                 Pair(7, 5)
             )
 
-            UnitType.entries.filter { it != UnitType.SKELETON }.forEachIndexed { index, type ->
-                val (x1, y1) = startPositionsP1[index]
-                val (x2, y2) = startPositionsP2[index]
+            UnitType.entries
+                .filter { it != UnitType.SKELETON && it != UnitType.BASE }
+                .forEachIndexed { index, type ->
+                    val (x1, y1) = startPositionsP1[index]
+                    val (x2, y2) = startPositionsP2[index]
 
-                state.units.add(GameUnit(p1.name, x1, y1, type))
-                state.units.add(GameUnit(p2.name, x2, y2, type))
-            }
+                    state.units.add(GameUnit(p1.name, x1, y1, type))
+                    state.units.add(GameUnit(p2.name, x2, y2, type))
+                }
+
+            // Basis pro Spieler platzieren - das ist die Sieg-relevante Entitaet:
+            // wer die gegnerische Basis erreicht, gewinnt sofort (siehe Folge-Sub-Issue).
+            state.units.add(GameUnit(p1.name, BASE_POSITION_P1.first, BASE_POSITION_P1.second, UnitType.BASE))
+            state.units.add(GameUnit(p2.name, BASE_POSITION_P2.first, BASE_POSITION_P2.second, UnitType.BASE))
 
             state.currentTurn = p1.name
             state.status = GameStatus.IN_PROGRESS
