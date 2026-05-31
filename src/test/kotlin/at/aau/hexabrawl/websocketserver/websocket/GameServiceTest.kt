@@ -165,48 +165,21 @@ class GameServiceTest {
     }
 
     @Test
-    fun `winner is set when last opponent unit dies after move`() {
+    fun `match ends as draw when both bases are destroyed simultaneously`() {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
 
+        // Beide Basen kuenstlich entfernen, danach normaler Move ausfuehren -
+        // checkWinCondition muss 0 Basen erkennen und Draw setzen.
         val state = gameService.getCurrentState()
-        // Bob behält nur seine CAVALRY (auf der Startposition); ARCHER und INFANTRY entfernen
-        state.units.removeIf { it.player == "Bob" && it.type != UnitType.CAVALRY }
+        state.units.removeIf { it.type == UnitType.BASE }
 
-        val aliceInfantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
-        val bobCavalry    = state.units.first { it.player == "Bob"   && it.type == UnitType.CAVALRY  }
-
-        // INFANTRY beats CAVALRY → Bob hat danach 0 Units, Alice gewinnt
+        val aliceArcher = state.units.first { it.player == "Alice" && it.type == UnitType.ARCHER }
         gameService.handleMove(Move(
-            player = "Alice", type = UnitType.INFANTRY,
-            fromX = aliceInfantry.x, fromY = aliceInfantry.y,
-            toX = bobCavalry.x, toY = bobCavalry.y
-        ))
-
-        val updated = gameService.getCurrentState()
-        assertThat(updated.status).isEqualTo(GameStatus.FINISHED)
-        assertThat(updated.winner).isEqualTo("Alice")
-        assertThat(updated.currentTurn).isNull()
-    }
-
-    @Test
-    fun `match ends as draw when last move kills both combatants`() {
-        gameService.initializeGame()
-        gameService.handleJoin("Alice")
-        gameService.handleJoin("Bob")
-
-        val state = gameService.getCurrentState()
-        // Beide Spieler haben nur noch je eine INFANTRY → gleicher Typ ⇒ beide sterben im Combat
-        state.units.removeIf { it.type != UnitType.INFANTRY }
-
-        val aliceInf = state.units.first { it.player == "Alice" }
-        val bobInf   = state.units.first { it.player == "Bob" }
-
-        gameService.handleMove(Move(
-            player = "Alice", type = UnitType.INFANTRY,
-            fromX = aliceInf.x, fromY = aliceInf.y,
-            toX = bobInf.x, toY = bobInf.y
+            player = "Alice", type = UnitType.ARCHER,
+            fromX = aliceArcher.x, fromY = aliceArcher.y,
+            toX = 0, toY = 0
         ))
 
         val updated = gameService.getCurrentState()
@@ -216,7 +189,7 @@ class GameServiceTest {
     }
 
     @Test
-    fun `match continues when opponent still has other units after combat`() {
+    fun `match continues when both bases still stand after combat`() {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
@@ -225,7 +198,7 @@ class GameServiceTest {
         val aliceInfantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
         val bobCavalry    = state.units.first { it.player == "Bob"   && it.type == UnitType.CAVALRY  }
 
-        // INFANTRY beats CAVALRY: Bob verliert CAVALRY, hat aber noch ARCHER + INFANTRY
+        // INFANTRY beats CAVALRY: Bob verliert CAVALRY, beide Basen stehen weiterhin
         gameService.handleMove(Move(
             player = "Alice", type = UnitType.INFANTRY,
             fromX = aliceInfantry.x, fromY = aliceInfantry.y,
