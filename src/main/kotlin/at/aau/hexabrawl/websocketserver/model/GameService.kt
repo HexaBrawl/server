@@ -209,15 +209,21 @@ class GameService(
             val startX = if (index == 0) 2 else 5
             val startY = if (index == 0) 2 else 5
 
-            UnitType.entries.filter { it != UnitType.SKELETON }.forEachIndexed { typeIndex, type ->
-                val newUnit = GameUnit(
-                    player = player.name,
-                    x = startX + typeIndex,
-                    y = startY,
-                    type = type
-                )
-                state.units.add(newUnit)
-            }
+            UnitType.entries
+                .filter { it != UnitType.SKELETON && it != UnitType.BASE }
+                .forEachIndexed { typeIndex, type ->
+                    val newUnit = GameUnit(
+                        player = player.name,
+                        x = startX + typeIndex,
+                        y = startY,
+                        type = type
+                    )
+                    state.units.add(newUnit)
+                }
+
+            // Basis pro Spieler an der vordefinierten Position wiederherstellen
+            val basePos = if (index == 0) BASE_POSITION_P1 else BASE_POSITION_P2
+            state.units.add(GameUnit(player.name, basePos.first, basePos.second, UnitType.BASE))
         }
 
         state.currentTurn = state.players.firstOrNull()?.name
