@@ -48,10 +48,12 @@ class WebSocketBrokerControllerTest {
 
         assertEquals(2, state.players.size)
         assertNotNull(state.currentTurn)
-        assertEquals(6, state.units.size)
+        // 3 regulaere Einheiten (ARCHER, INFANTRY, CAVALRY) + 1 BASE pro Spieler = 8 Units total.
+        assertEquals(8, state.units.size)
         assertTrue(state.units.any { it.type == UnitType.ARCHER })
         assertTrue(state.units.any { it.type == UnitType.INFANTRY })
         assertTrue(state.units.any { it.type == UnitType.CAVALRY })
+        assertTrue(state.units.any { it.type == UnitType.BASE })
         assertEquals(GameStatus.IN_PROGRESS, state.status)
     }
 
