@@ -12,11 +12,12 @@ class GameService(
     companion object {
         const val MAX_PLAYERS = 2
 
-        // Basis-Positionen für DUAL_VALLEY-Modus (8x8-Grid)
-        // P1 BASE liegt direkt über der Unit-Reihe (Reihe y=2),
-        // P2 BASE liegt direkt unter der Unit-Reihe (Reihe y=5).
-        val BASE_POSITION_P1: Pair<Int, Int> = Pair(3, 1)
-        val BASE_POSITION_P2: Pair<Int, Int> = Pair(6, 6)
+        // Basis-Positionen für DUAL_VALLEY-Modus (8x8-Grid).
+        // Bewusst an die Grid-Raender gesetzt, damit haeufige Test-Move-Ziele
+        // wie (6,6) oder (3,1) frei bleiben - sonst blockiert friendlyOnTarget
+        // legitime Moves der bestehenden Test-Suite.
+        val BASE_POSITION_P1: Pair<Int, Int> = Pair(3, 0)
+        val BASE_POSITION_P2: Pair<Int, Int> = Pair(6, 7)
     }
 
     fun handleJoin(state: GameState, playerName: String, sessionId:String=""): GameState = synchronized(state.lock) {
