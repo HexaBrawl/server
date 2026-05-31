@@ -11,6 +11,7 @@ class GameService(
 
     companion object {
         const val MAX_PLAYERS = 2
+        const val STARTING_GOLD = 6
     }
 
     fun handleJoin(state: GameState, playerName: String, sessionId:String=""): GameState = synchronized(state.lock) {
@@ -18,7 +19,7 @@ class GameService(
 
         if (!state.players.any{it.name == playerName} && state.players.size < MAX_PLAYERS) {
             val color = if (state.players.isEmpty()) PlayerColor.RED else PlayerColor.BLUE
-            state.players.add(Player(playerName, sessionId,color))
+            state.players.add(Player(playerName, sessionId,color, STARTING_GOLD))
             println("JOIN: $playerName")
         }
 
