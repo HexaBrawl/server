@@ -103,6 +103,19 @@ class GameService(
         }
 
         if (enemyOnTarget != null) {
+            // Basis-Angriff: Basen sind nicht combat-faehig - sie werden ohne
+            // Stein-Schere-Papier-Resolution direkt zerstoert. Der Angreifer
+            // ueberlebt immer und zieht auf die Basis-Position.
+            // checkWinCondition triggert anschliessend den Sieg.
+            if (enemyOnTarget.type == UnitType.BASE) {
+                state.units.remove(enemyOnTarget)
+                unit.x = move.toX
+                unit.y = move.toY
+                switchTurn(state)
+                checkWinCondition(state)
+                return state
+            }
+
             val result = combatService.resolveCombat(unit, enemyOnTarget)
             combatService.applyCombatResult(result, unit, enemyOnTarget)
             if (!result.defenderSurvived) state.units.remove(enemyOnTarget)
