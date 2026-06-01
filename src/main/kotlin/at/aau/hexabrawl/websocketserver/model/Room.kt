@@ -1,7 +1,5 @@
 package at.aau.hexabrawl.websocketserver.model
 
-import com.fasterxml.jackson.annotation.JsonIgnore
-
 /**
  * Represents a single game room with its own isolated game state.
  *

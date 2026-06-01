@@ -57,14 +57,14 @@ class RoomTest {
     @Test
     fun `Room players list reflects game state players`() {
         val room = Room("room-1", "ABC123", GameMode.DUAL_VALLEY)
-        room.state.players.add(Player("Alice", "s1", PlayerColor.RED))
+        room.gameState.players.add(Player("Alice", "s1", PlayerColor.RED))
         assertEquals(listOf("Alice"), room.players)
     }
 
     @Test
     fun `Room status reflects game state status`() {
         val room = Room("room-1", "ABC123", GameMode.DUAL_VALLEY)
-        room.state.status = GameStatus.IN_PROGRESS
+        room.gameState.status = GameStatus.IN_PROGRESS
         assertEquals(GameStatus.IN_PROGRESS, room.status)
     }
 }
