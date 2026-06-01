@@ -8,7 +8,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore
  * @property roomId Unique identifier for this room (UUID format).
  * @property joinCode Short 6-character code players can use to join.
  * @property mode The game mode determining max players and rules.
- * @property state The isolated game state for this room.
+ * @property gameState The isolated game state for this room.
  */
 data class Room(
     val roomId: String,
