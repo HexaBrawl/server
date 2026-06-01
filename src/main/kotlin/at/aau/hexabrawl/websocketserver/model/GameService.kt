@@ -103,6 +103,19 @@ class GameService(
         }
 
         if (enemyOnTarget != null) {
+            // Basis-Angriff: Basen sind nicht combat-faehig - sie werden ohne
+            // Stein-Schere-Papier-Resolution direkt zerstoert. Der Angreifer
+            // ueberlebt immer und zieht auf die Basis-Position.
+            // checkWinCondition triggert anschliessend den Sieg.
+            if (enemyOnTarget.type == UnitType.BASE) {
+                state.units.remove(enemyOnTarget)
+                unit.x = move.toX
+                unit.y = move.toY
+                switchTurn(state)
+                checkWinCondition(state)
+                return state
+            }
+
             val result = combatService.resolveCombat(unit, enemyOnTarget)
             combatService.applyCombatResult(result, unit, enemyOnTarget)
             if (!result.defenderSurvived) state.units.remove(enemyOnTarget)
@@ -125,23 +138,29 @@ class GameService(
     /**
      * Checks whether the match has ended after the latest mutation.
      *
-     * If exactly one player still has at least one non-SKELETON unit on the
-     * board, that player is declared the winner. If no player has any units
-     * left (e.g. last move was a mutual-kill combat), the match ends as a
-     * draw. Otherwise the game continues.
+     * Win condition is based on BASE existence:
+     * - If exactly one player still has a BASE on the board, that player
+     *   is declared the winner.
+     * - If no player has a BASE left (e.g. both bases were destroyed in
+     *   the same sequence of events), the match ends as a draw.
+     * - Otherwise the game continues.
      *
-     * Only runs while the game is IN_PROGRESS, so calling it from non-success
-     * paths or before game start is harmless.
+     * Regular unit losses (ARCHER/INFANTRY/CAVALRY) no longer end the
+     * match - players can lose all their regular units and the game
+     * continues as long as their base stands.
+     *
+     * Only runs while the game is IN_PROGRESS, so calling it from
+     * non-success paths or before game start is harmless.
      */
     private fun checkWinCondition(state: GameState) {
         if (state.status != GameStatus.IN_PROGRESS) return
 
-        val playersWithLivingUnits = state.units
-            .filter { it.type != UnitType.SKELETON }
+        val playersWithBase = state.units
+            .filter { it.type == UnitType.BASE }
             .map { it.player }
             .distinct()
 
-        when (playersWithLivingUnits.size) {
+        when (playersWithBase.size) {
             0 -> {
                 state.status = GameStatus.FINISHED
                 state.winner = null
@@ -149,11 +168,11 @@ class GameService(
             }
             1 -> {
                 state.status = GameStatus.FINISHED
-                state.winner = playersWithLivingUnits[0]
+                state.winner = playersWithBase[0]
                 state.currentTurn = null
             }
             else -> {
-                // >= 2 players still have units: game continues.
+                // >= 2 players still have a base: game continues.
             }
         }
     }
