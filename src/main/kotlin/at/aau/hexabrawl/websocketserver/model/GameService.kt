@@ -247,7 +247,8 @@ class GameService(
 
     private fun applyUpkeep(state: GameState) {
         state.players.forEach { player ->
-            val playerUnits = state.units.filter { it.player == player.name }
+            // Skelette herausfiltern, damit sie in Zukunft keinen Unterhalt mehr kosten
+            val playerUnits = state.units.filter { it.player == player.name && it.type != UnitType.SKELETON }
             val unitCount = playerUnits.size
 
             // Unterhalt berechnen (Arithmetische Reihe: 1. Einheit kostet 3, jede weitere +1)
@@ -257,12 +258,13 @@ class GameService(
                 // Normaler Abzug
                 player.gold -= upkeep
             } else {
-                // Insolvenz: alle Truppen werden restlos entfernt
+                // Insolvenz: Gold auf 0, alle lebenden Truppen werden zu Skeletten!
                 player.gold = 0
-                state.units.removeAll(playerUnits.toSet())
+                playerUnits.forEach { it.type = UnitType.SKELETON }
             }
         }
-        // Prüfen, ob durch Insolvenz ein Spieler alle Einheiten verloren hat (Win-Condition)
+
+        // Prüfen, ob durch Insolvenz ein Spieler alle lebenden Einheiten verloren hat (Win-Condition)
         checkWinCondition(state)
     }
 }

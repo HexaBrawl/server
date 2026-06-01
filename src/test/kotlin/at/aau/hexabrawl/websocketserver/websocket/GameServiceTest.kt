@@ -270,7 +270,7 @@ class GameServiceTest {
     }
 
     @Test
-    fun `test applyUpkeep - normaler Abzug (AC6)`() {
+    fun `test applyUpkeep - normaler Abzug`() {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
@@ -293,7 +293,7 @@ class GameServiceTest {
     }
 
     @Test
-    fun `test applyUpkeep - Grenzfall exakt 0 (AC6)`() {
+    fun `test applyUpkeep - Grenzfall exakt 0`() {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
@@ -315,7 +315,7 @@ class GameServiceTest {
     }
 
     @Test
-    fun `test applyUpkeep - Insolvenz mit Unit-Verlust (AC6)`() {
+    fun `test applyUpkeep - Insolvenz mit Unit-Verlust`() {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
@@ -332,13 +332,19 @@ class GameServiceTest {
         gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, 1, 1))
 
         val alice = state.players.first { it.name == "Alice" }
-        // Alice geht bankrott: Gold = 0, alle Einheiten gnadenlos gelöscht
+
+        // Alice geht bankrott: Gold = 0
         assertThat(alice.gold).isEqualTo(0)
-        assertThat(state.units.count { it.player == "Alice" }).isEqualTo(0)
+
+        // Die Einheiten sind noch da (3 Stück)
+        val aliceUnits = state.units.filter { it.player == "Alice" }
+        assertThat(aliceUnits.size).isEqualTo(3)
+        // aber sie sind alle zu Skeletten geworden
+        assertThat(aliceUnits.all { it.type == UnitType.SKELETON }).isTrue()
     }
 
     @Test
-    fun `test applyUpkeep - Insolvenz loest Win-Condition aus (AC6)`() {
+    fun `test applyUpkeep - Insolvenz loest Win-Condition aus`() {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
