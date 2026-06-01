@@ -164,4 +164,220 @@ class GameServiceTest {
         assertThat(aliceAfter.y).isEqualTo(bobCavalry.y)
     }
 
+    @Test
+    fun `match ends as draw when both bases are destroyed simultaneously`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        // Beide Basen kuenstlich entfernen, danach normaler Move ausfuehren -
+        // checkWinCondition muss 0 Basen erkennen und Draw setzen.
+        val state = gameService.getCurrentState()
+        state.units.removeIf { it.type == UnitType.BASE }
+
+        val aliceArcher = state.units.first { it.player == "Alice" && it.type == UnitType.ARCHER }
+        gameService.handleMove(Move(
+            player = "Alice", type = UnitType.ARCHER,
+            fromX = aliceArcher.x, fromY = aliceArcher.y,
+            toX = 0, toY = 0
+        ))
+
+        val updated = gameService.getCurrentState()
+        assertThat(updated.status).isEqualTo(GameStatus.FINISHED)
+        assertThat(updated.winner).isNull()
+        assertThat(updated.currentTurn).isNull()
+    }
+
+    @Test
+    fun `match continues when both bases still stand after combat`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+        val aliceInfantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
+        val bobCavalry    = state.units.first { it.player == "Bob"   && it.type == UnitType.CAVALRY  }
+
+        // INFANTRY beats CAVALRY: Bob verliert CAVALRY, beide Basen stehen weiterhin
+        gameService.handleMove(Move(
+            player = "Alice", type = UnitType.INFANTRY,
+            fromX = aliceInfantry.x, fromY = aliceInfantry.y,
+            toX = bobCavalry.x, toY = bobCavalry.y
+        ))
+
+        val updated = gameService.getCurrentState()
+        assertThat(updated.status).isEqualTo(GameStatus.IN_PROGRESS)
+        assertThat(updated.winner).isNull()
+        assertThat(updated.currentTurn).isEqualTo("Bob")
+    }
+
+    @Test
+    fun `non-combat move does not end the game`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+        val aliceArcher = state.units.first { it.player == "Alice" && it.type == UnitType.ARCHER }
+
+        // Move auf garantiert leeres Feld → kein Combat, kein Unit-Verlust, kein Win
+        gameService.handleMove(Move(
+            player = "Alice", type = UnitType.ARCHER,
+            fromX = aliceArcher.x, fromY = aliceArcher.y,
+            toX = 0, toY = 0
+        ))
+
+        val updated = gameService.getCurrentState()
+        assertThat(updated.status).isEqualTo(GameStatus.IN_PROGRESS)
+        assertThat(updated.winner).isNull()
+        assertThat(updated.currentTurn).isEqualTo("Bob")
+    }
+
+    @Test
+    fun `base unit is spawned for each player at configured position when game starts`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+        val bases = state.units.filter { it.type == UnitType.BASE }
+
+        assertThat(bases).hasSize(2)
+
+        val aliceBase = bases.first { it.player == "Alice" }
+        val bobBase   = bases.first { it.player == "Bob" }
+
+        assertThat(aliceBase.x).isEqualTo(GameService.BASE_POSITION_P1.first)
+        assertThat(aliceBase.y).isEqualTo(GameService.BASE_POSITION_P1.second)
+        assertThat(bobBase.x).isEqualTo(GameService.BASE_POSITION_P2.first)
+        assertThat(bobBase.y).isEqualTo(GameService.BASE_POSITION_P2.second)
+    }
+
+    @Test
+    fun `move attempt with BASE type is rejected and state unchanged`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+        val aliceBase = state.units.first { it.player == "Alice" && it.type == UnitType.BASE }
+        val turnBefore = state.currentTurn
+
+        // Versuch, die eigene Basis zu bewegen - muss ignoriert werden
+        gameService.handleMove(Move(
+            player = "Alice",
+            type = UnitType.BASE,
+            fromX = aliceBase.x,
+            fromY = aliceBase.y,
+            toX = aliceBase.x + 1,
+            toY = aliceBase.y
+        ))
+
+        val updated = gameService.getCurrentState()
+        val aliceBaseAfter = updated.units.first { it.player == "Alice" && it.type == UnitType.BASE }
+
+        // Basis steht weiterhin auf ihrer Startposition
+        assertThat(aliceBaseAfter.x).isEqualTo(aliceBase.x)
+        assertThat(aliceBaseAfter.y).isEqualTo(aliceBase.y)
+        // currentTurn hat sich nicht geaendert - der Move wurde komplett ignoriert
+        assertThat(updated.currentTurn).isEqualTo(turnBefore)
+    }
+
+    @Test
+    fun `regular units are still spawned alongside BASE`() {
+        // Sanity check: Einfuehrung der BASE darf die regulaeren Start-Units nicht stoeren
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+        val regularTypes = listOf(UnitType.ARCHER, UnitType.INFANTRY, UnitType.CAVALRY)
+
+        regularTypes.forEach { type ->
+            val aliceUnit = state.units.firstOrNull { it.player == "Alice" && it.type == type }
+            val bobUnit   = state.units.firstOrNull { it.player == "Bob"   && it.type == type }
+            assertThat(aliceUnit).withFailMessage("Alice should still have a $type").isNotNull
+            assertThat(bobUnit).withFailMessage("Bob should still have a $type").isNotNull
+        }
+    }
+
+    @Test
+    fun `winner is set when attacker reaches opponent base`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+        val aliceInfantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
+        val bobBase       = state.units.first { it.player == "Bob"   && it.type == UnitType.BASE }
+
+        // Alice zieht ihre INFANTRY direkt auf Bob's Basis-Hex - das beendet
+        // das Spiel sofort, unabhaengig vom Stein-Schere-Papier-System.
+        gameService.handleMove(Move(
+            player = "Alice", type = UnitType.INFANTRY,
+            fromX = aliceInfantry.x, fromY = aliceInfantry.y,
+            toX = bobBase.x, toY = bobBase.y
+        ))
+
+        val updated = gameService.getCurrentState()
+        assertThat(updated.status).isEqualTo(GameStatus.FINISHED)
+        assertThat(updated.winner).isEqualTo("Alice")
+        assertThat(updated.currentTurn).isNull()
+
+        // Bob's Basis ist entfernt
+        assertThat(updated.units.any { it.player == "Bob" && it.type == UnitType.BASE }).isFalse()
+
+        // Alice's INFANTRY steht jetzt auf der ehemaligen Basis-Position
+        val aliceAfter = updated.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
+        assertThat(aliceAfter.x).isEqualTo(bobBase.x)
+        assertThat(aliceAfter.y).isEqualTo(bobBase.y)
+    }
+
+    @Test
+    fun `regular unit killed by combat does NOT end the match`() {
+        // Stellt sicher, dass die alte "alle Units tot = Sieg"-Regel nicht
+        // mehr greift. Nur Basis-Zerstoerung darf das Spiel beenden.
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+
+        // Reduziere Alice's regulaere Units auf nur die INFANTRY,
+        // ihre Basis bleibt aber stehen.
+        state.units.removeIf {
+            it.player == "Alice" &&
+                it.type != UnitType.INFANTRY &&
+                it.type != UnitType.BASE
+        }
+        // Auch Bob's Units reduzieren - er greift mit CAVALRY an
+        state.units.removeIf {
+            it.player == "Bob" &&
+                it.type != UnitType.CAVALRY &&
+                it.type != UnitType.BASE
+        }
+
+        val aliceInfantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
+        val bobCavalry    = state.units.first { it.player == "Bob"   && it.type == UnitType.CAVALRY }
+
+        // Alice greift Bob's CAVALRY an. INFANTRY beats CAVALRY,
+        // Bob verliert seine einzige regulaere Unit - hat aber noch Basis.
+        gameService.handleMove(Move(
+            player = "Alice", type = UnitType.INFANTRY,
+            fromX = aliceInfantry.x, fromY = aliceInfantry.y,
+            toX = bobCavalry.x, toY = bobCavalry.y
+        ))
+
+        val updated = gameService.getCurrentState()
+        assertThat(updated.status).isEqualTo(GameStatus.IN_PROGRESS)
+        assertThat(updated.winner).isNull()
+
+        // Bob hat keine regulaeren Units mehr, aber seine Basis steht noch
+        val bobRegularUnits = updated.units.filter {
+            it.player == "Bob" && it.type != UnitType.BASE
+        }
+        assertThat(bobRegularUnits).isEmpty()
+        assertThat(updated.units.any { it.player == "Bob" && it.type == UnitType.BASE }).isTrue
+    }
+
 }
