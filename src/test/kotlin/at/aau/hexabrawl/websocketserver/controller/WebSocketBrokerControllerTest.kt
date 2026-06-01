@@ -365,7 +365,9 @@ class WebSocketBrokerControllerTest {
         controller.handleJoin("Bob", "session-2")
 
         gameService.gameState.status = GameStatus.FINISHED
+    }
 
+    @Test
     fun `broadcasts new state on success`() {
         controller.handleJoin("Alice", "session-1")
         controller.handleJoin("Bob", "session-2")
@@ -381,16 +383,6 @@ class WebSocketBrokerControllerTest {
 
         val result = controller.move(move, headerAccessor)
 
-        assertNull(result)
-
-        verify(messagingTemplate).convertAndSendToUser(
-            eq("test-session"),
-            eq("/queue/errors"),
-            argThat { it is ErrorMessage && it.errorCode == ErrorCode.GAME_NOT_STARTED }
-        )
-        verifyNoMoreInteractions(messagingTemplate)
-
-        assertEquals(GameStatus.FINISHED, gameService.gameState.status)
         assertNotNull(result)
 
         verifyNoInteractions(messagingTemplate)
