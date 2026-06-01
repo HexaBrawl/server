@@ -76,17 +76,11 @@ class RoomRegistry {
 
     /**
      * Generates a unique 6-character alphanumeric join code.
-     * Retries up to 10 times to ensure uniqueness.
      *
      * @return A unique 6-character join code.
-     * @throws IllegalStateException if no unique code could be generated after 10 attempts.
      */
     private fun generateJoinCode(): String {
         val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-        repeat(10) {
-            val code = (1..6).map { chars.random() }.joinToString("")
-            if (rooms.none { it.value.joinCode == code }) return code
-        }
-        throw IllegalStateException("Could not generate unique join code after 10 attempts")
+        return (1..6).map { chars.random() }.joinToString("")
     }
 }

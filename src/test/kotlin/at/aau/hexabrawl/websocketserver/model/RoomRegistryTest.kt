@@ -129,4 +129,18 @@ class RoomRegistryTest {
         assertEquals(listOf("Alice"), room.players)
     }
 
+    @Test
+    fun `findByJoinCode returns null when registry is empty`() {
+        val result = registry.findByJoinCode("AAAAAA")
+        assertNull(result)
+    }
+
+    @Test
+    fun `findByJoinCode returns null when room exists but code does not match`() {
+        registry.createRoom(GameMode.DUAL_VALLEY) // Raum existiert
+        assertNull(registry.findByJoinCode("ZZZZZZ")) // aber falscher Code
+    }
+
+
+
 }
