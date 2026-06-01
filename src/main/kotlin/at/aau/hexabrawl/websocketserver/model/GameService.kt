@@ -99,8 +99,7 @@ class GameService(
         unit.x = move.toX
         unit.y = move.toY
 
-        val (p1, p2) = state.players
-        state.currentTurn = if (state.currentTurn == p1.name) p2.name else p1.name
+        switchTurn(state)
 
         checkWinCondition(state)
         return state
@@ -157,6 +156,11 @@ class GameService(
                 p2.name
             else
                 p1.name
+
+        // Wenn der Zug wieder bei Spieler 1 (p1) ist, ist eine Runde vorbei
+        if (state.currentTurn == p1.name) {
+            applyUpkeep(state)
+        }
     }
 
     // WICHTIG FÜR TEST  Nur den aktuellen Stand lesen
@@ -241,4 +245,26 @@ class GameService(
         sessionId: String
     ): GameState = handleDisconnect(this.gameState, sessionId)
 
+    private fun applyUpkeep(state: GameState) {
+        state.players.forEach { player ->
+            // Skelette herausfiltern, damit sie in Zukunft keinen Unterhalt mehr kosten
+            val playerUnits = state.units.filter { it.player == player.name && it.type != UnitType.SKELETON }
+            val unitCount = playerUnits.size
+
+            // Unterhalt berechnen (Arithmetische Reihe: 1. Einheit kostet 3, jede weitere +1)
+            val upkeep = (0 until unitCount).sumOf { 3 + it }
+
+            if (player.gold >= upkeep) {
+                // Normaler Abzug
+                player.gold -= upkeep
+            } else {
+                // Insolvenz: Gold auf 0, alle lebenden Truppen werden zu Skeletten!
+                player.gold = 0
+                playerUnits.forEach { it.type = UnitType.SKELETON }
+            }
+        }
+
+        // Prüfen, ob durch Insolvenz ein Spieler alle lebenden Einheiten verloren hat (Win-Condition)
+        checkWinCondition(state)
+    }
 }
