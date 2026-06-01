@@ -2,16 +2,16 @@ package at.aau.hexabrawl.websocketserver.model
 
 import org.springframework.stereotype.Component
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Registry that manages all active game rooms on the server.
- * Supports concurrent access for parallel game sessions.
+ * Uses ConcurrentHashMap for thread-safe parallel access without explicit locking.
  */
 @Component
 class RoomRegistry {
 
-    private val rooms = mutableMapOf<String, Room>()
-    private val lock = Any()
+    private val rooms = ConcurrentHashMap<String, Room>()
 
     /**
      * Creates a new room with a unique roomId and joinCode.
@@ -19,7 +19,7 @@ class RoomRegistry {
      * @param mode The game mode for the new room.
      * @return The newly created room.
      */
-    fun createRoom(mode: GameMode): Room = synchronized(lock) {
+    fun createRoom(mode: GameMode): Room {
         val roomId = UUID.randomUUID().toString()
         val joinCode = generateJoinCode()
         val room = Room(roomId, joinCode, mode)
@@ -32,7 +32,7 @@ class RoomRegistry {
      *
      * @return List of open rooms.
      */
-    fun getOpenRooms(): List<Room> = synchronized(lock) {
+    fun getOpenRooms(): List<Room> {
         return rooms.values.filter { it.status == GameStatus.WAITING_FOR_PLAYERS }
     }
 
@@ -42,7 +42,7 @@ class RoomRegistry {
      * @param roomId The unique identifier of the room.
      * @return The room if found, null otherwise.
      */
-    fun findById(roomId: String): Room? = synchronized(lock) {
+    fun findById(roomId: String): Room? {
         return rooms[roomId]
     }
 
@@ -52,7 +52,7 @@ class RoomRegistry {
      * @param joinCode The 6-character join code.
      * @return The room if found, null otherwise.
      */
-    fun findByJoinCode(joinCode: String): Room? = synchronized(lock) {
+    fun findByJoinCode(joinCode: String): Room? {
         return rooms.values.find { it.joinCode == joinCode }
     }
 
@@ -61,7 +61,7 @@ class RoomRegistry {
      *
      * @param roomId The unique identifier of the room to remove.
      */
-    fun removeRoom(roomId: String) = synchronized(lock) {
+    fun removeRoom(roomId: String) {
         rooms.remove(roomId)
     }
 
@@ -70,21 +70,23 @@ class RoomRegistry {
      *
      * @return List of all rooms.
      */
-    fun getAllRooms(): List<Room> = synchronized(lock) {
+    fun getAllRooms(): List<Room> {
         return rooms.values.toList()
     }
 
     /**
-     * Generates a random 6-character alphanumeric join code.
+     * Generates a unique 6-character alphanumeric join code.
+     * Retries up to 10 times to ensure uniqueness.
      *
-     * @return A 6-character join code.
+     * @return A unique 6-character join code.
+     * @throws IllegalStateException if no unique code could be generated after 10 attempts.
      */
     private fun generateJoinCode(): String {
         val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-        var code: String
-        do {
-            code = (1..6).map { chars.random() }.joinToString("")
-        } while (rooms.values.any { it.joinCode == code })
-        return code
+        repeat(10) {
+            val code = (1..6).map { chars.random() }.joinToString("")
+            if (rooms.none { it.value.joinCode == code }) return code
+        }
+        throw IllegalStateException("Could not generate unique join code after 10 attempts")
     }
 }
