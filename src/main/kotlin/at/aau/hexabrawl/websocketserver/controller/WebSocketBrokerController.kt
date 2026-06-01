@@ -77,9 +77,10 @@ class WebSocketBrokerController(
             return null
         }
 
+        val turnBefore = stateBefore.currentTurn
         val stateAfter = gameService.handleMove(move)
 
-        if (stateAfter === stateBefore) {
+        if (stateAfter.currentTurn == turnBefore) {
             sendError(sessionId, ErrorCode.INVALID_MOVE, "Dieser Zug ist laut Regeln ungültig.")
             return null
         }

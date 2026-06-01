@@ -366,6 +366,10 @@ class WebSocketBrokerControllerTest {
 
         gameService.gameState.status = GameStatus.FINISHED
 
+    fun `broadcasts new state on success`() {
+        controller.handleJoin("Alice", "session-1")
+        controller.handleJoin("Bob", "session-2")
+
         val move = Move(
             player = "Alice",
             type = UnitType.INFANTRY,
@@ -387,5 +391,28 @@ class WebSocketBrokerControllerTest {
         verifyNoMoreInteractions(messagingTemplate)
 
         assertEquals(GameStatus.FINISHED, gameService.gameState.status)
+        assertNotNull(result)
+
+        verifyNoInteractions(messagingTemplate)
+    }
+
+    @Test
+    fun `valid move switches turn`() {
+        controller.handleJoin("Alice", "session-1")
+        controller.handleJoin("Bob", "session-2")
+
+        val move = Move(
+            player = "Alice",
+            type = UnitType.INFANTRY,
+            fromX = 3,
+            fromY = 2,
+            toX = 3,
+            toY = 3
+        )
+        val result = controller.move(move, headerAccessor)
+
+        assertNotNull(result)
+
+        assertEquals("Bob", result?.currentTurn)
     }
 }
