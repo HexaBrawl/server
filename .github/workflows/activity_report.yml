@@ -14,19 +14,11 @@ jobs:
         id: kw
         run: echo "value=$(date +%V)" >> $GITHUB_OUTPUT
 
-      - name: Per-User-Aktivitätsbericht
-        uses: sorekz/user-activity-report@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          organization: ${{ github.repository_owner }}
-          since-days: 7
-          create-summary: true
-
       - name: Issue erstellen
         run: |
           gh issue create \
             --title "📊 Weekly Activity Report — KW ${{ steps.kw.outputs.value }} [Backend]" \
-            --body "Siehe Job Summary dieses Workflow-Runs für Details." \
+            --body "Weekly Activity Report — automatisch generiert." \
             --label "report,weekly,planning"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
