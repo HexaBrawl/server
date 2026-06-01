@@ -1,14 +1,11 @@
 name: Weekly_Activity_Report
-
 on:
   schedule:
     - cron: '0 7 * * 1'
   workflow_dispatch:
-
 permissions:
   issues: write
   contents: read
-
 jobs:
   report:
     runs-on: ubuntu-latest
@@ -17,16 +14,19 @@ jobs:
         id: kw
         run: echo "value=$(date +%V)" >> $GITHUB_OUTPUT
 
-      - name: Repo-Aktivitätsbericht
-        uses: wow-actions/activity-report@v1
-        with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          days: 7
-
       - name: Per-User-Aktivitätsbericht
         uses: sorekz/user-activity-report@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          days: 7
-          issue_title: "📊 Weekly Activity Report — KW ${{ steps.kw.outputs.value }} [Backend]"
-          issue_labels: "report,weekly,planning"
+          organization: ${{ github.repository_owner }}
+          since-days: 7
+          create-summary: true
+
+      - name: Issue erstellen
+        run: |
+          gh issue create \
+            --title "📊 Weekly Activity Report — KW ${{ steps.kw.outputs.value }} [Backend]" \
+            --body "Siehe Job Summary dieses Workflow-Runs für Details." \
+            --label "report,weekly,planning"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
