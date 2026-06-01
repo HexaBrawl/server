@@ -14,14 +14,13 @@ data class Room(
     val roomId: String,
     val joinCode: String,
     val mode: GameMode,
-    @JsonIgnore
-    val state: GameState = GameState()
+    val gameState: GameState = GameState()
 ) {
     /** Current game status derived from the room's game state. */
-    val status: GameStatus get() = state.status
+    val status: GameStatus get() = gameState.status
 
     /** List of player names currently in this room. */
-    val players: List<String> get() = state.players.map { it.name }
+    val players: List<String> get() = gameState.players.map { it.name }
 
     /** Maximum number of players allowed in this room. */
     val maxPlayers: Int get() = mode.maxPlayers
