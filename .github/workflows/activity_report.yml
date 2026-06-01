@@ -1,0 +1,36 @@
+name: Weekly Activity Report
+
+on:
+  schedule:
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Kalenderwoche ermitteln
+        id: kw
+        run: echo "value=$(date +%V)" >> $GITHUB_OUTPUT
+
+      - name: Repo-Aktivitätsbericht
+        uses: wow-actions/activity-report@v1
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          days: 7
+
+      - name: Per-User-Aktivitätsbericht
+        uses: sorekz/user-activity-report@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          days: 7
+          issue_title: "📊 Weekly Activity Report — KW ${{ steps.kw.outputs.value }}"
+          issue_labels: "report,weekly,planning"
+
+
+was macht diese datei
