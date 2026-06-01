@@ -17,11 +17,41 @@ jobs:
         id: kw
         run: echo "value=$(date +%V)" >> $GITHUB_OUTPUT
 
-      - name: Issue erstellen
+      - name: Statistiken sammeln und Issue erstellen
         run: |
+          COMMITS=$(gh api repos/${{ github.repository }}/commits?per_page=100 \
+            --jq '[.[] | select(.commit.author.date >= (now - 604800 | strftime("%Y-%m-%dT%H:%M:%SZ")))] | length')
+          
+          PRS_OPENED=$(gh api "repos/${{ github.repository }}/pulls?state=all&per_page=100" \
+            --jq '[.[] | select(.created_at >= (now - 604800 | strftime("%Y-%m-%dT%H:%M:%SZ")))] | length')
+          
+          PRS_MERGED=$(gh api "repos/${{ github.repository }}/pulls?state=closed&per_page=100" \
+            --jq '[.[] | select(.merged_at != null and .merged_at >= (now - 604800 | strftime("%Y-%m-%dT%H:%M:%SZ")))] | length')
+          
+          ISSUES_OPENED=$(gh api "repos/${{ github.repository }}/issues?state=all&per_page=100" \
+            --jq '[.[] | select(.pull_request == null and .created_at >= (now - 604800 | strftime("%Y-%m-%dT%H:%M:%SZ")))] | length')
+
           gh issue create \
             --title "📊 Weekly Activity Report — KW ${{ steps.kw.outputs.value }} [Backend]" \
-            --body "Weekly Activity Report — automatisch generiert." \
+            --body "## 📊 Weekly Activity Report — KW ${{ steps.kw.outputs.value }}
+          
+          > Automatisch generiert am $(date '+%d.%m.%Y um %H:%M Uhr') · Zeitraum: letzte 7 Tage
+          
+          ---
+          
+          ## 📈 Aktivität
+          
+          | Metrik | Anzahl |
+          |--------|--------|
+          | 🔨 Commits | $COMMITS |
+          | 🔀 PRs geöffnet | $PRS_OPENED |
+          | ✅ PRs gemerged | $PRS_MERGED |
+          | 🐛 Issues geöffnet | $ISSUES_OPENED |
+          
+          ---
+          
+          📁 Repo: ${{ github.repository }}
+          🔗 [Alle Commits](https://github.com/${{ github.repository }}/commits/main) · [Alle PRs](https://github.com/${{ github.repository }}/pulls) · [Alle Issues](https://github.com/${{ github.repository }}/issues)" \
             --label "report,weekly,planning"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
