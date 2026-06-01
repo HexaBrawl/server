@@ -31,6 +31,3 @@ jobs:
           days: 7
           issue_title: "📊 Weekly Activity Report — KW ${{ steps.kw.outputs.value }}"
           issue_labels: "report,weekly,planning"
-
-
-was macht diese datei
