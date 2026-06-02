@@ -1,82 +1,65 @@
-name: Weekly_Activity_Report
-on:
-  schedule:
-    - cron: '0 7 * * 1'
-  workflow_dispatch:
-permissions:
-  issues: write
-  contents: read
-jobs:
-  report:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+- name: Statistiken sammeln und Issue erstellen
+  run: |
+    SINCE=$(date -d '7 days ago' '+%Y-%m-%dT%H:%M:%SZ')
+    SINCE_GIT=$(date -d '7 days ago' '+%Y-%m-%d')
 
-      - name: Kalenderwoche ermitteln
-        id: kw
-        run: echo "value=$(date +%V)" >> $GITHUB_OUTPUT
+    COMMITS=$(gh api "repos/${{ github.repository }}/commits?since=$SINCE&per_page=100" --jq 'length')
 
-      - name: Statistiken sammeln und Issue erstellen
-        run: |
-          SINCE=$(date -d '7 days ago' '+%Y-%m-%dT%H:%M:%SZ')
+    PRS_OPENED=$(gh api "repos/${{ github.repository }}/pulls?state=all&per_page=100" \
+      --jq "[.[] | select(.created_at >= \"$SINCE\")] | length")
 
-          COMMITS=$(gh api "repos/${{ github.repository }}/commits?since=$SINCE&per_page=100" --jq 'length')
+    PRS_MERGED=$(gh api "repos/${{ github.repository }}/pulls?state=closed&per_page=100" \
+      --jq "[.[] | select(.merged_at != null and .merged_at >= \"$SINCE\")] | length")
 
-          PRS_OPENED=$(gh api "repos/${{ github.repository }}/pulls?state=all&per_page=100" \
-            --jq "[.[] | select(.created_at >= \"$SINCE\")] | length")
+    ISSUES_OPENED=$(gh api "repos/${{ github.repository }}/issues?state=all&per_page=100" \
+      --jq "[.[] | select(.pull_request == null and .created_at >= \"$SINCE\")] | length")
 
-          PRS_MERGED=$(gh api "repos/${{ github.repository }}/pulls?state=closed&per_page=100" \
-            --jq "[.[] | select(.merged_at != null and .merged_at >= \"$SINCE\")] | length")
+    # git log nutzt .mailmap automatisch → korrekte Namen
+    AUTHOR_STATS=$(git log --since="$SINCE_GIT" --format="%aN" \
+      | sort | uniq -c | sort -rn \
+      | awk '{print "| 👤 " $2 " " $3 " | " $1 " |"}')
 
-          ISSUES_OPENED=$(gh api "repos/${{ github.repository }}/issues?state=all&per_page=100" \
-            --jq "[.[] | select(.pull_request == null and .created_at >= \"$SINCE\")] | length")
+    DAILY_STATS=$(git log --since="$SINCE_GIT" --format="%ad" --date=short \
+      | sort | uniq -c \
+      | awk '{print "| 📅 " $2 " | " $1 " |"}')
 
-          # Commits pro Autor
-          AUTHOR_STATS=$(gh api "repos/${{ github.repository }}/commits?since=$SINCE&per_page=100" \
-            --jq '[.[] | .commit.author.name] | group_by(.) | map("| 👤 " + .[0] + " | " + (length | tostring) + " |") | .[]')
+    gh issue create \
+      --title "📊 Weekly Activity Report — KW ${{ steps.kw.outputs.value }} [Backend]" \
+      --body "## 📊 Weekly Activity Report — KW ${{ steps.kw.outputs.value }}
 
-          # Commits pro Tag
-          DAILY_STATS=$(gh api "repos/${{ github.repository }}/commits?since=$SINCE&per_page=100" \
-            --jq '[.[] | .commit.author.date[:10]] | group_by(.) | map("| 📅 " + .[0] + " | " + (length | tostring) + " |") | .[]')
+    > Automatisch generiert am $(date '+%d.%m.%Y um %H:%M Uhr') · Zeitraum: letzte 7 Tage
 
-          gh issue create \
-            --title "📊 Weekly Activity Report — KW ${{ steps.kw.outputs.value }} [Backend]" \
-            --body "## 📊 Weekly Activity Report — KW ${{ steps.kw.outputs.value }}
+    ---
 
-          > Automatisch generiert am $(date '+%d.%m.%Y um %H:%M Uhr') · Zeitraum: letzte 7 Tage
+    ## 📈 Übersicht
 
-          ---
+    | Metrik | Anzahl |
+    |--------|--------|
+    | 🔨 Commits | $COMMITS |
+    | 🔀 PRs geöffnet | $PRS_OPENED |
+    | ✅ PRs gemerged | $PRS_MERGED |
+    | 🐛 Issues geöffnet | $ISSUES_OPENED |
 
-          ## 📈 Übersicht
+    ---
 
-          | Metrik | Anzahl |
-          |--------|--------|
-          | 🔨 Commits | $COMMITS |
-          | 🔀 PRs geöffnet | $PRS_OPENED |
-          | ✅ PRs gemerged | $PRS_MERGED |
-          | 🐛 Issues geöffnet | $ISSUES_OPENED |
+    ## 👥 Commits pro Autor
 
-          ---
+    | Autor | Commits |
+    |-------|---------|
+    $AUTHOR_STATS
 
-          ## 👥 Commits pro Autor
+    ---
 
-          | Autor | Commits |
-          |-------|---------|
-          $AUTHOR_STATS
+    ## 📅 Commits pro Tag
 
-          ---
+    | Datum | Commits |
+    |-------|---------|
+    $DAILY_STATS
 
-          ## 📅 Commits pro Tag
+    ---
 
-          | Datum | Commits |
-          |-------|---------|
-          $DAILY_STATS
-
-          ---
-
-          📁 Repo: ${{ github.repository }}
-          🔗 [Alle Commits](https://github.com/${{ github.repository }}/commits/main) · [Alle PRs](https://github.com/${{ github.repository }}/pulls) · [Alle Issues](https://github.com/${{ github.repository }}/issues)" \
-            --label "report,weekly,planning"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    📁 Repo: ${{ github.repository }}
+    🔗 [Alle Commits](https://github.com/${{ github.repository }}/commits/main) · [Alle PRs](https://github.com/${{ github.repository }}/pulls) · [Alle Issues](https://github.com/${{ github.repository }}/issues)" \
+      --label "report,weekly,planning"
+  env:
+    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
