@@ -1,4 +1,4 @@
-- name: Statistiken sammeln und Issue erstellen
+- name: Weekly_Activity_Report
   run: |
     SINCE=$(date -d '7 days ago' '+%Y-%m-%dT%H:%M:%SZ')
     SINCE_GIT=$(date -d '7 days ago' '+%Y-%m-%d')
