@@ -3,6 +3,8 @@ package at.aau.hexabrawl.websocketserver.model
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import java.util.concurrent.CountDownLatch
+import kotlin.concurrent.thread
 
 class RoomRegistryTest {
 
@@ -14,133 +16,113 @@ class RoomRegistryTest {
     }
 
     @Test
-    fun `createRoom returns room with correct mode`() {
+    fun `createRoom creates a valid room and stores it in both maps`() {
         val room = registry.createRoom(GameMode.DUAL_VALLEY)
+
+        // Teste Room-Eigenschaften
         assertEquals(GameMode.DUAL_VALLEY, room.mode)
-    }
-
-    @Test
-    fun `createRoom generates unique roomIds`() {
-        val room1 = registry.createRoom(GameMode.DUAL_VALLEY)
-        val room2 = registry.createRoom(GameMode.DUAL_VALLEY)
-        assertNotEquals(room1.roomId, room2.roomId)
-    }
-
-    @Test
-    fun `createRoom generates 6 character joinCode`() {
-        val room = registry.createRoom(GameMode.DUAL_VALLEY)
         assertEquals(6, room.joinCode.length)
-    }
 
-    @Test
-    fun `createRoom adds room to registry`() {
-        val room = registry.createRoom(GameMode.DUAL_VALLEY)
-        assertNotNull(registry.findById(room.roomId))
-    }
-
-
-    @Test
-    fun `getOpenRooms returns only WAITING_FOR_PLAYERS rooms`() {
-        val room1 = registry.createRoom(GameMode.DUAL_VALLEY)
-        val room2 = registry.createRoom(GameMode.DUAL_VALLEY)
-        room2.gameState.status = GameStatus.IN_PROGRESS
-
-        val openRooms = registry.getOpenRooms()
-        assertTrue(openRooms.contains(room1))
-        assertFalse(openRooms.contains(room2))
-    }
-
-    @Test
-    fun `getOpenRooms returns empty list when no open rooms`() {
-        val room = registry.createRoom(GameMode.DUAL_VALLEY)
-        room.gameState.status = GameStatus.FINISHED
-        assertTrue(registry.getOpenRooms().isEmpty())
-    }
-
-    @Test
-    fun `findById returns correct room`() {
-        val room = registry.createRoom(GameMode.DUAL_VALLEY)
+        // Teste, ob der Raum über beide Maps gefunden wird
         assertEquals(room, registry.findById(room.roomId))
-    }
-
-    @Test
-    fun `findById returns null for unknown roomId`() {
-        assertNull(registry.findById("unknown-id"))
-    }
-
-    @Test
-    fun `findByJoinCode returns correct room`() {
-        val room = registry.createRoom(GameMode.DUAL_VALLEY)
         assertEquals(room, registry.findByJoinCode(room.joinCode))
     }
 
     @Test
-    fun `findByJoinCode returns null for unknown joinCode`() {
+    fun `createRoom generates unique roomIds and joinCodes for multiple rooms`() {
+        val room1 = registry.createRoom(GameMode.DUAL_VALLEY)
+        val room2 = registry.createRoom(GameMode.DUAL_VALLEY)
+
+        assertNotEquals(room1.roomId, room2.roomId)
+        assertNotEquals(room1.joinCode, room2.joinCode)
+        assertEquals(2, registry.getAllRooms().size)
+    }
+
+    @Test
+    fun `getOpenRooms returns only rooms with WAITING_FOR_PLAYERS status`() {
+        val openRoom = registry.createRoom(GameMode.DUAL_VALLEY)
+        val inProgressRoom = registry.createRoom(GameMode.DUAL_VALLEY).apply {
+            gameState.status = GameStatus.IN_PROGRESS
+        }
+        val finishedRoom = registry.createRoom(GameMode.DUAL_VALLEY).apply {
+            gameState.status = GameStatus.FINISHED
+        }
+
+        val openRooms = registry.getOpenRooms()
+
+        assertEquals(1, openRooms.size)
+        assertTrue(openRooms.contains(openRoom))
+        assertFalse(openRooms.contains(inProgressRoom))
+        assertFalse(openRooms.contains(finishedRoom))
+    }
+
+    @Test
+    fun `findById and findByJoinCode return null for unknown identifiers`() {
+        assertNull(registry.findById("unknown-id"))
         assertNull(registry.findByJoinCode("XXXXXX"))
     }
 
     @Test
-    fun `removeRoom removes room from registry`() {
+    fun `removeRoom completely removes room from both internal maps`() {
         val room = registry.createRoom(GameMode.DUAL_VALLEY)
+
+        // Stelle sicher, dass der Raum vor dem Löschen da ist
+        assertNotNull(registry.findById(room.roomId))
+        assertNotNull(registry.findByJoinCode(room.joinCode))
+
         registry.removeRoom(room.roomId)
+
+        // Teste, ob der Raum aus BEIDEN Maps (rooms & byJoinCode) entfernt wurde
         assertNull(registry.findById(room.roomId))
-    }
-
-    @Test
-    fun `getAllRooms returns all rooms`() {
-        registry.createRoom(GameMode.DUAL_VALLEY)
-        registry.createRoom(GameMode.TRIAD_OUTPOST)
-        registry.createRoom(GameMode.BATTLEFIELD_PEAKS)
-        assertEquals(3, registry.getAllRooms().size)
-    }
-
-    @Test
-    fun `getAllRooms returns empty list when no rooms`() {
+        assertNull(registry.findByJoinCode(room.joinCode))
         assertTrue(registry.getAllRooms().isEmpty())
     }
 
     @Test
-    fun `registry supports 40 parallel rooms`() {
-        repeat(40) { registry.createRoom(GameMode.DUAL_VALLEY) }
-        assertEquals(40, registry.getAllRooms().size)
+    fun `removeRoom does nothing and throws no exception for unknown roomId`() {
+        registry.createRoom(GameMode.DUAL_VALLEY)
+
+        // Aufruf trifft die `if (room != null)` Bedingung
+        assertDoesNotThrow {
+            registry.removeRoom("non-existent-id")
+        }
+
+        // Der existierende Raum darf davon nicht betroffen sein
+        assertEquals(1, registry.getAllRooms().size)
     }
 
     @Test
-    fun `createRoom works for all game modes`() {
-        val dual = registry.createRoom(GameMode.DUAL_VALLEY)
-        val triad = registry.createRoom(GameMode.TRIAD_OUTPOST)
-        val battle = registry.createRoom(GameMode.BATTLEFIELD_PEAKS)
-
-        assertEquals(GameMode.DUAL_VALLEY, dual.mode)
-        assertEquals(GameMode.TRIAD_OUTPOST, triad.mode)
-        assertEquals(GameMode.BATTLEFIELD_PEAKS, battle.mode)
+    fun `getAllRooms returns empty list when registry is newly initialized`() {
+        assertTrue(registry.getAllRooms().isEmpty())
     }
 
     @Test
-    fun `room maxPlayers matches game mode`() {
+    fun `room helper properties return correct values based on state and mode`() {
+        // Deckt die Getter-Eigenschaften der `Room` data class ab
         val room = registry.createRoom(GameMode.TRIAD_OUTPOST)
-        assertEquals(3, room.maxPlayers)
-    }
 
-    @Test
-    fun `room players list reflects game state`() {
-        val room = registry.createRoom(GameMode.DUAL_VALLEY)
+        assertEquals(3, room.maxPlayers)
+        assertEquals(GameStatus.WAITING_FOR_PLAYERS, room.status)
+
         room.gameState.players.add(Player("Alice", "s1", PlayerColor.RED))
         assertEquals(listOf("Alice"), room.players)
     }
 
     @Test
-    fun `findByJoinCode returns null when registry is empty`() {
-        val result = registry.findByJoinCode("AAAAAA")
-        assertNull(result)
+    fun `concurrent room creation is thread-safe`() {
+        // Echter Lasttest für die Thread-Sicherheit der ConcurrentHashMaps
+        val threadCount = 100
+        val latch = CountDownLatch(threadCount)
+
+        repeat(threadCount) {
+            thread {
+                registry.createRoom(GameMode.DUAL_VALLEY)
+                latch.countDown()
+            }
+        }
+
+        // Warte bis alle 100 Threads fertig sind
+        latch.await()
+        assertEquals(threadCount, registry.getAllRooms().size)
     }
-
-    @Test
-    fun `findByJoinCode returns null when room exists but code does not match`() {
-        registry.createRoom(GameMode.DUAL_VALLEY) // Raum existiert
-        assertNull(registry.findByJoinCode("ZZZZZZ")) // aber falscher Code
-    }
-
-
-
 }

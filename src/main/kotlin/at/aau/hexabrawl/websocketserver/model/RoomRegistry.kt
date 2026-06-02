@@ -12,75 +12,40 @@ import java.util.concurrent.ConcurrentHashMap
 class RoomRegistry {
 
     private val rooms = ConcurrentHashMap<String, Room>()
+    private val byJoinCode = ConcurrentHashMap<String, Room>()
 
-    /**
-     * Creates a new room with a unique roomId and joinCode.
-     *
-     * @param mode The game mode for the new room.
-     * @return The newly created room.
-     */
     fun createRoom(mode: GameMode): Room {
         val roomId = UUID.randomUUID().toString()
-        val joinCode = generateJoinCode()
-        val room = Room(roomId, joinCode, mode)
-        rooms[roomId] = room
-        return room
+        while (true) {
+            val joinCode = generateJoinCode()
+            val room = Room(roomId, joinCode, mode)
+            if (byJoinCode.putIfAbsent(joinCode, room) == null) {
+                rooms[roomId] = room
+                return room
+            }
+        }
     }
 
-    /**
-     * Returns all rooms that are currently waiting for players.
-     *
-     * @return List of open rooms.
-     */
-    fun getOpenRooms(): List<Room> {
-        return rooms.values.filter { it.status == GameStatus.WAITING_FOR_PLAYERS }
-    }
+    fun getOpenRooms(): List<Room> =
+        rooms.values.filter { it.status == GameStatus.WAITING_FOR_PLAYERS }
 
-    /**
-     * Finds a room by its unique roomId.
-     *
-     * @param roomId The unique identifier of the room.
-     * @return The room if found, null otherwise.
-     */
-    fun findById(roomId: String): Room? {
-        return rooms[roomId]
-    }
+    fun findById(roomId: String): Room? = rooms[roomId]
 
-    /**
-     * Finds a room by its join code.
-     *
-     * @param joinCode The 6-character join code.
-     * @return The room if found, null otherwise.
-     */
-    fun findByJoinCode(joinCode: String): Room? {
-        return rooms.values.find { it.joinCode == joinCode }
-    }
+    fun findByJoinCode(joinCode: String): Room? = byJoinCode[joinCode]
 
-    /**
-     * Removes a room from the registry.
-     *
-     * @param roomId The unique identifier of the room to remove.
-     */
     fun removeRoom(roomId: String) {
-        rooms.remove(roomId)
+        val room = rooms.remove(roomId)
+        if (room != null) {
+            byJoinCode.remove(room.joinCode)
+        }
     }
 
-    /**
-     * Returns all rooms regardless of status.
-     *
-     * @return List of all rooms.
-     */
-    fun getAllRooms(): List<Room> {
-        return rooms.values.toList()
-    }
+    fun getAllRooms(): List<Room> = rooms.values.toList()
 
-    /**
-     * Generates a unique 6-character alphanumeric join code.
-     *
-     * @return A unique 6-character join code.
-     */
     private fun generateJoinCode(): String {
         val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
         return (1..6).map { chars.random() }.joinToString("")
     }
 }
+
+
