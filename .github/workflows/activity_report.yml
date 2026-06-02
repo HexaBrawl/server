@@ -19,37 +19,62 @@ jobs:
 
       - name: Statistiken sammeln und Issue erstellen
         run: |
-          COMMITS=$(gh api repos/${{ github.repository }}/commits?per_page=100 \
-            --jq '[.[] | select(.commit.author.date >= (now - 604800 | strftime("%Y-%m-%dT%H:%M:%SZ")))] | length')
-          
+          SINCE=$(date -d '7 days ago' '+%Y-%m-%dT%H:%M:%SZ')
+
+          COMMITS=$(gh api "repos/${{ github.repository }}/commits?since=$SINCE&per_page=100" --jq 'length')
+
           PRS_OPENED=$(gh api "repos/${{ github.repository }}/pulls?state=all&per_page=100" \
-            --jq '[.[] | select(.created_at >= (now - 604800 | strftime("%Y-%m-%dT%H:%M:%SZ")))] | length')
-          
+            --jq "[.[] | select(.created_at >= \"$SINCE\")] | length")
+
           PRS_MERGED=$(gh api "repos/${{ github.repository }}/pulls?state=closed&per_page=100" \
-            --jq '[.[] | select(.merged_at != null and .merged_at >= (now - 604800 | strftime("%Y-%m-%dT%H:%M:%SZ")))] | length')
-          
+            --jq "[.[] | select(.merged_at != null and .merged_at >= \"$SINCE\")] | length")
+
           ISSUES_OPENED=$(gh api "repos/${{ github.repository }}/issues?state=all&per_page=100" \
-            --jq '[.[] | select(.pull_request == null and .created_at >= (now - 604800 | strftime("%Y-%m-%dT%H:%M:%SZ")))] | length')
+            --jq "[.[] | select(.pull_request == null and .created_at >= \"$SINCE\")] | length")
+
+          # Commits pro Autor
+          AUTHOR_STATS=$(gh api "repos/${{ github.repository }}/commits?since=$SINCE&per_page=100" \
+            --jq '[.[] | .commit.author.name] | group_by(.) | map("| 👤 " + .[0] + " | " + (length | tostring) + " |") | .[]')
+
+          # Commits pro Tag
+          DAILY_STATS=$(gh api "repos/${{ github.repository }}/commits?since=$SINCE&per_page=100" \
+            --jq '[.[] | .commit.author.date[:10]] | group_by(.) | map("| 📅 " + .[0] + " | " + (length | tostring) + " |") | .[]')
 
           gh issue create \
             --title "📊 Weekly Activity Report — KW ${{ steps.kw.outputs.value }} [Backend]" \
             --body "## 📊 Weekly Activity Report — KW ${{ steps.kw.outputs.value }}
-          
+
           > Automatisch generiert am $(date '+%d.%m.%Y um %H:%M Uhr') · Zeitraum: letzte 7 Tage
-          
+
           ---
-          
-          ## 📈 Aktivität
-          
+
+          ## 📈 Übersicht
+
           | Metrik | Anzahl |
           |--------|--------|
           | 🔨 Commits | $COMMITS |
           | 🔀 PRs geöffnet | $PRS_OPENED |
           | ✅ PRs gemerged | $PRS_MERGED |
           | 🐛 Issues geöffnet | $ISSUES_OPENED |
-          
+
           ---
-          
+
+          ## 👥 Commits pro Autor
+
+          | Autor | Commits |
+          |-------|---------|
+          $AUTHOR_STATS
+
+          ---
+
+          ## 📅 Commits pro Tag
+
+          | Datum | Commits |
+          |-------|---------|
+          $DAILY_STATS
+
+          ---
+
           📁 Repo: ${{ github.repository }}
           🔗 [Alle Commits](https://github.com/${{ github.repository }}/commits/main) · [Alle PRs](https://github.com/${{ github.repository }}/pulls) · [Alle Issues](https://github.com/${{ github.repository }}/issues)" \
             --label "report,weekly,planning"
