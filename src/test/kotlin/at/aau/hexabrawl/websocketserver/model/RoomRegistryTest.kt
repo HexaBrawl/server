@@ -80,7 +80,7 @@ class RoomRegistryTest {
 
     @Test
     fun `removeRoom does nothing and throws no exception for unknown roomId`() {
-        val room = registry.createRoom(GameMode.DUAL_VALLEY)
+        registry.createRoom(GameMode.DUAL_VALLEY)
 
         // Aufruf trifft die `if (room != null)` Bedingung
         assertDoesNotThrow {
