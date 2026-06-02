@@ -8,6 +8,10 @@ on:
 jobs:
   report:
     runs-on: ubuntu-latest
+    
+    permissions:
+      issues: write  
+      contents: read
 
     steps:
       - name: Checkout
