@@ -4,5 +4,6 @@ enum class ErrorCode {
     NOT_YOUR_TURN,
     INVALID_MOVE,
     GAME_FULL,
-    GAME_NOT_STARTED
+    GAME_NOT_STARTED,
+    INSUFFICIENT_GOLD
 }

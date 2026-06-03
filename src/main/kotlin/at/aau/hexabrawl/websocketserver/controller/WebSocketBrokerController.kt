@@ -87,6 +87,27 @@ class WebSocketBrokerController(
         return stateAfter
     }
 
+    @MessageMapping("/buyFarm")
+    @SendTo("/topic/game")
+    fun buyFarm(headerAccessor: SimpMessageHeaderAccessor): GameState? {
+        val sessionId = headerAccessor.sessionId ?: ""
+        val state = gameService.getCurrentState()
+
+        // Spieler über die SessionId suchen
+        val player = state.players.find { it.sessionId == sessionId } ?: return null
+
+        // Kosten prüfen
+        val cost = GameService.FARM_BASE_COST + (player.farms * GameService.FARM_COST_INCREMENT)
+
+        if (player.gold < cost) {
+            sendError(sessionId, ErrorCode.INSUFFICIENT_GOLD, "Nicht genug Gold für eine Farm!")
+            return null // null returned -> kein Broadcast an alle
+        }
+
+        // Kauf durchführen und den neuen GameState an /topic/game senden
+        return gameService.buyFarm(state, player.name)
+    }
+
 
     fun handleJoin(name: String, sessionId: String) = gameService.handleJoin(name, sessionId)
     fun handleMove(move: Move) = gameService.handleMove(move)
