@@ -15,11 +15,12 @@ class WebSocketBrokerControllerTest {
     private lateinit var gameService: GameService
     private lateinit var messagingTemplate: SimpMessagingTemplate // Neu für Issue #24
     private lateinit var headerAccessor: SimpMessageHeaderAccessor // Neu für Issue #24
+    private lateinit var roomRegistry: RoomRegistry
 
     @BeforeEach
     fun setup() {
         gameService = GameService(CombatService())
-        val roomRegistry = RoomRegistry()
+        roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java) // Mock erstellen
         controller = WebSocketBrokerController(gameService, roomRegistry, messagingTemplate)
 
@@ -405,4 +406,61 @@ class WebSocketBrokerControllerTest {
 
         assertNull(result)
     }
+
+    @Test
+    fun `initRoom returns state of requested room`() {
+
+        val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
+
+        room.gameState.players.add(
+            Player("Alice", "session1", PlayerColor.RED)
+        )
+
+        val result = controller.initRoom(room.roomId)
+
+        assertNotNull(result)
+        assertEquals(1, result!!.players.size)
+        assertEquals("Alice", result.players[0].name)
+    }
+
+    @Test
+    fun `joinRoom returns null for invalid room id`() {
+
+        val headerAccessor = SimpMessageHeaderAccessor.create()
+
+        val result = controller.joinRoom(
+            "invalid-room-id",
+            "Alice",
+            headerAccessor
+        )
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `joinRoom adds player to requested room`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        val headerAccessor = SimpMessageHeaderAccessor.create()
+
+        controller.joinRoom(
+            room.roomId,
+            "Alice",
+            headerAccessor
+        )
+
+        assertEquals(
+            1,
+            room.gameState.players.size
+        )
+
+        assertEquals(
+            "Alice",
+            room.gameState.players[0].name
+        )
+    }
+
 }
