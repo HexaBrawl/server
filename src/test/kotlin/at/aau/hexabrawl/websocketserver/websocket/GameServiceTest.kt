@@ -364,4 +364,63 @@ class GameServiceTest {
         assertThat(state.status).isEqualTo(GameStatus.FINISHED)
         assertThat(state.winner).isEqualTo("Bob")
     }
+
+    @Test
+    fun `test buyFarm - erfolgreicher Kauf erhoeht die Kosten fuer die naechste Farm`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+        val alice = state.players.first { it.name == "Alice" }
+
+        alice.gold = 30
+
+        gameService.buyFarm(state, "Alice")
+        assertThat(alice.farms).isEqualTo(1)
+        assertThat(alice.gold).isEqualTo(18)
+
+        gameService.buyFarm(state, "Alice")
+        assertThat(alice.farms).isEqualTo(2)
+        assertThat(alice.gold).isEqualTo(4)
+    }
+
+    @Test
+    fun `test buyFarm - schlaegt bei zu wenig Gold fehl`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+        val alice = state.players.first { it.name == "Alice" }
+
+        alice.gold = 10
+        gameService.buyFarm(state, "Alice")
+
+        assertThat(alice.farms).isEqualTo(0)
+        assertThat(alice.gold).isEqualTo(10)
+    }
+
+    @Test
+    fun `test applyUpkeep - Farm-Einkommen verhindert Insolvenz`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+        val state = gameService.getCurrentState()
+        val alice = state.players.first { it.name == "Alice" }
+        val bob = state.players.first { it.name == "Bob" }
+
+        alice.farms = 1
+        alice.gold = 9
+        bob.gold = 20
+
+        val aliceInf = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, 0, 0))
+        val bobInf = state.units.first { it.player == "Bob" && it.type == UnitType.INFANTRY }
+        gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, 1, 1))
+
+        assertThat(alice.gold).isEqualTo(0)
+        assertThat(alice.farms).isEqualTo(1)
+        assertThat(state.units.filter { it.player == "Alice" }.all { it.type != UnitType.SKELETON }).isTrue()
+    }
 }

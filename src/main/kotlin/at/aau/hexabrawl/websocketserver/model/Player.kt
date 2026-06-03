@@ -5,5 +5,6 @@ data class Player (
     val name : String = "",
     val sessionId : String = "",
     val color: PlayerColor = PlayerColor.RED,
-    var gold: Int = 0
+    var gold: Int = 0,
+    var farms: Int = 0
 ){}

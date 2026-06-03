@@ -12,6 +12,9 @@ class GameService(
     companion object {
         const val MAX_PLAYERS = 2
         const val STARTING_GOLD = 6
+        const val FARM_INCOME_PER_ROUND = 3
+        const val FARM_BASE_COST = 12
+        const val FARM_COST_INCREMENT = 2
     }
 
     fun handleJoin(state: GameState, playerName: String, sessionId:String=""): GameState = synchronized(state.lock) {
@@ -247,6 +250,9 @@ class GameService(
 
     private fun applyUpkeep(state: GameState) {
         state.players.forEach { player ->
+            // Farm-Einkommen gutschreiben
+            player.gold += player.farms * FARM_INCOME_PER_ROUND
+
             // Skelette herausfiltern, damit sie in Zukunft keinen Unterhalt mehr kosten
             val playerUnits = state.units.filter { it.player == player.name && it.type != UnitType.SKELETON }
             val unitCount = playerUnits.size
@@ -266,5 +272,22 @@ class GameService(
 
         // Prüfen, ob durch Insolvenz ein Spieler alle lebenden Einheiten verloren hat (Win-Condition)
         checkWinCondition(state)
+    }
+
+    fun buyFarm(state: GameState, playerName: String): GameState = synchronized(state.lock) {
+        if (state.status != GameStatus.IN_PROGRESS) return state
+
+        val player = state.players.find { it.name == playerName } ?: return state
+
+        val cost = FARM_BASE_COST + (player.farms * FARM_COST_INCREMENT)
+
+        if (player.gold >= cost) {
+            player.gold -= cost
+            player.farms += 1
+            println("Service: $playerName kaufte Farm für $cost. (Total: ${player.farms})")
+        } else {
+            println("Service: $playerName hat zu wenig Gold ($cost) für Farm.")
+        }
+        return state
     }
 }
