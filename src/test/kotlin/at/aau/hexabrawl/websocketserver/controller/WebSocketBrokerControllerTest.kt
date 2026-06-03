@@ -413,14 +413,14 @@ class WebSocketBrokerControllerTest {
         val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
 
         room.gameState.players.add(
-            Player("Alice", "session1", PlayerColor.RED)
+            Player("Josef", "session1", PlayerColor.RED)
         )
 
         val result = controller.initRoom(room.roomId)
 
         assertNotNull(result)
         assertEquals(1, result!!.players.size)
-        assertEquals("Alice", result.players[0].name)
+        assertEquals("Josef", result.players[0].name)
     }
 
     @Test
@@ -430,7 +430,7 @@ class WebSocketBrokerControllerTest {
 
         val result = controller.joinRoom(
             "invalid-room-id",
-            "Alice",
+            "Josef",
             headerAccessor
         )
 
@@ -448,7 +448,7 @@ class WebSocketBrokerControllerTest {
 
         controller.joinRoom(
             room.roomId,
-            "Alice",
+            "Josef",
             headerAccessor
         )
 
@@ -458,9 +458,59 @@ class WebSocketBrokerControllerTest {
         )
 
         assertEquals(
-            "Alice",
+            "Josef",
             room.gameState.players[0].name
         )
+    }
+
+    @Test
+    fun `moveRoom returns null for invalid room id`() {
+
+        val headerAccessor = SimpMessageHeaderAccessor.create()
+
+        val move = Move(
+            player = "Josef",
+            type = UnitType.INFANTRY,
+            fromX = 0,
+            fromY = 0,
+            toX = 1,
+            toY = 0
+        )
+
+        val result = controller.moveRoom(
+            "invalid-room-id",
+            move,
+            headerAccessor
+        )
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `moveRoom returns null when game not started`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        val headerAccessor = SimpMessageHeaderAccessor.create()
+
+        val move = Move(
+            player = "Josef",
+            type = UnitType.INFANTRY,
+            fromX = 0,
+            fromY = 0,
+            toX = 1,
+            toY = 0
+        )
+
+        val result = controller.moveRoom(
+            room.roomId,
+            move,
+            headerAccessor
+        )
+
+        assertNull(result)
     }
 
 }
