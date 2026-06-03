@@ -6,7 +6,9 @@ import at.aau.hexabrawl.websocketserver.model.GameService
 import at.aau.hexabrawl.websocketserver.model.GameState
 import at.aau.hexabrawl.websocketserver.model.GameStatus
 import at.aau.hexabrawl.websocketserver.model.Move
+import at.aau.hexabrawl.websocketserver.model.RoomRegistry
 import at.aau.hexabrawl.websocketserver.model.StompMessage
+import org.springframework.messaging.handler.annotation.DestinationVariable
 import org.springframework.messaging.handler.annotation.MessageMapping
 import org.springframework.messaging.handler.annotation.SendTo
 import org.springframework.stereotype.Controller
@@ -21,6 +23,7 @@ import org.springframework.messaging.simp.annotation.SendToUser
 @Controller
 class WebSocketBrokerController(
     private val gameService: GameService,
+    private val roomRegistry: RoomRegistry,
     private val messagingTemplate: SimpMessagingTemplate
 ) {
 
@@ -59,6 +62,18 @@ class WebSocketBrokerController(
     @SendTo("/topic/game")
     fun init(): GameState {
         return gameService.getCurrentState()
+    }
+
+    @MessageMapping("/rooms/{roomId}/init")
+    fun initRoom(
+        @DestinationVariable roomId: String
+    ): GameState? {
+        val room = roomRegistry.findById(roomId)
+            ?: return null
+
+        return gameService.getCurrentState(
+            room.gameState
+        )
     }
 
     @MessageMapping("/move")

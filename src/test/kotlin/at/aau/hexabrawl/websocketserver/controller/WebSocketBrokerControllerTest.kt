@@ -19,8 +19,9 @@ class WebSocketBrokerControllerTest {
     @BeforeEach
     fun setup() {
         gameService = GameService(CombatService())
+        val roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java) // Mock erstellen
-        controller = WebSocketBrokerController(gameService, messagingTemplate)
+        controller = WebSocketBrokerController(gameService, roomRegistry, messagingTemplate)
 
         headerAccessor = mock(SimpMessageHeaderAccessor::class.java)
         `when`(headerAccessor.sessionId).thenReturn("test-session")
@@ -396,5 +397,12 @@ class WebSocketBrokerControllerTest {
         assertNotNull(result)
 
         assertEquals("Bob", result?.currentTurn)
+    }
+
+    @Test
+    fun `initRoom returns null for invalid room id`() {
+        val result = controller.initRoom("invalid-room-id")
+
+        assertNull(result)
     }
 }
