@@ -131,4 +131,33 @@ class HealthControllerTest {
 
         assertEquals(3, rooms[0]["maxPlayers"])
     }
+
+    @Test
+    fun `health endpoint returns uptime`() {
+        val response = controller.health()
+        assertNotNull(response.body?.get("uptime"))
+        assertTrue(response.body?.get("uptime").toString().endsWith("s"))
+    }
+
+    @Test
+    fun `health endpoint returns openRooms count`() {
+        registry.createRoom(GameMode.DUAL_VALLEY)
+        val response = controller.health()
+        assertEquals(1, response.body?.get("openRooms"))
+    }
+
+    @Test
+    fun `health endpoint returns activeRooms count`() {
+        val room = registry.createRoom(GameMode.DUAL_VALLEY)
+        room.gameState.status = GameStatus.IN_PROGRESS
+        val response = controller.health()
+        assertEquals(1, response.body?.get("activeRooms"))
+    }
+
+    @Test
+    fun `health endpoint returns 0 activeRooms when no active rooms`() {
+        registry.createRoom(GameMode.DUAL_VALLEY)
+        val response = controller.health()
+        assertEquals(0, response.body?.get("activeRooms"))
+    }
 }
