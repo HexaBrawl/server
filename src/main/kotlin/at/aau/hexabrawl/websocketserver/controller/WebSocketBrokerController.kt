@@ -100,7 +100,6 @@ class WebSocketBrokerController(
         val cost = GameService.FARM_BASE_COST + (player.farms * GameService.FARM_COST_INCREMENT)
 
         if (player.gold < cost) {
-            // Deine eigene Hilfsfunktion nutzen!
             sendError(sessionId, ErrorCode.INSUFFICIENT_GOLD, "Nicht genug Gold für eine Farm!")
             return null // null returned -> kein Broadcast an alle
         }
