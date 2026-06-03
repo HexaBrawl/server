@@ -15,6 +15,13 @@ class GameService(
         const val FARM_INCOME_PER_ROUND = 3
         const val FARM_BASE_COST = 12
         const val FARM_COST_INCREMENT = 2
+
+        // Basis-Positionen für DUAL_VALLEY-Modus (8x8-Grid).
+        // Bewusst an die Grid-Raender gesetzt, damit haeufige Test-Move-Ziele
+        // wie (6,6) oder (3,1) frei bleiben - sonst blockiert friendlyOnTarget
+        // legitime Moves der bestehenden Test-Suite.
+        val BASE_POSITION_P1: Pair<Int, Int> = Pair(3, 0)
+        val BASE_POSITION_P2: Pair<Int, Int> = Pair(6, 7)
     }
 
     fun handleJoin(state: GameState, playerName: String, sessionId:String=""): GameState = synchronized(state.lock) {
@@ -44,13 +51,20 @@ class GameService(
                 Pair(7, 5)
             )
 
-            UnitType.entries.filter { it != UnitType.SKELETON }.forEachIndexed { index, type ->
-                val (x1, y1) = startPositionsP1[index]
-                val (x2, y2) = startPositionsP2[index]
+            UnitType.entries
+                .filter { it != UnitType.SKELETON && it != UnitType.BASE }
+                .forEachIndexed { index, type ->
+                    val (x1, y1) = startPositionsP1[index]
+                    val (x2, y2) = startPositionsP2[index]
 
-                state.units.add(GameUnit(p1.name, x1, y1, type))
-                state.units.add(GameUnit(p2.name, x2, y2, type))
-            }
+                    state.units.add(GameUnit(p1.name, x1, y1, type))
+                    state.units.add(GameUnit(p2.name, x2, y2, type))
+                }
+
+            // Basis pro Spieler platzieren - das ist die Sieg-relevante Entitaet:
+            // wer die gegnerische Basis erreicht, gewinnt sofort (siehe Folge-Sub-Issue).
+            state.units.add(GameUnit(p1.name, BASE_POSITION_P1.first, BASE_POSITION_P1.second, UnitType.BASE))
+            state.units.add(GameUnit(p2.name, BASE_POSITION_P2.first, BASE_POSITION_P2.second, UnitType.BASE))
 
             state.currentTurn = p1.name
             state.status = GameStatus.IN_PROGRESS
@@ -69,6 +83,9 @@ class GameService(
     fun handleMove(state: GameState, move: Move): GameState = synchronized(state.lock) {
         if (state.status != GameStatus.IN_PROGRESS) return state
         if (move.player != state.currentTurn) return state
+
+        // Basen sind stationaer - sie koennen nicht via Move-Befehl bewegt werden.
+        if (move.type == UnitType.BASE) return state
 
         val unit = state.units.firstOrNull {
             it.player == move.player &&
@@ -90,6 +107,19 @@ class GameService(
         }
 
         if (enemyOnTarget != null) {
+            // Basis-Angriff: Basen sind nicht combat-faehig - sie werden ohne
+            // Stein-Schere-Papier-Resolution direkt zerstoert. Der Angreifer
+            // ueberlebt immer und zieht auf die Basis-Position.
+            // checkWinCondition triggert anschliessend den Sieg.
+            if (enemyOnTarget.type == UnitType.BASE) {
+                state.units.remove(enemyOnTarget)
+                unit.x = move.toX
+                unit.y = move.toY
+                switchTurn(state)
+                checkWinCondition(state)
+                return state
+            }
+
             val result = combatService.resolveCombat(unit, enemyOnTarget)
             combatService.applyCombatResult(result, unit, enemyOnTarget)
             if (!result.defenderSurvived) state.units.remove(enemyOnTarget)
@@ -111,23 +141,29 @@ class GameService(
     /**
      * Checks whether the match has ended after the latest mutation.
      *
-     * If exactly one player still has at least one non-SKELETON unit on the
-     * board, that player is declared the winner. If no player has any units
-     * left (e.g. last move was a mutual-kill combat), the match ends as a
-     * draw. Otherwise the game continues.
+     * Win condition is based on BASE existence:
+     * - If exactly one player still has a BASE on the board, that player
+     *   is declared the winner.
+     * - If no player has a BASE left (e.g. both bases were destroyed in
+     *   the same sequence of events), the match ends as a draw.
+     * - Otherwise the game continues.
      *
-     * Only runs while the game is IN_PROGRESS, so calling it from non-success
-     * paths or before game start is harmless.
+     * Regular unit losses (ARCHER/INFANTRY/CAVALRY) no longer end the
+     * match - players can lose all their regular units and the game
+     * continues as long as their base stands.
+     *
+     * Only runs while the game is IN_PROGRESS, so calling it from
+     * non-success paths or before game start is harmless.
      */
     private fun checkWinCondition(state: GameState) {
         if (state.status != GameStatus.IN_PROGRESS) return
 
-        val playersWithLivingUnits = state.units
-            .filter { it.type != UnitType.SKELETON }
+        val playersWithBase = state.units
+            .filter { it.type == UnitType.BASE }
             .map { it.player }
             .distinct()
 
-        when (playersWithLivingUnits.size) {
+        when (playersWithBase.size) {
             0 -> {
                 state.status = GameStatus.FINISHED
                 state.winner = null
@@ -135,11 +171,11 @@ class GameService(
             }
             1 -> {
                 state.status = GameStatus.FINISHED
-                state.winner = playersWithLivingUnits[0]
+                state.winner = playersWithBase[0]
                 state.currentTurn = null
             }
             else -> {
-                // >= 2 players still have units: game continues.
+                // >= 2 players still have a base: game continues.
             }
         }
     }
@@ -201,15 +237,21 @@ class GameService(
             val startX = if (index == 0) 2 else 5
             val startY = if (index == 0) 2 else 5
 
-            UnitType.entries.filter { it != UnitType.SKELETON }.forEachIndexed { typeIndex, type ->
-                val newUnit = GameUnit(
-                    player = player.name,
-                    x = startX + typeIndex,
-                    y = startY,
-                    type = type
-                )
-                state.units.add(newUnit)
-            }
+            UnitType.entries
+                .filter { it != UnitType.SKELETON && it != UnitType.BASE }
+                .forEachIndexed { typeIndex, type ->
+                    val newUnit = GameUnit(
+                        player = player.name,
+                        x = startX + typeIndex,
+                        y = startY,
+                        type = type
+                    )
+                    state.units.add(newUnit)
+                }
+
+            // Basis pro Spieler an der vordefinierten Position wiederherstellen
+            val basePos = if (index == 0) BASE_POSITION_P1 else BASE_POSITION_P2
+            state.units.add(GameUnit(player.name, basePos.first, basePos.second, UnitType.BASE))
         }
 
         state.currentTurn = state.players.firstOrNull()?.name

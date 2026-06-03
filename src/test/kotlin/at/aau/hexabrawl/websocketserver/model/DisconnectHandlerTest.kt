@@ -70,8 +70,9 @@ class DisconnectHandlerTest {
 
         gameService.handleDisconnect("session-1")
 
+        // 3 regulaere Einheiten (ARCHER, INFANTRY, CAVALRY) + 1 BASE pro Spieler.
         val bobUnits = gameService.gameState.units.filter { it.player == "Bob" }
-        assertEquals(3, bobUnits.size)
+        assertEquals(4, bobUnits.size)
     }
 
     @Test

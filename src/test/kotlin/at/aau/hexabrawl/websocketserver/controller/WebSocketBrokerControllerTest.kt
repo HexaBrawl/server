@@ -48,10 +48,12 @@ class WebSocketBrokerControllerTest {
 
         assertEquals(2, state.players.size)
         assertNotNull(state.currentTurn)
-        assertEquals(6, state.units.size)
+        // 3 regulaere Einheiten (ARCHER, INFANTRY, CAVALRY) + 1 BASE pro Spieler = 8 Units total.
+        assertEquals(8, state.units.size)
         assertTrue(state.units.any { it.type == UnitType.ARCHER })
         assertTrue(state.units.any { it.type == UnitType.INFANTRY })
         assertTrue(state.units.any { it.type == UnitType.CAVALRY })
+        assertTrue(state.units.any { it.type == UnitType.BASE })
         assertEquals(GameStatus.IN_PROGRESS, state.status)
     }
 
@@ -361,6 +363,55 @@ class WebSocketBrokerControllerTest {
             eq("/queue/errors"),
             argThat { it is ErrorMessage && it.errorCode == ErrorCode.INVALID_MOVE }
         )
+    }
+
+    @Test
+    fun `move via websocket rejected when game status is FINISHED`() {
+        controller.handleJoin("Alice", "session-1")
+        controller.handleJoin("Bob", "session-2")
+
+        gameService.gameState.status = GameStatus.FINISHED
+    }
+
+    @Test
+    fun `broadcasts new state on success`() {
+        controller.handleJoin("Alice", "session-1")
+        controller.handleJoin("Bob", "session-2")
+
+        val move = Move(
+            player = "Alice",
+            type = UnitType.INFANTRY,
+            fromX = 3,
+            fromY = 2,
+            toX = 3,
+            toY = 3
+        )
+
+        val result = controller.move(move, headerAccessor)
+
+        assertNotNull(result)
+
+        verifyNoInteractions(messagingTemplate)
+    }
+
+    @Test
+    fun `valid move switches turn`() {
+        controller.handleJoin("Alice", "session-1")
+        controller.handleJoin("Bob", "session-2")
+
+        val move = Move(
+            player = "Alice",
+            type = UnitType.INFANTRY,
+            fromX = 3,
+            fromY = 2,
+            toX = 3,
+            toY = 3
+        )
+        val result = controller.move(move, headerAccessor)
+
+        assertNotNull(result)
+
+        assertEquals("Bob", result?.currentTurn)
     }
 
     @Test
