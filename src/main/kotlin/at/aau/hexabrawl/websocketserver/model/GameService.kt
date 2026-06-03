@@ -11,6 +11,10 @@ class GameService(
 
     companion object {
         const val MAX_PLAYERS = 2
+        const val STARTING_GOLD = 6
+        const val FARM_INCOME_PER_ROUND = 3
+        const val FARM_BASE_COST = 12
+        const val FARM_COST_INCREMENT = 2
     }
 
     fun handleJoin(state: GameState, playerName: String, sessionId:String=""): GameState = synchronized(state.lock) {
@@ -18,7 +22,7 @@ class GameService(
 
         if (!state.players.any{it.name == playerName} && state.players.size < MAX_PLAYERS) {
             val color = if (state.players.isEmpty()) PlayerColor.RED else PlayerColor.BLUE
-            state.players.add(Player(playerName, sessionId,color))
+            state.players.add(Player(playerName, sessionId,color, STARTING_GOLD))
             println("JOIN: $playerName")
         }
 
@@ -98,8 +102,7 @@ class GameService(
         unit.x = move.toX
         unit.y = move.toY
 
-        val (p1, p2) = state.players
-        state.currentTurn = if (state.currentTurn == p1.name) p2.name else p1.name
+        switchTurn(state)
 
         checkWinCondition(state)
         return state
@@ -156,6 +159,11 @@ class GameService(
                 p2.name
             else
                 p1.name
+
+        // Wenn der Zug wieder bei Spieler 1 (p1) ist, ist eine Runde vorbei
+        if (state.currentTurn == p1.name) {
+            applyUpkeep(state)
+        }
     }
 
     // WICHTIG FÜR TEST  Nur den aktuellen Stand lesen
@@ -240,4 +248,46 @@ class GameService(
         sessionId: String
     ): GameState = handleDisconnect(this.gameState, sessionId)
 
+    private fun applyUpkeep(state: GameState) {
+        state.players.forEach { player ->
+            // Farm-Einkommen gutschreiben
+            player.gold += player.farms * FARM_INCOME_PER_ROUND
+
+            // Skelette herausfiltern, damit sie in Zukunft keinen Unterhalt mehr kosten
+            val playerUnits = state.units.filter { it.player == player.name && it.type != UnitType.SKELETON }
+            val unitCount = playerUnits.size
+
+            // Unterhalt berechnen (Arithmetische Reihe: 1. Einheit kostet 3, jede weitere +1)
+            val upkeep = (0 until unitCount).sumOf { 3 + it }
+
+            if (player.gold >= upkeep) {
+                // Normaler Abzug
+                player.gold -= upkeep
+            } else {
+                // Insolvenz: Gold auf 0, alle lebenden Truppen werden zu Skeletten!
+                player.gold = 0
+                playerUnits.forEach { it.type = UnitType.SKELETON }
+            }
+        }
+
+        // Prüfen, ob durch Insolvenz ein Spieler alle lebenden Einheiten verloren hat (Win-Condition)
+        checkWinCondition(state)
+    }
+
+    fun buyFarm(state: GameState, playerName: String): GameState = synchronized(state.lock) {
+        if (state.status != GameStatus.IN_PROGRESS) return state
+
+        val player = state.players.find { it.name == playerName } ?: return state
+
+        val cost = FARM_BASE_COST + (player.farms * FARM_COST_INCREMENT)
+
+        if (player.gold >= cost) {
+            player.gold -= cost
+            player.farms += 1
+            println("Service: $playerName kaufte Farm für $cost. (Total: ${player.farms})")
+        } else {
+            println("Service: $playerName hat zu wenig Gold ($cost) für Farm.")
+        }
+        return state
+    }
 }
