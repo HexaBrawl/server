@@ -99,6 +99,25 @@ class WebSocketBrokerController(
     }
 
 
+    @MessageMapping("/endTurn")
+    @SendTo("/topic/game")
+    fun endTurn(playerName: String, headerAccessor: SimpMessageHeaderAccessor): GameState? {
+        val sessionId = headerAccessor.sessionId ?: ""
+        val stateBefore = gameService.getCurrentState()
+
+        if (stateBefore.status != GameStatus.IN_PROGRESS) {
+            sendError(sessionId, ErrorCode.GAME_NOT_STARTED, "Runde beenden abgelehnt: Spiel laeuft nicht.")
+            return null
+        }
+
+        if (stateBefore.currentTurn != playerName) {
+            sendError(sessionId, ErrorCode.NOT_YOUR_TURN, "Du kannst nicht die Runde eines anderen Spielers beenden!")
+            return null
+        }
+
+        return gameService.endTurn(playerName)
+    }
+
     fun handleJoin(name: String, sessionId: String) = gameService.handleJoin(name, sessionId)
     fun handleMove(move: Move) = gameService.handleMove(move)
 
