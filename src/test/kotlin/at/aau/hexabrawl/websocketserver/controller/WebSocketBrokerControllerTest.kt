@@ -407,4 +407,53 @@ class WebSocketBrokerControllerTest {
 
         assertEquals("Bob", result?.currentTurn)
     }
+
+    // ---- Tests fuer Move-Distanz-Validierung (Sub-Issue #102) -----------
+
+    @Test
+    fun `move further than 2 hex fields is rejected`() {
+        controller.handleJoin("Alice", "session-1")
+        controller.handleJoin("Bob", "session-2")
+
+        // Alice INFANTRY steht auf (3, 2), Versuch auf (3, 7) - viel zu weit.
+        val move = Move("Alice", UnitType.INFANTRY, 3, 2, 3, 7)
+        val state = controller.handleMove(move)
+
+        // Position unveraendert.
+        val infantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
+        assertEquals(3, infantry.x)
+        assertEquals(2, infantry.y)
+
+        // Turn switcht nicht.
+        assertEquals("Alice", state.currentTurn)
+    }
+
+    @Test
+    fun `move exactly 2 hex fields is accepted`() {
+        controller.handleJoin("Alice", "session-1")
+        controller.handleJoin("Bob", "session-2")
+
+        // (3, 2) -> (5, 2): genau 2 Hex weit, Ziel frei.
+        val move = Move("Alice", UnitType.INFANTRY, 3, 2, 5, 2)
+        val state = controller.handleMove(move)
+
+        val infantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
+        assertEquals(5, infantry.x)
+        assertEquals(2, infantry.y)
+
+        // Turn ist gewechselt.
+        assertEquals("Bob", state.currentTurn)
+    }
+
+    @Test
+    fun `move to same field is rejected`() {
+        controller.handleJoin("Alice", "session-1")
+        controller.handleJoin("Bob", "session-2")
+
+        // (3, 2) -> (3, 2): Distanz 0.
+        val move = Move("Alice", UnitType.INFANTRY, 3, 2, 3, 2)
+        val state = controller.handleMove(move)
+
+        assertEquals("Alice", state.currentTurn)
+    }
 }
