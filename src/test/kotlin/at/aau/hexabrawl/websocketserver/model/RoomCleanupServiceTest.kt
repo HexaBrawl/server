@@ -55,7 +55,7 @@ class RoomCleanupServiceTest {
         val room = registry.createRoom(GameMode.DUAL_VALLEY)
         room.gameState.status = GameStatus.FINISHED
 
-        setRoomAge(room.roomId, 6)
+        setRoomAge(room.roomId)
 
         cleanupService.cleanupInactiveRooms()
 
@@ -67,7 +67,7 @@ class RoomCleanupServiceTest {
     fun `cleanupInactiveRooms removes empty rooms after threshold`() {
         val room = registry.createRoom(GameMode.DUAL_VALLEY)
 
-        setRoomAge(room.roomId, 6)
+        setRoomAge(room.roomId)
 
         cleanupService.cleanupInactiveRooms()
 
@@ -80,7 +80,7 @@ class RoomCleanupServiceTest {
         room.gameState.players.add(Player("Alice", "s1", PlayerColor.RED))
         room.gameState.status = GameStatus.IN_PROGRESS
 
-        setRoomAge(room.roomId, 6)
+        setRoomAge(room.roomId)
 
         cleanupService.cleanupInactiveRooms()
 
@@ -94,7 +94,7 @@ class RoomCleanupServiceTest {
 
     @Test
     fun `cleanupInactiveRooms handles unknown roomId gracefully`() {
-        setRoomAge("non-existent-id", 6)
+        setRoomAge("non-existent-id")
 
         assertDoesNotThrow { cleanupService.cleanupInactiveRooms() }
         assertEquals(0, cleanupService.getTrackedRoomCount())
@@ -105,7 +105,7 @@ class RoomCleanupServiceTest {
         val room = registry.createRoom(GameMode.DUAL_VALLEY)
         room.gameState.status = GameStatus.FINISHED
 
-        setRoomAge(room.roomId, 6)
+        setRoomAge(room.roomId)
 
         cleanupService.cleanupInactiveRooms()
 
@@ -126,11 +126,11 @@ class RoomCleanupServiceTest {
     }
 
     // Helper Funktion
-    private fun setRoomAge(roomId: String, minutes: Long) {
+    private fun setRoomAge(roomId: String) {
         val field = RoomCleanupService::class.java.getDeclaredField("roomCreationTimes")
         field.isAccessible = true
         @Suppress("UNCHECKED_CAST")
         val times = field.get(cleanupService) as ConcurrentHashMap<String, LocalDateTime>
-        times[roomId] = LocalDateTime.now().minusMinutes(minutes)
+        times[roomId] = LocalDateTime.now().minusMinutes(6)
     }
 }
