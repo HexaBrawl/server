@@ -20,13 +20,21 @@ class GameService(
         val BASE_POSITION_P2: Pair<Int, Int> = Pair(6, 7)
     }
 
-    fun handleJoin(state: GameState, playerName: String, sessionId:String=""): GameState = synchronized(state.lock) {
+    fun handleJoin(
+        state: GameState,
+        playerName: String,
+        sessionId: String = "",
+        color: PlayerColor? = null
+    ): GameState = synchronized(state.lock) {
         // Spieler hinzufügen, falls noch nicht vorhanden und Platz ist
 
         if (!state.players.any{it.name == playerName} && state.players.size < MAX_PLAYERS) {
-            val color = if (state.players.isEmpty()) PlayerColor.RED else PlayerColor.BLUE
-            state.players.add(Player(playerName, sessionId,color))
-            println("JOIN: $playerName")
+            // Wenn Color vom Client angegeben → nimm diese.
+            // Sonst Fallback auf alte Logik (Backward-Compat fuer Tests / alten Client).
+            val assignedColor = color
+                ?: if (state.players.isEmpty()) PlayerColor.RED else PlayerColor.BLUE
+            state.players.add(Player(playerName, sessionId, assignedColor))
+            println("JOIN: $playerName (color: $assignedColor)")
         }
 
         // Automatischer Start bei 2 Spielern
@@ -73,8 +81,9 @@ class GameService(
     //Bridge Method handleJoin
     fun handleJoin(
         playerName: String,
-        sessionId: String = ""
-    ): GameState = handleJoin(this.gameState, playerName, sessionId)
+        sessionId: String = "",
+        color: PlayerColor? = null
+    ): GameState = handleJoin(this.gameState, playerName, sessionId, color)
 
     fun handleMove(state: GameState, move: Move): GameState = synchronized(state.lock) {
         if (state.status != GameStatus.IN_PROGRESS) return state
