@@ -190,7 +190,7 @@ class WebSocketBrokerControllerTest {
     fun `game stays waiting when only one player joins`() {
         val localHeaderAccessor = SimpMessageHeaderAccessor.create()
 
-        val state = controller.join("Alice", localHeaderAccessor)!!
+        val state = controller.join(JoinRequest(name = "Alice"), localHeaderAccessor)!!
 
         assertEquals(1, state.players.size)
         assertEquals(GameStatus.WAITING_FOR_PLAYERS, state.status)
@@ -270,7 +270,7 @@ class WebSocketBrokerControllerTest {
         `when`(localHeaderAccessor.sessionId).thenReturn(null)
 
         val state = controller.join(
-            "Alice",
+            JoinRequest(name = "Alice"),
             localHeaderAccessor
         )!!
 
@@ -287,7 +287,7 @@ class WebSocketBrokerControllerTest {
         `when`(localHeaderAccessor.sessionId).thenReturn("session-1")
 
         val state = controller.join(
-            "Josef",
+            JoinRequest(name = "Josef"),
             localHeaderAccessor
         )!!
 
@@ -303,7 +303,7 @@ class WebSocketBrokerControllerTest {
         controller.handleJoin("P1", "session-1")
         controller.handleJoin("P2", "session-2")
 
-        val result = controller.join("P3", headerAccessor)
+        val result = controller.join(JoinRequest(name = "P3"), headerAccessor)
 
         assertNull(result)
         verify(messagingTemplate).convertAndSendToUser(
