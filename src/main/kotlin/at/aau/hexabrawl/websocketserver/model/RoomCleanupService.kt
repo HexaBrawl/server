@@ -1,5 +1,6 @@
 package at.aau.hexabrawl.websocketserver.model
 
+import org.slf4j.LoggerFactory
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
@@ -21,6 +22,7 @@ class RoomCleanupService(
     private val lock = Any()
 
     companion object {
+        private val log = LoggerFactory.getLogger(RoomCleanupService::class.java)
         /** Time in minutes after which inactive rooms are removed. */
         const val CLEANUP_THRESHOLD_MINUTES = 5L
     }
@@ -30,9 +32,10 @@ class RoomCleanupService(
      * Should be called when a room is created.
      *
      * @param roomId The unique identifier of the room.
+     * @param time The timestamp to register (Defaults to now, can be overridden for testing).
      */
-    fun trackRoom(roomId: String) = synchronized(lock) {
-        roomCreationTimes[roomId] = LocalDateTime.now()
+    fun trackRoom(roomId: String, time: LocalDateTime = LocalDateTime.now()) = synchronized(lock) {
+        roomCreationTimes[roomId] = time
     }
 
     /**
@@ -41,25 +44,34 @@ class RoomCleanupService(
      * Runs automatically every minute in the background.
      */
     @Scheduled(fixedDelay = 60000)
-    fun cleanupInactiveRooms() = synchronized(lock) {
-        val threshold = LocalDateTime.now().minusMinutes(CLEANUP_THRESHOLD_MINUTES)
+    fun cleanupInactiveRooms() {
+        // 1. Snapshot der IDs holen, die zeitlich abgelaufen sind (minimiert Lock-Dauer)
+        val expiredRoomIds = synchronized(lock) {
+            val threshold = LocalDateTime.now().minusMinutes(CLEANUP_THRESHOLD_MINUTES)
+            roomCreationTimes.filter { it.value.isBefore(threshold) }.keys.toList()
+        }
 
-        val roomsToRemove = roomCreationTimes.filter { (roomId, createdAt) ->
-            if (createdAt.isBefore(threshold)) {
-                val room = roomRegistry.findById(roomId)
-                room == null ||
-                        room.status == GameStatus.FINISHED ||
-                        room.players.isEmpty()
-            } else false
-        }.keys
+        // 2. Für jede abgelaufene ID den aktuellen Registry-Zustand prüfen und sicher löschen
+        expiredRoomIds.forEach { roomId ->
+            val room = roomRegistry.findById(roomId)
 
-        roomsToRemove.forEach { roomId ->
-            val destination = "/topic/rooms/$roomId/closed"
-            val payload: Any = mapOf("roomId" to roomId, "reason" to "Room expired")
-            messagingTemplate.convertAndSend(destination, payload)
-            roomRegistry.removeRoom(roomId)
-            roomCreationTimes.remove(roomId)
-            println("CleanupService: Room $roomId removed")
+            // Verhindert Race Conditions: Nochmaliger Check des aktuellen Zustands kurz vor dem Löschen
+            val shouldRemove = room == null ||
+                    room.status == GameStatus.FINISHED ||
+                    room.players.isEmpty()
+
+            if (shouldRemove) {
+                val destination = "/topic/rooms/$roomId/closed"
+                val payload: Any = mapOf("roomId" to roomId, "reason" to "Room expired")
+                messagingTemplate.convertAndSend(destination, payload)
+
+                roomRegistry.removeRoom(roomId)
+
+                synchronized(lock) {
+                    roomCreationTimes.remove(roomId)
+                }
+                log.info("CleanupService: Room {} removed due to inactivity", roomId)
+            }
         }
     }
 

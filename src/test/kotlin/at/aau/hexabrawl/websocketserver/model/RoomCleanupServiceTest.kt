@@ -8,7 +8,6 @@ import org.mockito.ArgumentMatchers.any
 import org.mockito.ArgumentMatchers.eq
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import java.time.LocalDateTime
-import java.util.concurrent.ConcurrentHashMap
 
 class RoomCleanupServiceTest {
 
@@ -55,7 +54,8 @@ class RoomCleanupServiceTest {
         val room = registry.createRoom(GameMode.DUAL_VALLEY)
         room.gameState.status = GameStatus.FINISHED
 
-        setRoomAge(room.roomId)
+        // Nutzt jetzt den optionalen Parameter statt Reflection
+        cleanupService.trackRoom(room.roomId, LocalDateTime.now().minusMinutes(6))
 
         cleanupService.cleanupInactiveRooms()
 
@@ -67,7 +67,7 @@ class RoomCleanupServiceTest {
     fun `cleanupInactiveRooms removes empty rooms after threshold`() {
         val room = registry.createRoom(GameMode.DUAL_VALLEY)
 
-        setRoomAge(room.roomId)
+        cleanupService.trackRoom(room.roomId, LocalDateTime.now().minusMinutes(6))
 
         cleanupService.cleanupInactiveRooms()
 
@@ -80,7 +80,7 @@ class RoomCleanupServiceTest {
         room.gameState.players.add(Player("Alice", "s1", PlayerColor.RED))
         room.gameState.status = GameStatus.IN_PROGRESS
 
-        setRoomAge(room.roomId)
+        cleanupService.trackRoom(room.roomId, LocalDateTime.now().minusMinutes(6))
 
         cleanupService.cleanupInactiveRooms()
 
@@ -94,7 +94,7 @@ class RoomCleanupServiceTest {
 
     @Test
     fun `cleanupInactiveRooms handles unknown roomId gracefully`() {
-        setRoomAge("non-existent-id")
+        cleanupService.trackRoom("non-existent-id", LocalDateTime.now().minusMinutes(6))
 
         assertDoesNotThrow { cleanupService.cleanupInactiveRooms() }
         assertEquals(0, cleanupService.getTrackedRoomCount())
@@ -105,7 +105,7 @@ class RoomCleanupServiceTest {
         val room = registry.createRoom(GameMode.DUAL_VALLEY)
         room.gameState.status = GameStatus.FINISHED
 
-        setRoomAge(room.roomId)
+        cleanupService.trackRoom(room.roomId, LocalDateTime.now().minusMinutes(6))
 
         cleanupService.cleanupInactiveRooms()
 
@@ -123,14 +123,5 @@ class RoomCleanupServiceTest {
         cleanupService.cleanupInactiveRooms()
 
         verifyNoInteractions(messagingTemplate)
-    }
-
-    // Helper Funktion
-    private fun setRoomAge(roomId: String) {
-        val field = RoomCleanupService::class.java.getDeclaredField("roomCreationTimes")
-        field.isAccessible = true
-        @Suppress("UNCHECKED_CAST")
-        val times = field.get(cleanupService) as ConcurrentHashMap<String, LocalDateTime>
-        times[roomId] = LocalDateTime.now().minusMinutes(6)
     }
 }
