@@ -2,6 +2,7 @@ package at.aau.hexabrawl.websocketserver.controller
 
 import at.aau.hexabrawl.websocketserver.model.GameMode
 import at.aau.hexabrawl.websocketserver.model.GameStatus
+import at.aau.hexabrawl.websocketserver.model.RoomCleanupService
 import at.aau.hexabrawl.websocketserver.model.RoomRegistry
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -11,12 +12,14 @@ import org.springframework.http.HttpStatus
 class RoomControllerTest {
 
     private lateinit var registry: RoomRegistry
+    private lateinit var cleanupService: RoomCleanupService
     private lateinit var controller: RoomController
 
     @BeforeEach
     fun setUp() {
         registry = RoomRegistry()
-        controller = RoomController(registry)
+        cleanupService = RoomCleanupService(registry)
+        controller = RoomController(registry, cleanupService)
     }
 
     // ===== POST /api/rooms =====
