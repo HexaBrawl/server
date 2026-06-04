@@ -100,6 +100,11 @@ class GameService(
         val distance = HexDistance.between(move.fromX, move.fromY, move.toX, move.toY)
         if (distance == 0 || distance > MAX_MOVE_DISTANCE) return state
 
+        // Eine Einheit darf pro Runde nur einmal bewegt werden.
+        // Verhindert dass ein Spieler dieselbe Einheit zweimal in einer Runde
+        // zieht.
+        if (unit.hasMovedThisTurn) return state
+
         val friendlyOnTarget = state.units.any {
             it.x == move.toX && it.y == move.toY && it.player == move.player
         }
@@ -120,7 +125,7 @@ class GameService(
                 state.units.remove(enemyOnTarget)
                 unit.x = move.toX
                 unit.y = move.toY
-                switchTurn(state)
+                finishMove(state, unit, move.player)
                 checkWinCondition(state)
                 return state
             }
@@ -129,7 +134,7 @@ class GameService(
             combatService.applyCombatResult(result, unit, enemyOnTarget)
             if (!result.defenderSurvived) state.units.remove(enemyOnTarget)
             if (!result.attackerSurvived) state.units.remove(unit)
-            switchTurn(state)
+            finishMove(state, unit, move.player)
             checkWinCondition(state)
             return state
         }
@@ -137,8 +142,7 @@ class GameService(
         unit.x = move.toX
         unit.y = move.toY
 
-        val (p1, p2) = state.players
-        state.currentTurn = if (state.currentTurn == p1.name) p2.name else p1.name
+        finishMove(state, unit, move.player)
 
         checkWinCondition(state)
         return state
@@ -191,6 +195,24 @@ class GameService(
         move: Move
     ): GameState = handleMove(this.gameState, move)
 
+    /**
+     * Beendet die Runde des angegebenen Spielers freiwillig.
+     *
+     * Wird vom Controller aufgerufen wenn der Spieler auf "Runde beenden"
+     * klickt - auch wenn noch nicht alle Einheiten bewegt wurden. Nur der
+     * aktuelle Spieler kann seinen eigenen Turn beenden, andere werden
+     * ignoriert.
+     */
+    fun endTurn(state: GameState, playerName: String): GameState = synchronized(state.lock) {
+        if (state.status != GameStatus.IN_PROGRESS) return state
+        if (state.currentTurn != playerName) return state
+        switchTurn(state)
+        return state
+    }
+
+    //Bridge Method endTurn
+    fun endTurn(playerName: String): GameState = endTurn(this.gameState, playerName)
+
 
     private fun switchTurn(state: GameState) {
 
@@ -201,6 +223,45 @@ class GameService(
                 p2.name
             else
                 p1.name
+
+        // Neue Runde fuer den naechsten Spieler: alle Einheiten duerfen wieder ziehen.
+        state.units.forEach { it.hasMovedThisTurn = false }
+    }
+
+    /**
+     * Prueft ob der gegebene Spieler in dieser Runde bereits alle seine
+     * bewegbaren Einheiten gezogen hat. SKELETONs und BASEs zaehlen nicht
+     * als bewegbar.
+     *
+     * Gibt `false` zurueck wenn der Spieler keine bewegbaren Einheiten
+     * besitzt - in dem Fall muss der Turn manuell ueber endTurn beendet
+     * werden, sonst wuerde der Turn sofort wechseln ohne dass ein Move
+     * stattfand.
+     */
+    private fun allMovableUnitsHaveMoved(state: GameState, playerName: String): Boolean {
+        val movable = state.units.filter {
+            it.player == playerName &&
+                    it.type != UnitType.SKELETON &&
+                    it.type != UnitType.BASE
+        }
+        return movable.isNotEmpty() && movable.all { it.hasMovedThisTurn }
+    }
+
+    /**
+     * Wird nach jedem erfolgreichen Move aufgerufen. Markiert die Einheit
+     * als bewegt (falls sie noch lebt) und switcht automatisch den Turn
+     * wenn alle bewegbaren Einheiten des aktuellen Spielers gezogen haben.
+     */
+    private fun finishMove(state: GameState, unit: GameUnit, playerName: String) {
+        // Falls die Einheit den Move ueberlebt hat, als bewegt markieren.
+        // Nach Combat kann sie aus state.units entfernt worden sein.
+        if (unit in state.units) {
+            unit.hasMovedThisTurn = true
+        }
+        // Auto-Switch wenn alle Einheiten gezogen haben.
+        if (allMovableUnitsHaveMoved(state, playerName)) {
+            switchTurn(state)
+        }
     }
 
     // WICHTIG FÜR TEST  Nur den aktuellen Stand lesen

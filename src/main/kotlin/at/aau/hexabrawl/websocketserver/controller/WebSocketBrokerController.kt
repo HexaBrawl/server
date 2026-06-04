@@ -77,10 +77,20 @@ class WebSocketBrokerController(
             return null
         }
 
-        val turnBefore = stateBefore.currentTurn
+        // Snapshot vor dem Move - wenn sich nach handleMove nichts geaendert hat,
+        // wurde der Move abgelehnt. Currentturn-Vergleich reicht hier nicht mehr,
+        // weil der Turn mit dem Rundensystem nicht nach jedem Move switcht.
+        val unitsBefore = stateBefore.units.map {
+            "${it.player}-${it.type}-${it.x},${it.y}"
+        }.toSet()
+
         val stateAfter = gameService.handleMove(move)
 
-        if (stateAfter.currentTurn == turnBefore) {
+        val unitsAfter = stateAfter.units.map {
+            "${it.player}-${it.type}-${it.x},${it.y}"
+        }.toSet()
+
+        if (unitsBefore == unitsAfter) {
             sendError(sessionId, ErrorCode.INVALID_MOVE, "Dieser Zug ist laut Regeln ungültig.")
             return null
         }
@@ -88,6 +98,25 @@ class WebSocketBrokerController(
         return stateAfter
     }
 
+
+    @MessageMapping("/endTurn")
+    @SendTo("/topic/game")
+    fun endTurn(playerName: String, headerAccessor: SimpMessageHeaderAccessor): GameState? {
+        val sessionId = headerAccessor.sessionId ?: ""
+        val stateBefore = gameService.getCurrentState()
+
+        if (stateBefore.status != GameStatus.IN_PROGRESS) {
+            sendError(sessionId, ErrorCode.GAME_NOT_STARTED, "Runde beenden abgelehnt: Spiel laeuft nicht.")
+            return null
+        }
+
+        if (stateBefore.currentTurn != playerName) {
+            sendError(sessionId, ErrorCode.NOT_YOUR_TURN, "Du kannst nicht die Runde eines anderen Spielers beenden!")
+            return null
+        }
+
+        return gameService.endTurn(playerName)
+    }
 
     fun handleJoin(name: String, sessionId: String) = gameService.handleJoin(name, sessionId)
     fun handleMove(move: Move) = gameService.handleMove(move)
