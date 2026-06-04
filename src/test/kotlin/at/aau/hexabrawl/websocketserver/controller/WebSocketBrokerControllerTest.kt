@@ -15,12 +15,14 @@ class WebSocketBrokerControllerTest {
     private lateinit var gameService: GameService
     private lateinit var messagingTemplate: SimpMessagingTemplate // Neu für Issue #24
     private lateinit var headerAccessor: SimpMessageHeaderAccessor // Neu für Issue #24
+    private lateinit var roomRegistry: RoomRegistry
 
     @BeforeEach
     fun setup() {
         gameService = GameService(CombatService())
+        roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java) // Mock erstellen
-        controller = WebSocketBrokerController(gameService, messagingTemplate)
+        controller = WebSocketBrokerController(gameService, roomRegistry, messagingTemplate)
 
         headerAccessor = mock(SimpMessageHeaderAccessor::class.java)
         `when`(headerAccessor.sessionId).thenReturn("test-session")
@@ -397,4 +399,400 @@ class WebSocketBrokerControllerTest {
 
         assertEquals("Bob", result?.currentTurn)
     }
+
+    @Test
+    fun `initRoom returns null for invalid room id`() {
+        val result = controller.initRoom("invalid-room-id", headerAccessor)
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `initRoom returns state of requested room`() {
+
+        val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
+
+        room.gameState.players.add(
+            Player("Josef", "session1", PlayerColor.RED)
+        )
+
+        val result = controller.initRoom(room.roomId, headerAccessor)
+
+        assertNotNull(result)
+        assertEquals(1, result!!.players.size)
+        assertEquals("Josef", result.players[0].name)
+    }
+
+    @Test
+    fun `joinRoom returns null for invalid room id`() {
+
+        val headerAccessor = SimpMessageHeaderAccessor.create()
+
+        val result = controller.joinRoom(
+            "invalid-room-id",
+            "Josef",
+            headerAccessor
+        )
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `joinRoom adds player to requested room`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        val headerAccessor = SimpMessageHeaderAccessor.create()
+
+        controller.joinRoom(
+            room.roomId,
+            "Josef",
+            headerAccessor
+        )
+
+        assertEquals(
+            1,
+            room.gameState.players.size
+        )
+
+        assertEquals(
+            "Josef",
+            room.gameState.players[0].name
+        )
+    }
+
+    @Test
+    fun `moveRoom returns null for invalid room id`() {
+
+        val headerAccessor = SimpMessageHeaderAccessor.create()
+
+        val move = Move(
+            player = "Josef",
+            type = UnitType.INFANTRY,
+            fromX = 0,
+            fromY = 0,
+            toX = 1,
+            toY = 0
+        )
+
+        val result = controller.moveRoom(
+            "invalid-room-id",
+            move,
+            headerAccessor
+        )
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `moveRoom returns null when game not started`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        val headerAccessor = SimpMessageHeaderAccessor.create()
+
+        val move = Move(
+            player = "Josef",
+            type = UnitType.INFANTRY,
+            fromX = 0,
+            fromY = 0,
+            toX = 1,
+            toY = 0
+        )
+
+        val result = controller.moveRoom(
+            room.roomId,
+            move,
+            headerAccessor
+        )
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `initRoom broadcasts state to room topic`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        controller.initRoom(room.roomId, headerAccessor)
+
+        verify(messagingTemplate).convertAndSend(
+            "/topic/rooms/${room.roomId}/state",
+            room.gameState
+        )
+    }
+
+    @Test
+    fun `joinRoom broadcasts state to room topic`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        val headerAccessor = SimpMessageHeaderAccessor.create()
+
+        controller.joinRoom(
+            room.roomId,
+            "Josef",
+            headerAccessor
+        )
+
+        verify(messagingTemplate).convertAndSend(
+            "/topic/rooms/${room.roomId}/state",
+            room.gameState
+        )
+    }
+
+    @Test
+    fun `moveRoom broadcasts state to room topic`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        val headerAccessor = SimpMessageHeaderAccessor.create()
+
+        gameService.handleJoin(
+            room.gameState,
+            "Josef",
+            "session-1"
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "Marie",
+            "session-2"
+        )
+
+        val move = Move(
+            player = "Josef",
+            type = UnitType.INFANTRY,
+            fromX = 3,
+            fromY = 2,
+            toX = 3,
+            toY = 3
+        )
+
+        controller.moveRoom(
+            room.roomId,
+            move,
+            headerAccessor
+        )
+
+        verify(messagingTemplate).convertAndSend(
+            "/topic/rooms/${room.roomId}/state",
+            room.gameState
+        )
+    }
+
+    @Test
+    fun `initRoom sends ROOM_NOT_FOUND for invalid room id`() {
+        val headerAccessor = SimpMessageHeaderAccessor.create()
+
+        controller.initRoom(
+            "invalid-room-id",
+            headerAccessor
+        )
+
+        verify(messagingTemplate).convertAndSendToUser(
+            anyString(),
+            eq("/queue/errors"),
+            eq(
+                ErrorMessage(
+                    ErrorCode.ROOM_NOT_FOUND,
+                    "Raum nicht gefunden."
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `joinRoom sends ROOM_NOT_FOUND for invalid room id`() {
+
+        controller.joinRoom(
+            "invalid-room-id",
+            "Josef",
+            headerAccessor
+        )
+
+        verify(messagingTemplate).convertAndSendToUser(
+            anyString(),
+            eq("/queue/errors"),
+            eq(
+                ErrorMessage(
+                    ErrorCode.ROOM_NOT_FOUND,
+                    "Raum nicht gefunden."
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `moveRoom sends ROOM_NOT_FOUND for invalid room id`() {
+
+        val move = Move(
+            player = "Josef",
+            type = UnitType.INFANTRY,
+            fromX = 0,
+            fromY = 0,
+            toX = 1,
+            toY = 0
+        )
+
+        controller.moveRoom(
+            "invalid-room-id",
+            move,
+            headerAccessor
+        )
+
+        verify(messagingTemplate).convertAndSendToUser(
+            anyString(),
+            eq("/queue/errors"),
+            eq(
+                ErrorMessage(
+                    ErrorCode.ROOM_NOT_FOUND,
+                    "Raum nicht gefunden."
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `joinRoom sends GAME_FULL when room is full`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "Benno",
+            "session-1"
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "Josef",
+            "session-2"
+        )
+
+        val result = controller.joinRoom(
+            room.roomId,
+            "Marie",
+            headerAccessor
+        )
+
+        assertNull(result)
+
+        verify(messagingTemplate).convertAndSendToUser(
+            anyString(),
+            eq("/queue/errors"),
+            eq(
+                ErrorMessage(
+                    ErrorCode.GAME_FULL,
+                    "Beitritt verweigert: Spiel ist voll."
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `moveRoom sends NOT_YOUR_TURN`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "Josef",
+            "session-1"
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "Marie",
+            "session-2"
+        )
+
+        val move = Move(
+            player = "Marie",
+            type = UnitType.INFANTRY,
+            fromX = 3,
+            fromY = 2,
+            toX = 3,
+            toY = 3
+        )
+
+        val result = controller.moveRoom(
+            room.roomId,
+            move,
+            headerAccessor
+        )
+
+        assertNull(result)
+
+        verify(messagingTemplate).convertAndSendToUser(
+            anyString(),
+            eq("/queue/errors"),
+            eq(
+                ErrorMessage(
+                    ErrorCode.NOT_YOUR_TURN,
+                    "Es ist nicht dein Zug!"
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `moveRoom sends INVALID_MOVE`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P1",
+            "session-1"
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P2",
+            "session-2"
+        )
+
+        val move = Move(
+            player = "P1",
+            fromX = 0,
+            fromY = 0,
+            toX = 9,
+            toY = 9
+        )
+
+        val result = controller.moveRoom(
+            room.roomId,
+            move,
+            headerAccessor
+        )
+
+        assertNull(result)
+
+        verify(messagingTemplate).convertAndSendToUser(
+            eq("test-session"),
+            eq("/queue/errors"),
+            argThat {
+                it is ErrorMessage &&
+                        it.errorCode == ErrorCode.INVALID_MOVE
+            }
+        )
+    }
+
 }
