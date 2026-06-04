@@ -1,19 +1,23 @@
 package at.aau.hexabrawl.websocketserver.model
 
+import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.time.LocalDateTime
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Service that automatically removes inactive rooms from the registry.
  * Runs periodically in the background to prevent server overload.
+ * Broadcasts a closure notification to room subscribers when a room is removed.
  */
 @Service
 class RoomCleanupService(
-    private val roomRegistry: RoomRegistry
+    private val roomRegistry: RoomRegistry,
+    private val messagingTemplate: SimpMessagingTemplate
 ) {
 
-    private val roomCreationTimes = java.util.concurrent.ConcurrentHashMap<String, LocalDateTime>()
+    private val roomCreationTimes = ConcurrentHashMap<String, LocalDateTime>()
     private val lock = Any()
 
     companion object {
@@ -33,6 +37,7 @@ class RoomCleanupService(
 
     /**
      * Removes rooms that are FINISHED or have no players after 5 minutes.
+     * Broadcasts a closure notification to room subscribers before removing.
      * Runs automatically every minute in the background.
      */
     @Scheduled(fixedDelay = 60000)
@@ -49,6 +54,9 @@ class RoomCleanupService(
         }.keys
 
         roomsToRemove.forEach { roomId ->
+            val destination = "/topic/rooms/$roomId/closed"
+            val payload: Any = mapOf("roomId" to roomId, "reason" to "Room expired")
+            messagingTemplate.convertAndSend(destination, payload)
             roomRegistry.removeRoom(roomId)
             roomCreationTimes.remove(roomId)
             println("CleanupService: Room $roomId removed")
