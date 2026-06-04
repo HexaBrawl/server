@@ -663,4 +663,136 @@ class WebSocketBrokerControllerTest {
         )
     }
 
+    @Test
+    fun `joinRoom sends GAME_FULL when room is full`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "Benno",
+            "session-1"
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "Josef",
+            "session-2"
+        )
+
+        val result = controller.joinRoom(
+            room.roomId,
+            "Marie",
+            headerAccessor
+        )
+
+        assertNull(result)
+
+        verify(messagingTemplate).convertAndSendToUser(
+            anyString(),
+            eq("/queue/errors"),
+            eq(
+                ErrorMessage(
+                    ErrorCode.GAME_FULL,
+                    "Beitritt verweigert: Spiel ist voll."
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `moveRoom sends NOT_YOUR_TURN`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "Josef",
+            "session-1"
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "Marie",
+            "session-2"
+        )
+
+        val move = Move(
+            player = "Marie",
+            type = UnitType.INFANTRY,
+            fromX = 3,
+            fromY = 2,
+            toX = 3,
+            toY = 3
+        )
+
+        val result = controller.moveRoom(
+            room.roomId,
+            move,
+            headerAccessor
+        )
+
+        assertNull(result)
+
+        verify(messagingTemplate).convertAndSendToUser(
+            anyString(),
+            eq("/queue/errors"),
+            eq(
+                ErrorMessage(
+                    ErrorCode.NOT_YOUR_TURN,
+                    "Es ist nicht dein Zug!"
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `moveRoom sends INVALID_MOVE`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P1",
+            "session-1"
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P2",
+            "session-2"
+        )
+
+        val move = Move(
+            player = "P1",
+            fromX = 0,
+            fromY = 0,
+            toX = 9,
+            toY = 9
+        )
+
+        val result = controller.moveRoom(
+            room.roomId,
+            move,
+            headerAccessor
+        )
+
+        assertNull(result)
+
+        verify(messagingTemplate).convertAndSendToUser(
+            eq("test-session"),
+            eq("/queue/errors"),
+            argThat {
+                it is ErrorMessage &&
+                        it.errorCode == ErrorCode.INVALID_MOVE
+            }
+        )
+    }
+
 }
