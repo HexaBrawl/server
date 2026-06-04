@@ -12,6 +12,10 @@ class GameService(
     companion object {
         const val MAX_PLAYERS = 2
 
+        // Maximale Hex-Distanz, die eine Einheit pro Zug zuruecklegen darf.
+        // Spielregel: jede Einheit darf bis zu 2 Felder weit ziehen.
+        const val MAX_MOVE_DISTANCE = 2
+
         // Basis-Positionen für DUAL_VALLEY-Modus (8x8-Grid).
         // Bewusst an die Grid-Raender gesetzt, damit haeufige Test-Move-Ziele
         // wie (6,6) oder (3,1) frei bleiben - sonst blockiert friendlyOnTarget
@@ -91,9 +95,14 @@ class GameService(
                     it.y == move.fromY
         } ?: return state
 
+        // Distanz pruefen: zu weite Zuege werden abgelehnt, ebenso "Null-Zuege"
+        // auf das Startfeld. Der Controller wandelt das in INVALID_MOVE um.
+        val distance = HexDistance.between(move.fromX, move.fromY, move.toX, move.toY)
+        if (distance == 0 || distance > MAX_MOVE_DISTANCE) return state
+
         // Eine Einheit darf pro Runde nur einmal bewegt werden.
         // Verhindert dass ein Spieler dieselbe Einheit zweimal in einer Runde
-        // zieht - greift erst wenn handleMove die Flag tatsaechlich setzt.
+        // zieht.
         if (unit.hasMovedThisTurn) return state
 
         val friendlyOnTarget = state.units.any {

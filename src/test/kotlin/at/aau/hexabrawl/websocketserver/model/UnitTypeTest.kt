@@ -182,6 +182,12 @@ class UnitTypeTest {
             it.player == "Bob" && it.type == UnitType.INFANTRY
         }
 
+        // Bobs INFANTRY in Reichweite von Alice platzieren - die Distanz-Regel
+        // (max 2 Hex) wuerde sonst greifen und den Combat-Test verhindern.
+        // (4,3) ist frei und Distanz 1 zu Alice INFANTRY auf (3,2).
+        bob.x = 4
+        bob.y = 3
+
         val move = Move("Alice", UnitType.INFANTRY, alice.x, alice.y, bob.x, bob.y)
         val state = gameService.handleMove(move)
 

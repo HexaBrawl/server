@@ -73,18 +73,21 @@ class GameServiceTest {
         assertThat(bobAfter.y).isEqualTo(bobBefore.y)
 
         // Alice muss alle 3 bewegbaren Einheiten ziehen, damit der Turn switcht.
+        // Mit Distanz-Regel (max 2 Hex) muss INFANTRY auf ein nahes Feld.
+        val aliceTargetX = aliceBefore.x
+        val aliceTargetY = aliceBefore.y + 1
         gameService.handleMove(Move("Alice", UnitType.ARCHER, 2, 2, 2, 3))
         gameService.handleMove(Move("Alice", UnitType.INFANTRY,
             aliceBefore.x, aliceBefore.y,
-            0, 0))
+            aliceTargetX, aliceTargetY))
         gameService.handleMove(Move("Alice", UnitType.CAVALRY, 4, 2, 4, 3))
 
         val aliceAfter = gameService.getCurrentState().units.first {
             it.player == "Alice" && it.type == UnitType.INFANTRY
         }
 
-        assertThat(aliceAfter.x).isEqualTo(0)
-        assertThat(aliceAfter.y).isEqualTo(0)
+        assertThat(aliceAfter.x).isEqualTo(aliceTargetX)
+        assertThat(aliceAfter.y).isEqualTo(aliceTargetY)
 
         assertThat(gameService.getCurrentState().currentTurn).isEqualTo("Bob")
     }
@@ -150,6 +153,10 @@ class GameServiceTest {
         val aliceInfantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
         val bobCavalry    = state.units.first { it.player == "Bob"   && it.type == UnitType.CAVALRY  }
 
+        // Bobs CAVALRY in Reichweite platzieren (Distanz 1, freies Feld).
+        bobCavalry.x = aliceInfantry.x
+        bobCavalry.y = aliceInfantry.y + 1
+
         // INFANTRY beats CAVALRY → Alice gewinnt
         gameService.handleMove(Move(
             player = "Alice", type = UnitType.INFANTRY,
@@ -176,10 +183,11 @@ class GameServiceTest {
         state.units.removeIf { it.type == UnitType.BASE }
 
         val aliceArcher = state.units.first { it.player == "Alice" && it.type == UnitType.ARCHER }
+        // Move auf nahes leeres Feld (Distanz 1) - mit der 2-Hex-Regel ist (0,0) zu weit.
         gameService.handleMove(Move(
             player = "Alice", type = UnitType.ARCHER,
             fromX = aliceArcher.x, fromY = aliceArcher.y,
-            toX = 0, toY = 0
+            toX = aliceArcher.x, toY = aliceArcher.y + 1
         ))
 
         val updated = gameService.getCurrentState()
@@ -198,12 +206,17 @@ class GameServiceTest {
         val aliceInfantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
         val bobCavalry    = state.units.first { it.player == "Bob"   && it.type == UnitType.CAVALRY  }
 
-        // Alice bewegt zuerst ARCHER und CAVALRY auf freie Felder
+        // Bobs CAVALRY in Reichweite platzieren (Distanz 1, freies Feld).
+        bobCavalry.x = aliceInfantry.x
+        bobCavalry.y = aliceInfantry.y + 1
+
+        // Alice bewegt zuerst ARCHER und CAVALRY auf freie Felder,
+        // dann greift INFANTRY an. Das ist ihr dritter und letzter Zug -
+        // Turn switcht zu Bob.
         gameService.handleMove(Move("Alice", UnitType.ARCHER, 2, 2, 2, 3))
         gameService.handleMove(Move("Alice", UnitType.CAVALRY, 4, 2, 4, 3))
 
         // INFANTRY beats CAVALRY: Bob verliert CAVALRY, beide Basen stehen weiterhin.
-        // Das ist Alices dritter und letzter Zug - Turn switcht zu Bob.
         gameService.handleMove(Move(
             player = "Alice", type = UnitType.INFANTRY,
             fromX = aliceInfantry.x, fromY = aliceInfantry.y,
@@ -225,11 +238,12 @@ class GameServiceTest {
         val state = gameService.getCurrentState()
         val aliceArcher = state.units.first { it.player == "Alice" && it.type == UnitType.ARCHER }
 
-        // Alice bewegt alle 3 Einheiten - keine Combats, keine Unit-Verluste.
+        // Alice bewegt alle 3 Einheiten - kein Combat, keine Unit-Verluste, kein Win.
+        // (0,0) waere ausserhalb der 2-Hex-Reichweite, daher nahes Feld.
         gameService.handleMove(Move(
             player = "Alice", type = UnitType.ARCHER,
             fromX = aliceArcher.x, fromY = aliceArcher.y,
-            toX = 0, toY = 0
+            toX = aliceArcher.x, toY = aliceArcher.y + 1
         ))
         gameService.handleMove(Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3))
         gameService.handleMove(Move("Alice", UnitType.CAVALRY, 4, 2, 4, 3))
@@ -318,6 +332,11 @@ class GameServiceTest {
         val aliceInfantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
         val bobBase       = state.units.first { it.player == "Bob"   && it.type == UnitType.BASE }
 
+        // Bobs BASE in Reichweite verschieben (Distanz 1) - mit der 2-Hex-Regel
+        // ist die Originalposition (6,7) sonst nicht in einem Zug erreichbar.
+        bobBase.x = aliceInfantry.x
+        bobBase.y = aliceInfantry.y + 1
+
         // Alice zieht ihre INFANTRY direkt auf Bob's Basis-Hex - das beendet
         // das Spiel sofort, unabhaengig vom Stein-Schere-Papier-System.
         gameService.handleMove(Move(
@@ -366,6 +385,10 @@ class GameServiceTest {
 
         val aliceInfantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
         val bobCavalry    = state.units.first { it.player == "Bob"   && it.type == UnitType.CAVALRY }
+
+        // Bobs CAVALRY in Reichweite platzieren (Distanz 1, freies Feld).
+        bobCavalry.x = aliceInfantry.x
+        bobCavalry.y = aliceInfantry.y + 1
 
         // Alice greift Bob's CAVALRY an. INFANTRY beats CAVALRY,
         // Bob verliert seine einzige regulaere Unit - hat aber noch Basis.
