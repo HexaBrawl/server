@@ -58,6 +58,16 @@ class WebSocketBrokerController(
         return gameService.handleJoin(playerName, sessionId)
     }
 
+    /**
+     * Broadcasts the current game state to all subscribers of the specified room.
+     *
+     * The state is sent to the room-specific STOMP topic
+     * "/topic/rooms/{roomId}/state", ensuring that only clients subscribed
+     * to this room receive the update.
+     *
+     * @param roomId Unique identifier of the room whose state is broadcast.
+     * @param state Current game state of the room.
+     */
     private fun sendRoomState(
         roomId: String,
         state: GameState
@@ -68,6 +78,20 @@ class WebSocketBrokerController(
         )
     }
 
+    /**
+     * Adds a player to the specified game room.
+     *
+     * The room is identified by its unique roomId. If the room exists and is not
+     * full, the player is added to the room's game state and the updated state is
+     * broadcast to all subscribers of the room-specific topic.
+     *
+     * If the room does not exist, a ROOM_NOT_FOUND error is sent to the client.
+     *
+     * @param roomId Unique identifier of the target room.
+     * @param playerName Name of the player joining the room.
+     * @param headerAccessor Provides access to the STOMP session information.
+     * @return Updated GameState if the player was successfully added; null otherwise.
+     */
     @MessageMapping("/rooms/{roomId}/join")
     fun joinRoom(
         @DestinationVariable roomId: String,
@@ -122,6 +146,19 @@ class WebSocketBrokerController(
         return gameService.getCurrentState()
     }
 
+    /**
+     * Returns the current game state of the specified room.
+     *
+     * The room is identified by its unique roomId. The current state is
+     * broadcast to all subscribers of the room-specific topic and returned
+     * to the requesting client.
+     *
+     * If the room does not exist, a ROOM_NOT_FOUND error is sent to the client.
+     *
+     * @param roomId Unique identifier of the requested room.
+     * @param headerAccessor Provides access to the STOMP session information.
+     * @return Current GameState of the room, or null if the room does not exist.
+     */
     @MessageMapping("/rooms/{roomId}/init")
     fun initRoom(
         @DestinationVariable roomId: String,
@@ -178,6 +215,22 @@ class WebSocketBrokerController(
         return stateAfter
     }
 
+    /**
+     * Executes a move in the specified game room.
+     *
+     * The room is identified by its unique roomId. The move is validated against
+     * the room's current game state. If the move is valid, the updated game state
+     * is broadcast to all subscribers of the room-specific topic.
+     *
+     * If the room does not exist, a ROOM_NOT_FOUND error is sent to the client.
+     * Additional errors are reported if the game has not started, it is not the
+     * player's turn, or the move is invalid.
+     *
+     * @param roomId Unique identifier of the target room.
+     * @param move The move to be executed.
+     * @param headerAccessor Provides access to the STOMP session information.
+     * @return Updated GameState after a successful move; null otherwise.
+     */
     @MessageMapping("/rooms/{roomId}/move")
     fun moveRoom(
         @DestinationVariable roomId: String,
