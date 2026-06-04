@@ -111,7 +111,7 @@ class RoomCleanupServiceTest {
 
         verify(messagingTemplate).convertAndSend(
             eq("/topic/rooms/${room.roomId}/closed"),
-            any(Object::class.java)
+            any(Any::class.java)
         )
     }
 
@@ -131,6 +131,6 @@ class RoomCleanupServiceTest {
         field.isAccessible = true
         @Suppress("UNCHECKED_CAST")
         val times = field.get(cleanupService) as ConcurrentHashMap<String, LocalDateTime>
-        times[roomId] = java.time.LocalDateTime.now().minusMinutes(minutes)
+        times[roomId] = LocalDateTime.now().minusMinutes(minutes)
     }
 }
