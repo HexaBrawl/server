@@ -429,7 +429,7 @@ class WebSocketBrokerControllerTest {
         // Verifizieren, dass der Kauf klappt und der neue State zurückkommt (@SendTo greift)
         assertNotNull(result)
         assertEquals(1, result?.players?.first { it.name == "Alice" }?.farms)
-        assertEquals(8, result?.players?.first { it.name == "Alice" }?.gold)
+        assertEquals(10, result?.players?.first { it.name == "Alice" }?.gold)
     }
 
     @Test

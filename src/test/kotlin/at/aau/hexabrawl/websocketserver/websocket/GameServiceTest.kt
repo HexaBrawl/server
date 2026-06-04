@@ -431,7 +431,7 @@ class GameServiceTest {
         val alice = state.players.first { it.name == "Alice" }
         // Gold muss genau auf 0 fallen, aber die Einheiten müssen bleiben
         assertThat(alice.gold).isEqualTo(0)
-        assertThat(state.units.count { it.player == "Alice" }).isEqualTo(3)
+        assertThat(state.units.count { it.player == "Alice" }).isEqualTo(4)
     }
 
     @Test
@@ -456,15 +456,16 @@ class GameServiceTest {
         // Alice geht bankrott: Gold = 0
         assertThat(alice.gold).isEqualTo(0)
 
-        // Die Einheiten sind noch da (3 Stück)
+        // Die Einheiten sind noch da (3 Truppen und die Basis)
         val aliceUnits = state.units.filter { it.player == "Alice" }
-        assertThat(aliceUnits.size).isEqualTo(3)
-        // aber sie sind alle zu Skeletten geworden
-        assertThat(aliceUnits.all { it.type == UnitType.SKELETON }).isTrue()
+        assertThat(aliceUnits.size).isEqualTo(4)
+        // Aber alle Truppen sind zu Skeletten geworden
+        val aliceArmy = aliceUnits.filter { it.type != UnitType.BASE }
+        assertThat(aliceArmy.all { it.type == UnitType.SKELETON }).isTrue()
     }
 
     @Test
-    fun `test applyUpkeep - Insolvenz loest Win-Condition aus`() {
+    fun `test applyUpkeep - Insolvenz loest keine Win-Condition aus`() {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
@@ -480,9 +481,10 @@ class GameServiceTest {
         val bobInf = state.units.first { it.player == "Bob" && it.type == UnitType.INFANTRY }
         gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, 1, 1))
 
-        // Da Alice durch Insolvenz 0 Einheiten hat, muss Bob sofort gewinnen
-        assertThat(state.status).isEqualTo(GameStatus.FINISHED)
-        assertThat(state.winner).isEqualTo("Bob")
+        // Da Alice durch Insolvenz zwar ihre Armee verliert, aber die Basis noch steht, geht das Spiel weiter.
+        // Bob gewinnt noch nicht automatisch.
+        assertThat(state.status).isEqualTo(GameStatus.IN_PROGRESS)
+        assertThat(state.winner).isNull()
     }
 
     @Test
@@ -498,11 +500,11 @@ class GameServiceTest {
 
         gameService.buyFarm(state, "Alice")
         assertThat(alice.farms).isEqualTo(1)
-        assertThat(alice.gold).isEqualTo(18)
+        assertThat(alice.gold).isEqualTo(20)
 
         gameService.buyFarm(state, "Alice")
         assertThat(alice.farms).isEqualTo(2)
-        assertThat(alice.gold).isEqualTo(4)
+        assertThat(alice.gold).isEqualTo(9)
     }
 
     @Test
@@ -514,11 +516,11 @@ class GameServiceTest {
         val state = gameService.getCurrentState()
         val alice = state.players.first { it.name == "Alice" }
 
-        alice.gold = 10
+        alice.gold = 9
         gameService.buyFarm(state, "Alice")
 
         assertThat(alice.farms).isEqualTo(0)
-        assertThat(alice.gold).isEqualTo(10)
+        assertThat(alice.gold).isEqualTo(9)
     }
 
     @Test
@@ -531,15 +533,15 @@ class GameServiceTest {
         val bob = state.players.first { it.name == "Bob" }
 
         alice.farms = 1
-        alice.gold = 9
-        bob.gold = 20
+        alice.gold = 10
+        bob.gold = 10
 
         val aliceInf = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
         gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, 0, 0))
         val bobInf = state.units.first { it.player == "Bob" && it.type == UnitType.INFANTRY }
         gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, 1, 1))
 
-        assertThat(alice.gold).isEqualTo(0)
+        assertThat(alice.gold).isEqualTo(1)
         assertThat(alice.farms).isEqualTo(1)
         assertThat(state.units.filter { it.player == "Alice" }.all { it.type != UnitType.SKELETON }).isTrue()
     }

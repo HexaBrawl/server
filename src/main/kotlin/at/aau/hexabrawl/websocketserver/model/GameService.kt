@@ -13,8 +13,8 @@ class GameService(
         const val MAX_PLAYERS = 2
         const val STARTING_GOLD = 6
         const val FARM_INCOME_PER_ROUND = 3
-        const val FARM_BASE_COST = 12
-        const val FARM_COST_INCREMENT = 2
+        const val FARM_BASE_COST = 10
+        const val FARM_COST_INCREMENT = 1
 
         // Basis-Positionen für DUAL_VALLEY-Modus (8x8-Grid).
         // Bewusst an die Grid-Raender gesetzt, damit haeufige Test-Move-Ziele
@@ -296,7 +296,9 @@ class GameService(
             player.gold += player.farms * FARM_INCOME_PER_ROUND
 
             // Skelette herausfiltern, damit sie in Zukunft keinen Unterhalt mehr kosten
-            val playerUnits = state.units.filter { it.player == player.name && it.type != UnitType.SKELETON }
+            val playerUnits = state.units.filter {
+                it.player == player.name && it.type != UnitType.SKELETON && it.type != UnitType.BASE
+            }
             val unitCount = playerUnits.size
 
             // Unterhalt berechnen (Arithmetische Reihe: 1. Einheit kostet 3, jede weitere +1)
