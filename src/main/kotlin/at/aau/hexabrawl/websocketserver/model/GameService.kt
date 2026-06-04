@@ -91,6 +91,11 @@ class GameService(
                     it.y == move.fromY
         } ?: return state
 
+        // Eine Einheit darf pro Runde nur einmal bewegt werden.
+        // Verhindert dass ein Spieler dieselbe Einheit zweimal in einer Runde
+        // zieht - greift erst wenn handleMove die Flag tatsaechlich setzt.
+        if (unit.hasMovedThisTurn) return state
+
         val friendlyOnTarget = state.units.any {
             it.x == move.toX && it.y == move.toY && it.player == move.player
         }
