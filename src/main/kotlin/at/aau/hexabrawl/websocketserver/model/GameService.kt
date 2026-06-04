@@ -116,7 +116,7 @@ class GameService(
                 state.units.remove(enemyOnTarget)
                 unit.x = move.toX
                 unit.y = move.toY
-                switchTurn(state)
+                finishMove(state, unit, move.player)
                 checkWinCondition(state)
                 return state
             }
@@ -125,7 +125,7 @@ class GameService(
             combatService.applyCombatResult(result, unit, enemyOnTarget)
             if (!result.defenderSurvived) state.units.remove(enemyOnTarget)
             if (!result.attackerSurvived) state.units.remove(unit)
-            switchTurn(state)
+            finishMove(state, unit, move.player)
             checkWinCondition(state)
             return state
         }
@@ -133,8 +133,7 @@ class GameService(
         unit.x = move.toX
         unit.y = move.toY
 
-        val (p1, p2) = state.players
-        state.currentTurn = if (state.currentTurn == p1.name) p2.name else p1.name
+        finishMove(state, unit, move.player)
 
         checkWinCondition(state)
         return state
@@ -219,6 +218,23 @@ class GameService(
                     it.type != UnitType.BASE
         }
         return movable.isNotEmpty() && movable.all { it.hasMovedThisTurn }
+    }
+
+    /**
+     * Wird nach jedem erfolgreichen Move aufgerufen. Markiert die Einheit
+     * als bewegt (falls sie noch lebt) und switcht automatisch den Turn
+     * wenn alle bewegbaren Einheiten des aktuellen Spielers gezogen haben.
+     */
+    private fun finishMove(state: GameState, unit: GameUnit, playerName: String) {
+        // Falls die Einheit den Move ueberlebt hat, als bewegt markieren.
+        // Nach Combat kann sie aus state.units entfernt worden sein.
+        if (unit in state.units) {
+            unit.hasMovedThisTurn = true
+        }
+        // Auto-Switch wenn alle Einheiten gezogen haben.
+        if (allMovableUnitsHaveMoved(state, playerName)) {
+            switchTurn(state)
+        }
     }
 
     // WICHTIG FÜR TEST  Nur den aktuellen Stand lesen
