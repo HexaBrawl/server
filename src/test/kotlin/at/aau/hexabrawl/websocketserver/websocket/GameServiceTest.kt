@@ -72,12 +72,12 @@ class GameServiceTest {
         assertThat(bobAfter.x).isEqualTo(bobBefore.x)
         assertThat(bobAfter.y).isEqualTo(bobBefore.y)
 
-        // Alice gültiger Move → garantiert freies Feld
-        gameService.handleMove(
-            Move("Alice", UnitType.INFANTRY,
-                aliceBefore.x, aliceBefore.y,
-                0, 0) //  garantiert frei
-        )
+        // Alice muss alle 3 bewegbaren Einheiten ziehen, damit der Turn switcht.
+        gameService.handleMove(Move("Alice", UnitType.ARCHER, 2, 2, 2, 3))
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY,
+            aliceBefore.x, aliceBefore.y,
+            0, 0))
+        gameService.handleMove(Move("Alice", UnitType.CAVALRY, 4, 2, 4, 3))
 
         val aliceAfter = gameService.getCurrentState().units.first {
             it.player == "Alice" && it.type == UnitType.INFANTRY
@@ -198,7 +198,12 @@ class GameServiceTest {
         val aliceInfantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
         val bobCavalry    = state.units.first { it.player == "Bob"   && it.type == UnitType.CAVALRY  }
 
-        // INFANTRY beats CAVALRY: Bob verliert CAVALRY, beide Basen stehen weiterhin
+        // Alice bewegt zuerst ARCHER und CAVALRY auf freie Felder
+        gameService.handleMove(Move("Alice", UnitType.ARCHER, 2, 2, 2, 3))
+        gameService.handleMove(Move("Alice", UnitType.CAVALRY, 4, 2, 4, 3))
+
+        // INFANTRY beats CAVALRY: Bob verliert CAVALRY, beide Basen stehen weiterhin.
+        // Das ist Alices dritter und letzter Zug - Turn switcht zu Bob.
         gameService.handleMove(Move(
             player = "Alice", type = UnitType.INFANTRY,
             fromX = aliceInfantry.x, fromY = aliceInfantry.y,
@@ -220,12 +225,14 @@ class GameServiceTest {
         val state = gameService.getCurrentState()
         val aliceArcher = state.units.first { it.player == "Alice" && it.type == UnitType.ARCHER }
 
-        // Move auf garantiert leeres Feld → kein Combat, kein Unit-Verlust, kein Win
+        // Alice bewegt alle 3 Einheiten - keine Combats, keine Unit-Verluste.
         gameService.handleMove(Move(
             player = "Alice", type = UnitType.ARCHER,
             fromX = aliceArcher.x, fromY = aliceArcher.y,
             toX = 0, toY = 0
         ))
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3))
+        gameService.handleMove(Move("Alice", UnitType.CAVALRY, 4, 2, 4, 3))
 
         val updated = gameService.getCurrentState()
         assertThat(updated.status).isEqualTo(GameStatus.IN_PROGRESS)

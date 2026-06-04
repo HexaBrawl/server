@@ -93,9 +93,11 @@ class WebSocketBrokerControllerTest {
         controller.handleJoin("Josef", "session-1")
         controller.handleJoin("Sebastian", "session-2")
 
-        val move = Move("Josef", UnitType.INFANTRY, 3, 2, 3, 3)
-
-        val state = controller.handleMove(move)
+        // Mit Rundensystem switcht der Turn erst wenn alle bewegbaren Einheiten
+        // (ARCHER, INFANTRY, CAVALRY) des Spielers gezogen haben.
+        controller.handleMove(Move("Josef", UnitType.ARCHER, 2, 2, 2, 3))
+        controller.handleMove(Move("Josef", UnitType.INFANTRY, 3, 2, 3, 3))
+        val state = controller.handleMove(Move("Josef", UnitType.CAVALRY, 4, 2, 4, 3))
 
         val josefUnit = state.units.find {
             it.player == "Josef" && it.type == UnitType.INFANTRY
@@ -141,15 +143,15 @@ class WebSocketBrokerControllerTest {
         controller.handleJoin("Alice", "session-1")
         controller.handleJoin("Bob", "session-2")
 
-        // First move
-        controller.handleMove(
-            Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3)
-        )
+        // Alice bewegt alle 3 bewegbaren Einheiten - dann ist Bob dran.
+        controller.handleMove(Move("Alice", UnitType.ARCHER, 2, 2, 2, 3))
+        controller.handleMove(Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3))
+        controller.handleMove(Move("Alice", UnitType.CAVALRY, 4, 2, 4, 3))
 
-        // Second move
-        val result = controller.handleMove(
-            Move("Bob", UnitType.INFANTRY, 6, 5, 6, 6)
-        )
+        // Bob bewegt alle 3 bewegbaren Einheiten
+        controller.handleMove(Move("Bob", UnitType.ARCHER, 5, 5, 5, 6))
+        controller.handleMove(Move("Bob", UnitType.INFANTRY, 6, 5, 6, 6))
+        val result = controller.handleMove(Move("Bob", UnitType.CAVALRY, 7, 5, 7, 6))
 
         val aliceUnit = result.units.find {
             it.player == "Alice" && it.type == UnitType.INFANTRY
@@ -215,16 +217,16 @@ class WebSocketBrokerControllerTest {
         controller.handleJoin("Alice", "session-1")
         controller.handleJoin("Bob", "session-2")
 
-        // Alice move
-        val state1 = controller.handleMove(
-            Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3)
-        )
+        // Alice bewegt alle 3 Einheiten - dann switcht zu Bob
+        controller.handleMove(Move("Alice", UnitType.ARCHER, 2, 2, 2, 3))
+        controller.handleMove(Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3))
+        val state1 = controller.handleMove(Move("Alice", UnitType.CAVALRY, 4, 2, 4, 3))
         assertEquals("Bob", state1.currentTurn)
 
-        // Bob move
-        val state2 = controller.handleMove(
-            Move("Bob", UnitType.INFANTRY, 6, 5, 6, 6)
-        )
+        // Bob bewegt alle 3 Einheiten - dann switcht zurueck zu Alice
+        controller.handleMove(Move("Bob", UnitType.ARCHER, 5, 5, 5, 6))
+        controller.handleMove(Move("Bob", UnitType.INFANTRY, 6, 5, 6, 6))
+        val state2 = controller.handleMove(Move("Bob", UnitType.CAVALRY, 7, 5, 7, 6))
         assertEquals("Alice", state2.currentTurn)
     }
 
@@ -393,15 +395,13 @@ class WebSocketBrokerControllerTest {
         controller.handleJoin("Alice", "session-1")
         controller.handleJoin("Bob", "session-2")
 
-        val move = Move(
-            player = "Alice",
-            type = UnitType.INFANTRY,
-            fromX = 3,
-            fromY = 2,
-            toX = 3,
-            toY = 3
+        // Alle 3 bewegbaren Einheiten bewegen damit der Turn switcht.
+        controller.move(Move("Alice", UnitType.ARCHER, 2, 2, 2, 3), headerAccessor)
+        controller.move(Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3), headerAccessor)
+        val result = controller.move(
+            Move("Alice", UnitType.CAVALRY, 4, 2, 4, 3),
+            headerAccessor
         )
-        val result = controller.move(move, headerAccessor)
 
         assertNotNull(result)
 
