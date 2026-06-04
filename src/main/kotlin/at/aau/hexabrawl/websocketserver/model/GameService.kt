@@ -186,6 +186,24 @@ class GameService(
         move: Move
     ): GameState = handleMove(this.gameState, move)
 
+    /**
+     * Beendet die Runde des angegebenen Spielers freiwillig.
+     *
+     * Wird vom Controller aufgerufen wenn der Spieler auf "Runde beenden"
+     * klickt - auch wenn noch nicht alle Einheiten bewegt wurden. Nur der
+     * aktuelle Spieler kann seinen eigenen Turn beenden, andere werden
+     * ignoriert.
+     */
+    fun endTurn(state: GameState, playerName: String): GameState = synchronized(state.lock) {
+        if (state.status != GameStatus.IN_PROGRESS) return state
+        if (state.currentTurn != playerName) return state
+        switchTurn(state)
+        return state
+    }
+
+    //Bridge Method endTurn
+    fun endTurn(playerName: String): GameState = endTurn(this.gameState, playerName)
+
 
     private fun switchTurn(state: GameState) {
 
