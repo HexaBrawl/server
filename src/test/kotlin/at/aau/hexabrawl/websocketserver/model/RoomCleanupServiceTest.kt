@@ -3,16 +3,24 @@ package at.aau.hexabrawl.websocketserver.model
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.mockito.Mockito.*
+import org.mockito.ArgumentMatchers.any
+import org.mockito.ArgumentMatchers.eq
+import org.springframework.messaging.simp.SimpMessagingTemplate
+import java.time.LocalDateTime
+import java.util.concurrent.ConcurrentHashMap
 
 class RoomCleanupServiceTest {
 
     private lateinit var registry: RoomRegistry
     private lateinit var cleanupService: RoomCleanupService
+    private lateinit var messagingTemplate: SimpMessagingTemplate
 
     @BeforeEach
     fun setUp() {
         registry = RoomRegistry()
-        cleanupService = RoomCleanupService(registry)
+        messagingTemplate = mock(SimpMessagingTemplate::class.java)
+        cleanupService = RoomCleanupService(registry, messagingTemplate)
     }
 
     @Test
@@ -47,12 +55,7 @@ class RoomCleanupServiceTest {
         val room = registry.createRoom(GameMode.DUAL_VALLEY)
         room.gameState.status = GameStatus.FINISHED
 
-        // Simuliere alten Zeitstempel über Reflection
-        val field = RoomCleanupService::class.java.getDeclaredField("roomCreationTimes")
-        field.isAccessible = true
-        @Suppress("UNCHECKED_CAST")
-        val times = field.get(cleanupService) as java.util.concurrent.ConcurrentHashMap<String, java.time.LocalDateTime>
-        times[room.roomId] = java.time.LocalDateTime.now().minusMinutes(6)
+        setRoomAge(room.roomId, 6)
 
         cleanupService.cleanupInactiveRooms()
 
@@ -64,11 +67,7 @@ class RoomCleanupServiceTest {
     fun `cleanupInactiveRooms removes empty rooms after threshold`() {
         val room = registry.createRoom(GameMode.DUAL_VALLEY)
 
-        val field = RoomCleanupService::class.java.getDeclaredField("roomCreationTimes")
-        field.isAccessible = true
-        @Suppress("UNCHECKED_CAST")
-        val times = field.get(cleanupService) as java.util.concurrent.ConcurrentHashMap<String, java.time.LocalDateTime>
-        times[room.roomId] = java.time.LocalDateTime.now().minusMinutes(6)
+        setRoomAge(room.roomId, 6)
 
         cleanupService.cleanupInactiveRooms()
 
@@ -81,11 +80,7 @@ class RoomCleanupServiceTest {
         room.gameState.players.add(Player("Alice", "s1", PlayerColor.RED))
         room.gameState.status = GameStatus.IN_PROGRESS
 
-        val field = RoomCleanupService::class.java.getDeclaredField("roomCreationTimes")
-        field.isAccessible = true
-        @Suppress("UNCHECKED_CAST")
-        val times = field.get(cleanupService) as java.util.concurrent.ConcurrentHashMap<String, java.time.LocalDateTime>
-        times[room.roomId] = java.time.LocalDateTime.now().minusMinutes(6)
+        setRoomAge(room.roomId, 6)
 
         cleanupService.cleanupInactiveRooms()
 
@@ -99,13 +94,43 @@ class RoomCleanupServiceTest {
 
     @Test
     fun `cleanupInactiveRooms handles unknown roomId gracefully`() {
-        val field = RoomCleanupService::class.java.getDeclaredField("roomCreationTimes")
-        field.isAccessible = true
-        @Suppress("UNCHECKED_CAST")
-        val times = field.get(cleanupService) as java.util.concurrent.ConcurrentHashMap<String, java.time.LocalDateTime>
-        times["non-existent-id"] = java.time.LocalDateTime.now().minusMinutes(6)
+        setRoomAge("non-existent-id", 6)
 
         assertDoesNotThrow { cleanupService.cleanupInactiveRooms() }
         assertEquals(0, cleanupService.getTrackedRoomCount())
+    }
+
+    @Test
+    fun `cleanupInactiveRooms broadcasts closed event before removing room`() {
+        val room = registry.createRoom(GameMode.DUAL_VALLEY)
+        room.gameState.status = GameStatus.FINISHED
+
+        setRoomAge(room.roomId, 6)
+
+        cleanupService.cleanupInactiveRooms()
+
+        verify(messagingTemplate).convertAndSend(
+            eq("/topic/rooms/${room.roomId}/closed"),
+            any(Object::class.java)
+        )
+    }
+
+    @Test
+    fun `cleanupInactiveRooms does not broadcast for fresh rooms`() {
+        val room = registry.createRoom(GameMode.DUAL_VALLEY)
+        cleanupService.trackRoom(room.roomId)
+
+        cleanupService.cleanupInactiveRooms()
+
+        verifyNoInteractions(messagingTemplate)
+    }
+
+    // Helper Funktion
+    private fun setRoomAge(roomId: String, minutes: Long) {
+        val field = RoomCleanupService::class.java.getDeclaredField("roomCreationTimes")
+        field.isAccessible = true
+        @Suppress("UNCHECKED_CAST")
+        val times = field.get(cleanupService) as ConcurrentHashMap<String, LocalDateTime>
+        times[roomId] = java.time.LocalDateTime.now().minusMinutes(minutes)
     }
 }
