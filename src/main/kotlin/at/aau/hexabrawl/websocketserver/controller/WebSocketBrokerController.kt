@@ -5,7 +5,9 @@ import at.aau.hexabrawl.websocketserver.model.ErrorMessage
 import at.aau.hexabrawl.websocketserver.model.GameService
 import at.aau.hexabrawl.websocketserver.model.GameState
 import at.aau.hexabrawl.websocketserver.model.GameStatus
+import at.aau.hexabrawl.websocketserver.model.JoinRequest
 import at.aau.hexabrawl.websocketserver.model.Move
+import at.aau.hexabrawl.websocketserver.model.PlayerColor
 import at.aau.hexabrawl.websocketserver.model.StompMessage
 import org.springframework.messaging.handler.annotation.MessageMapping
 import org.springframework.messaging.handler.annotation.SendTo
@@ -39,20 +41,32 @@ class WebSocketBrokerController(
     @MessageMapping("/join")
     @SendTo("/topic/game")
     fun join(
-        playerName: String,
+        request: JoinRequest,
         headerAccessor: SimpMessageHeaderAccessor
     ): GameState? {
 
         val sessionId = headerAccessor.sessionId ?: ""
         val currentState = gameService.getCurrentState()
 
+        // Spiel voll?
         if (currentState.players.size >= GameService.MAX_PLAYERS &&
-            !currentState.players.any { it.name == playerName }) {
+            !currentState.players.any { it.name == request.name }) {
             sendError(sessionId, ErrorCode.GAME_FULL, "Beitritt verweigert: Spiel ist voll.")
             return null
         }
 
-        return gameService.handleJoin(playerName, sessionId)
+        // Farb-Konflikt: Nur pruefen wenn Spieler neu ist (Re-Join mit gleichem Namen ist okay).
+        if (!currentState.players.any { it.name == request.name } &&
+            gameService.isColorTaken(request.color)) {
+            sendError(
+                sessionId,
+                ErrorCode.COLOR_ALREADY_TAKEN,
+                "Beitritt verweigert: Farbe '${request.color}' ist bereits vergeben."
+            )
+            return null
+        }
+
+        return gameService.handleJoin(request.name, sessionId, request.color)
     }
 
     @MessageMapping("/init")
@@ -110,7 +124,8 @@ class WebSocketBrokerController(
     }
 
 
-    fun handleJoin(name: String, sessionId: String) = gameService.handleJoin(name, sessionId)
+    fun handleJoin(name: String, sessionId: String, color: PlayerColor? = null) =
+        gameService.handleJoin(name, sessionId, color)
     fun handleMove(move: Move) = gameService.handleMove(move)
 
     private fun sendError(user: String, code: ErrorCode, msg: String) {
