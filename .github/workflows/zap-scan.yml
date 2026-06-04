@@ -1,0 +1,35 @@
+name: OWASP ZAP Security Scan
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+
+jobs:
+  zap_scan:
+    runs-on: ubuntu-latest
+    name: Run DAST Scan
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Start Application via Docker Compose
+        run: |
+          docker compose up -d
+          # Gib Spring Boot 30 Sekunden Zeit zum Hochfahren, bevor der Scan startet
+          sleep 30 
+
+      - name: OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: 'http://localhost:8080'
+          # fail_action auf false setzen, damit die Pipeline nicht bei der kleinsten Warnung rot wird
+          fail_action: false
+
+      - name: Upload ZAP Report
+        uses: actions/upload-artifact@v4
+        if: always() # Report immer hochladen, auch wenn Fehler auftreten
+        with:
+          name: ZAP-Security-Report
+          path: zap_report.html
