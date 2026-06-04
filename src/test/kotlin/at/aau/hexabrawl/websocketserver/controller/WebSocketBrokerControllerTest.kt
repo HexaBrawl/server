@@ -407,4 +407,48 @@ class WebSocketBrokerControllerTest {
 
         assertEquals("Bob", result?.currentTurn)
     }
+
+    // ---- Color-Tests fuer Sub-Issue #107 --------------------------------
+
+    @Test
+    fun `join applies color from JoinRequest`() {
+        `when`(headerAccessor.sessionId).thenReturn("session-1")
+
+        val state = controller.join(
+            JoinRequest(name = "Alice", color = PlayerColor.GREEN),
+            headerAccessor
+        )!!
+
+        assertEquals(PlayerColor.GREEN, state.players[0].color)
+    }
+
+    @Test
+    fun `join with duplicate color sends COLOR_ALREADY_TAKEN error`() {
+        controller.handleJoin("Alice", "session-1", PlayerColor.RED)
+
+        val secondHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
+        `when`(secondHeaderAccessor.sessionId).thenReturn("session-2")
+
+        val result = controller.join(
+            JoinRequest(name = "Bob", color = PlayerColor.RED),
+            secondHeaderAccessor
+        )
+
+        assertNull(result)
+        verify(messagingTemplate).convertAndSendToUser(
+            eq("session-2"),
+            eq("/queue/errors"),
+            argThat { it is ErrorMessage && it.errorCode == ErrorCode.COLOR_ALREADY_TAKEN }
+        )
+    }
+
+    @Test
+    fun `PlayerColor supports all four colors`() {
+        assertEquals(4, PlayerColor.entries.size)
+        assertTrue(
+            PlayerColor.entries.containsAll(
+                listOf(PlayerColor.RED, PlayerColor.BLUE, PlayerColor.GREEN, PlayerColor.YELLOW)
+            )
+        )
+    }
 }
