@@ -2,21 +2,27 @@ package at.aau.hexabrawl.websocketserver.controller
 
 import at.aau.hexabrawl.websocketserver.model.GameMode
 import at.aau.hexabrawl.websocketserver.model.GameStatus
+import at.aau.hexabrawl.websocketserver.model.RoomCleanupService
 import at.aau.hexabrawl.websocketserver.model.RoomRegistry
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.mockito.Mockito.mock
 import org.springframework.http.HttpStatus
+import org.springframework.messaging.simp.SimpMessagingTemplate
 
 class RoomControllerTest {
 
     private lateinit var registry: RoomRegistry
+    private lateinit var cleanupService: RoomCleanupService
     private lateinit var controller: RoomController
 
     @BeforeEach
     fun setUp() {
         registry = RoomRegistry()
-        controller = RoomController(registry)
+        val messagingTemplate = mock(SimpMessagingTemplate::class.java)
+        cleanupService = RoomCleanupService(registry, messagingTemplate)
+        controller = RoomController(registry, cleanupService)
     }
 
     // ===== POST /api/rooms =====

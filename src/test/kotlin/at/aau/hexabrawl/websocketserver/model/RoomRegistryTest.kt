@@ -125,4 +125,26 @@ class RoomRegistryTest {
         latch.await()
         assertEquals(threadCount, registry.getAllRooms().size)
     }
+
+    @Test
+    fun `createRoom supports 40 parallel rooms`() {
+        repeat(40) { registry.createRoom(GameMode.DUAL_VALLEY) }
+        assertEquals(40, registry.getAllRooms().size)
+    }
+
+    @Test
+    fun `createRoom works for all game modes`() {
+        val dual = registry.createRoom(GameMode.DUAL_VALLEY)
+        val triad = registry.createRoom(GameMode.TRIAD_OUTPOST)
+        val battle = registry.createRoom(GameMode.BATTLEFIELD_PEAKS)
+
+        assertEquals(GameMode.DUAL_VALLEY, dual.mode)
+        assertEquals(GameMode.TRIAD_OUTPOST, triad.mode)
+        assertEquals(GameMode.BATTLEFIELD_PEAKS, battle.mode)
+    }
+
+    @Test
+    fun `getOpenRooms returns empty list when no rooms exist`() {
+        assertTrue(registry.getOpenRooms().isEmpty())
+    }
 }
