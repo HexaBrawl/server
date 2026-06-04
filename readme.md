@@ -16,6 +16,11 @@ Spring-Boot mit Kotlin
 ## Kommunikationsprotokoll
 STOMP
 
+## Security Testing
+Dieses Projekt nutzt **OWASP ZAP (Zed Attack Proxy)** für automatisiertes Dynamic Application Security Testing (DAST).
+Bei jedem Push und Pull Request in die Hauptbranches startet GitHub Actions die Applikation via Docker Compose und führt einen ZAP Baseline Scan durch. Die Ergebnisse können im "Actions" Tab als HTML-Report heruntergeladen werden.
+
+
 ## Quick Start
 - Repo clonen 
 - IntelliJ öffnen 
