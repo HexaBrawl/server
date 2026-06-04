@@ -163,4 +163,65 @@ class DisconnectHandlerComponentTest {
         )
     }
 
+    @Test
+    fun `disconnect sets only affected room to FINISHED`() {
+
+        val room1 = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        val room2 = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        gameService.handleJoin(
+            room1.gameState,
+            "Alice",
+            "session-1"
+        )
+
+        gameService.handleJoin(
+            room1.gameState,
+            "Bob",
+            "session-2"
+        )
+
+        gameService.handleJoin(
+            room2.gameState,
+            "Charlie",
+            "session-3"
+        )
+
+        gameService.handleJoin(
+            room2.gameState,
+            "Dave",
+            "session-4"
+        )
+
+        assertEquals(
+            GameStatus.IN_PROGRESS,
+            room1.gameState.status
+        )
+
+        assertEquals(
+            GameStatus.IN_PROGRESS,
+            room2.gameState.status
+        )
+
+        gameService.handleDisconnect(
+            room2.gameState,
+            "session-3"
+        )
+
+        assertEquals(
+            GameStatus.IN_PROGRESS,
+            room1.gameState.status
+        )
+
+        assertEquals(
+            GameStatus.FINISHED,
+            room2.gameState.status
+        )
+    }
+
 }
