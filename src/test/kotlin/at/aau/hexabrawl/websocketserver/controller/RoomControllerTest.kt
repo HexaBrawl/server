@@ -7,7 +7,9 @@ import at.aau.hexabrawl.websocketserver.model.RoomRegistry
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.mockito.Mockito.mock
 import org.springframework.http.HttpStatus
+import org.springframework.messaging.simp.SimpMessagingTemplate
 
 class RoomControllerTest {
 
@@ -18,7 +20,8 @@ class RoomControllerTest {
     @BeforeEach
     fun setUp() {
         registry = RoomRegistry()
-        cleanupService = RoomCleanupService(registry)
+        val messagingTemplate = mock(SimpMessagingTemplate::class.java)
+        cleanupService = RoomCleanupService(registry, messagingTemplate)
         controller = RoomController(registry, cleanupService)
     }
 
