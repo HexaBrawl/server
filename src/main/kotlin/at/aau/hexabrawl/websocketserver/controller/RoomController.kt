@@ -2,6 +2,7 @@ package at.aau.hexabrawl.websocketserver.controller
 
 import at.aau.hexabrawl.websocketserver.model.GameMode
 import at.aau.hexabrawl.websocketserver.model.RoomRegistry
+import at.aau.hexabrawl.websocketserver.model.RoomCleanupService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
@@ -11,7 +12,7 @@ import org.springframework.web.bind.annotation.*
  */
 @RestController
 @RequestMapping("/api/rooms")
-class RoomController(private val roomRegistry: RoomRegistry) {
+class RoomController(private val roomRegistry: RoomRegistry, private val cleanupService: RoomCleanupService) {
 
     /**
      * POST /api/rooms
@@ -25,6 +26,7 @@ class RoomController(private val roomRegistry: RoomRegistry) {
         @RequestParam(defaultValue = "DUAL_VALLEY") mode: GameMode
     ): ResponseEntity<RoomDTO> {
         val room = roomRegistry.createRoom(mode)
+        cleanupService.trackRoom(room.roomId)  // ← hinzufügen
         return ResponseEntity.status(201).body(room.toDTO())
     }
 
