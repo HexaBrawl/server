@@ -407,4 +407,61 @@ class WebSocketBrokerControllerTest {
 
         assertEquals("Bob", result?.currentTurn)
     }
+
+    // ---- Tests fuer /endTurn (Sub-Issue #105) ---------------------------
+
+    @Test
+    fun `endTurn switches to next player`() {
+        controller.handleJoin("Alice", "session-1")
+        controller.handleJoin("Bob", "session-2")
+
+        val result = controller.endTurn("Alice", headerAccessor)
+
+        assertNotNull(result)
+        assertEquals("Bob", result?.currentTurn)
+    }
+
+    @Test
+    fun `endTurn rejected when not players turn`() {
+        controller.handleJoin("Alice", "session-1")
+        controller.handleJoin("Bob", "session-2")
+
+        val result = controller.endTurn("Bob", headerAccessor)
+
+        assertNull(result)
+        verify(messagingTemplate).convertAndSendToUser(
+            eq("test-session"),
+            eq("/queue/errors"),
+            argThat { it is ErrorMessage && it.errorCode == ErrorCode.NOT_YOUR_TURN }
+        )
+    }
+
+    @Test
+    fun `endTurn rejected when game not started`() {
+        val result = controller.endTurn("Alice", headerAccessor)
+
+        assertNull(result)
+        verify(messagingTemplate).convertAndSendToUser(
+            eq("test-session"),
+            eq("/queue/errors"),
+            argThat { it is ErrorMessage && it.errorCode == ErrorCode.GAME_NOT_STARTED }
+        )
+    }
+
+    @Test
+    fun `endTurn resets hasMovedThisTurn flags`() {
+        controller.handleJoin("Alice", "session-1")
+        controller.handleJoin("Bob", "session-2")
+
+        // Alice bewegt INFANTRY (Flag wird gesetzt)
+        controller.handleMove(Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3))
+
+        // Alice beendet Runde freiwillig (CAVALRY und ARCHER noch nicht bewegt)
+        controller.endTurn("Alice", headerAccessor)
+
+        // Nach endTurn muessen alle Flags zurueckgesetzt sein.
+        val state = gameService.getCurrentState()
+        assertTrue(state.units.none { it.hasMovedThisTurn })
+        assertEquals("Bob", state.currentTurn)
+    }
 }
