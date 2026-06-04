@@ -17,7 +17,7 @@ class GameServiceTest {
         // 1. Erster Join
         gameService.handleJoin("Alice")
         val stateAfterAlice = gameService.getCurrentState()
-        assertThat(stateAfterAlice.players).containsExactly(Player("Alice"))
+        assertThat(stateAfterAlice.players).containsExactly(Player("Alice", gold = GameService.STARTING_GOLD))
 
         // 2. Doppelter Join (Alice versucht nochmal) -> Darf nichts ändern
         gameService.handleJoin("Alice")
@@ -380,4 +380,169 @@ class GameServiceTest {
         assertThat(updated.units.any { it.player == "Bob" && it.type == UnitType.BASE }).isTrue
     }
 
+    @Test
+    fun `player receives starting gold on join`() {
+        gameService.handleJoin("Alice")
+
+        val player = gameService.getCurrentState().players.first { it.name == "Alice" }
+
+        assertThat(player.gold).isEqualTo(GameService.STARTING_GOLD)
+    }
+
+    @Test
+    fun `test applyUpkeep - normaler Abzug`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+        // Beide Spieler bekommen genug Gold
+        state.players.forEach { it.gold = 20 }
+
+        // Zug Alice
+        val aliceInf = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, 0, 0))
+
+        // Zug Bob -> Beendet die Runde, applyUpkeep wird getriggert
+        val bobInf = state.units.first { it.player == "Bob" && it.type == UnitType.INFANTRY }
+        gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, 1, 1))
+
+        // Bei 3 Start-Einheiten kostet der Unterhalt 12 Gold (3+4+5). 20 - 12 = 8.
+        assertThat(state.players.first { it.name == "Alice" }.gold).isEqualTo(8)
+        assertThat(state.players.first { it.name == "Bob" }.gold).isEqualTo(8)
+    }
+
+    @Test
+    fun `test applyUpkeep - Grenzfall exakt 0`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+        // Spieler bekommen exakt das Gold für den Unterhalt von 3 Einheiten
+        state.players.forEach { it.gold = 12 }
+
+        val aliceInf = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, 0, 0))
+
+        val bobInf = state.units.first { it.player == "Bob" && it.type == UnitType.INFANTRY }
+        gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, 1, 1))
+
+        val alice = state.players.first { it.name == "Alice" }
+        // Gold muss genau auf 0 fallen, aber die Einheiten müssen bleiben
+        assertThat(alice.gold).isEqualTo(0)
+        assertThat(state.units.count { it.player == "Alice" }).isEqualTo(4)
+    }
+
+    @Test
+    fun `test applyUpkeep - Insolvenz mit Unit-Verlust`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+        // Alice hat 1 Gold zu wenig. Bob hat genug.
+        state.players.first { it.name == "Alice" }.gold = 11
+        state.players.first { it.name == "Bob" }.gold = 20
+
+        val aliceInf = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, 0, 0))
+
+        val bobInf = state.units.first { it.player == "Bob" && it.type == UnitType.INFANTRY }
+        gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, 1, 1))
+
+        val alice = state.players.first { it.name == "Alice" }
+
+        // Alice geht bankrott: Gold = 0
+        assertThat(alice.gold).isEqualTo(0)
+
+        // Die Einheiten sind noch da (3 Truppen und die Basis)
+        val aliceUnits = state.units.filter { it.player == "Alice" }
+        assertThat(aliceUnits.size).isEqualTo(4)
+        // Aber alle Truppen sind zu Skeletten geworden
+        val aliceArmy = aliceUnits.filter { it.type != UnitType.BASE }
+        assertThat(aliceArmy.all { it.type == UnitType.SKELETON }).isTrue()
+    }
+
+    @Test
+    fun `test applyUpkeep - Insolvenz loest keine Win-Condition aus`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+        // Alice hat zu wenig Geld und geht pleite
+        state.players.first { it.name == "Alice" }.gold = 5
+        state.players.first { it.name == "Bob" }.gold = 20
+
+        val aliceInf = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, 0, 0))
+
+        val bobInf = state.units.first { it.player == "Bob" && it.type == UnitType.INFANTRY }
+        gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, 1, 1))
+
+        // Da Alice durch Insolvenz zwar ihre Armee verliert, aber die Basis noch steht, geht das Spiel weiter.
+        // Bob gewinnt noch nicht automatisch.
+        assertThat(state.status).isEqualTo(GameStatus.IN_PROGRESS)
+        assertThat(state.winner).isNull()
+    }
+
+    @Test
+    fun `test buyFarm - erfolgreicher Kauf erhoeht die Kosten fuer die naechste Farm`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+        val alice = state.players.first { it.name == "Alice" }
+
+        alice.gold = 30
+
+        gameService.buyFarm(state, "Alice")
+        assertThat(alice.farms).isEqualTo(1)
+        assertThat(alice.gold).isEqualTo(20)
+
+        gameService.buyFarm(state, "Alice")
+        assertThat(alice.farms).isEqualTo(2)
+        assertThat(alice.gold).isEqualTo(9)
+    }
+
+    @Test
+    fun `test buyFarm - schlaegt bei zu wenig Gold fehl`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+
+        val state = gameService.getCurrentState()
+        val alice = state.players.first { it.name == "Alice" }
+
+        alice.gold = 9
+        gameService.buyFarm(state, "Alice")
+
+        assertThat(alice.farms).isEqualTo(0)
+        assertThat(alice.gold).isEqualTo(9)
+    }
+
+    @Test
+    fun `test applyUpkeep - Farm-Einkommen verhindert Insolvenz`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+        val state = gameService.getCurrentState()
+        val alice = state.players.first { it.name == "Alice" }
+        val bob = state.players.first { it.name == "Bob" }
+
+        alice.farms = 1
+        alice.gold = 10
+        bob.gold = 10
+
+        val aliceInf = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, 0, 0))
+        val bobInf = state.units.first { it.player == "Bob" && it.type == UnitType.INFANTRY }
+        gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, 1, 1))
+
+        assertThat(alice.gold).isEqualTo(1)
+        assertThat(alice.farms).isEqualTo(1)
+        assertThat(state.units.filter { it.player == "Alice" }.all { it.type != UnitType.SKELETON }).isTrue()
+    }
 }

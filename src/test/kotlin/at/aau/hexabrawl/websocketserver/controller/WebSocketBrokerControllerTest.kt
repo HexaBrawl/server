@@ -141,6 +141,9 @@ class WebSocketBrokerControllerTest {
         controller.handleJoin("Alice", "session-1")
         controller.handleJoin("Bob", "session-2")
 
+        // Gold geben, damit sie nach der Runde nicht pleitegehen
+        gameService.getCurrentState().players.forEach { it.gold = 100 }
+
         // First move
         controller.handleMove(
             Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3)
@@ -214,6 +217,9 @@ class WebSocketBrokerControllerTest {
     fun `turn switches after valid move`() {
         controller.handleJoin("Alice", "session-1")
         controller.handleJoin("Bob", "session-2")
+
+        // Gold geben, damit sie nach der Runde nicht pleitegehen
+        gameService.getCurrentState().players.forEach { it.gold = 100 }
 
         // Alice move
         val state1 = controller.handleMove(
@@ -406,6 +412,85 @@ class WebSocketBrokerControllerTest {
         assertNotNull(result)
 
         assertEquals("Bob", result?.currentTurn)
+    }
+
+    @Test
+    fun `buyFarm via websocket returns updated state when gold is sufficient`() {
+        controller.handleJoin("Alice", "test-session")
+        controller.handleJoin("Bob", "session-2")
+
+        val state = gameService.getCurrentState()
+        val alice = state.players.first { it.name == "Alice" }
+        alice.gold = 20 // Genug Gold
+
+        // Endpoint aufrufen
+        val result = controller.buyFarm(headerAccessor)
+
+        // Verifizieren, dass der Kauf klappt und der neue State zurückkommt (@SendTo greift)
+        assertNotNull(result)
+        assertEquals(1, result?.players?.first { it.name == "Alice" }?.farms)
+        assertEquals(10, result?.players?.first { it.name == "Alice" }?.gold)
+    }
+
+    @Test
+    fun `buyFarm via websocket sends INSUFFICIENT_GOLD error when poor`() {
+        controller.handleJoin("Alice", "test-session")
+        controller.handleJoin("Bob", "session-2")
+
+        val state = gameService.getCurrentState()
+        val alice = state.players.first { it.name == "Alice" }
+        alice.gold = 5 // Zu wenig Gold
+
+        // Endpoint aufrufen
+        val result = controller.buyFarm(headerAccessor)
+
+        // Verifizieren, dass kein State gebroadcastet wird...
+        assertNull(result)
+
+        // ... sondern stattdessen exakt der Error an den User geschickt wird
+        verify(messagingTemplate).convertAndSendToUser(
+            eq("test-session"),
+            eq("/queue/errors"),
+            argThat { it is ErrorMessage && it.errorCode == ErrorCode.INSUFFICIENT_GOLD }
+        )
+    }
+
+    @Test
+    fun `buyFarm returns null if player session is unknown`() {
+        // Leeres Spiel, niemand ist beigetreten -> headerAccessor hat test-session
+        val result = controller.buyFarm(headerAccessor)
+
+        // Da die Session unbekannt ist, muss der Controller direkt null zurückgeben
+        assertNull(result)
+    }
+
+    @Test
+    fun `buyFarm handles null sessionId from headerAccessor gracefully`() {
+        // Simuliert, dass das Netzwerk keine Session-ID mitschickt
+        val localHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
+        `when`(localHeaderAccessor.sessionId).thenReturn(null)
+
+        val result = controller.buyFarm(localHeaderAccessor)
+
+        // Da die Session null (bzw. "") ist, wird kein Spieler gefunden -> null
+        assertNull(result)
+    }
+
+    @Test
+    fun `join allows reconnecting player even if game is max capacity`() {
+        // Spiel ist voll mit Alice und Bob
+        controller.handleJoin("Alice", "session-1")
+        controller.handleJoin("Bob", "session-2")
+
+        // Alice verliert die Verbindung und joint neu mit neuer Session-ID
+        val localHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
+        `when`(localHeaderAccessor.sessionId).thenReturn("session-3")
+
+        val state = controller.join(JoinRequest("Alice"), localHeaderAccessor)
+
+        // Sie darf rein, weil sie schon Teil des Spiels ist (kein GAME_FULL Error)
+        assertNotNull(state)
+        assertEquals(2, state?.players?.size)
     }
 
     // ---- Color-Tests fuer Sub-Issue #107 --------------------------------
