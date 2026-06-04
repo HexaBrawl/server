@@ -33,6 +33,13 @@ class GameService(
             // Sonst Fallback auf alte Logik (Backward-Compat fuer Tests / alten Client).
             val assignedColor = color
                 ?: if (state.players.isEmpty()) PlayerColor.RED else PlayerColor.BLUE
+
+            // Color-Konflikt: zweiter Spieler darf nicht die gleiche Farbe haben.
+            // Defensiv hier ablehnen - die Error-Response macht der Controller.
+            if (state.players.any { it.color == assignedColor }) {
+                return@synchronized state
+            }
+
             state.players.add(Player(playerName, sessionId, assignedColor))
             println("JOIN: $playerName (color: $assignedColor)")
         }
@@ -84,6 +91,18 @@ class GameService(
         sessionId: String = "",
         color: PlayerColor? = null
     ): GameState = handleJoin(this.gameState, playerName, sessionId, color)
+
+    /**
+     * Prueft ob eine Farbe bereits einem Spieler zugewiesen wurde.
+     * Wird vom Controller genutzt, um einen Farb-Konflikt zu erkennen
+     * und dem Client eine entsprechende Error-Response zu schicken.
+     */
+    fun isColorTaken(state: GameState, color: PlayerColor): Boolean = synchronized(state.lock) {
+        return state.players.any { it.color == color }
+    }
+
+    //Bridge Method isColorTaken
+    fun isColorTaken(color: PlayerColor): Boolean = isColorTaken(this.gameState, color)
 
     fun handleMove(state: GameState, move: Move): GameState = synchronized(state.lock) {
         if (state.status != GameStatus.IN_PROGRESS) return state
