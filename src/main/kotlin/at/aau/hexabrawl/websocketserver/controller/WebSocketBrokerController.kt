@@ -58,6 +58,16 @@ class WebSocketBrokerController(
         return gameService.handleJoin(playerName, sessionId)
     }
 
+    private fun sendRoomState(
+        roomId: String,
+        state: GameState
+    ) {
+        messagingTemplate.convertAndSend(
+            "/topic/rooms/$roomId/state",
+            state
+        )
+    }
+
     @MessageMapping("/rooms/{roomId}/join")
     fun joinRoom(
         @DestinationVariable roomId: String,
@@ -66,7 +76,15 @@ class WebSocketBrokerController(
     ): GameState? {
 
         val room = roomRegistry.findById(roomId)
-            ?: return null
+
+        if (room == null) {
+            sendError(
+                headerAccessor.sessionId ?: "",
+                ErrorCode.ROOM_NOT_FOUND,
+                "Raum nicht gefunden."
+            )
+            return null
+        }
 
         val sessionId = headerAccessor.sessionId ?: ""
 
@@ -84,11 +102,18 @@ class WebSocketBrokerController(
             return null
         }
 
-        return gameService.handleJoin(
+        val state = gameService.handleJoin(
             room.gameState,
             playerName,
             sessionId
         )
+
+        sendRoomState(
+            roomId,
+            state
+        )
+
+        return state
     }
 
     @MessageMapping("/init")
@@ -99,14 +124,31 @@ class WebSocketBrokerController(
 
     @MessageMapping("/rooms/{roomId}/init")
     fun initRoom(
-        @DestinationVariable roomId: String
+        @DestinationVariable roomId: String,
+        headerAccessor: SimpMessageHeaderAccessor
     ): GameState? {
-        val room = roomRegistry.findById(roomId)
-            ?: return null
 
-        return gameService.getCurrentState(
+        val sessionId = headerAccessor.sessionId ?: ""
+        val room = roomRegistry.findById(roomId)
+        if (room == null) {
+            sendError(
+                sessionId,
+                ErrorCode.ROOM_NOT_FOUND,
+                "Raum nicht gefunden."
+            )
+            return null
+        }
+
+        val state = gameService.getCurrentState(
             room.gameState
         )
+
+        sendRoomState(
+            roomId,
+            state
+        )
+
+        return state
     }
 
     @MessageMapping("/move")
@@ -144,7 +186,15 @@ class WebSocketBrokerController(
     ): GameState? {
 
         val room = roomRegistry.findById(roomId)
-            ?: return null
+
+        if (room == null) {
+            sendError(
+                headerAccessor.sessionId ?: "",
+                ErrorCode.ROOM_NOT_FOUND,
+                "Raum nicht gefunden."
+            )
+            return null
+        }
 
         val sessionId = headerAccessor.sessionId ?: ""
 
@@ -183,6 +233,11 @@ class WebSocketBrokerController(
             )
             return null
         }
+
+        sendRoomState(
+            roomId,
+            stateAfter
+        )
 
         return stateAfter
     }

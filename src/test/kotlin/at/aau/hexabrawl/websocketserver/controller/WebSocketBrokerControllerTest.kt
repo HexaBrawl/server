@@ -402,7 +402,7 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `initRoom returns null for invalid room id`() {
-        val result = controller.initRoom("invalid-room-id")
+        val result = controller.initRoom("invalid-room-id", headerAccessor)
 
         assertNull(result)
     }
@@ -416,7 +416,7 @@ class WebSocketBrokerControllerTest {
             Player("Josef", "session1", PlayerColor.RED)
         )
 
-        val result = controller.initRoom(room.roomId)
+        val result = controller.initRoom(room.roomId, headerAccessor)
 
         assertNotNull(result)
         assertEquals(1, result!!.players.size)
@@ -511,6 +511,156 @@ class WebSocketBrokerControllerTest {
         )
 
         assertNull(result)
+    }
+
+    @Test
+    fun `initRoom broadcasts state to room topic`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        controller.initRoom(room.roomId, headerAccessor)
+
+        verify(messagingTemplate).convertAndSend(
+            "/topic/rooms/${room.roomId}/state",
+            room.gameState
+        )
+    }
+
+    @Test
+    fun `joinRoom broadcasts state to room topic`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        val headerAccessor = SimpMessageHeaderAccessor.create()
+
+        controller.joinRoom(
+            room.roomId,
+            "Josef",
+            headerAccessor
+        )
+
+        verify(messagingTemplate).convertAndSend(
+            "/topic/rooms/${room.roomId}/state",
+            room.gameState
+        )
+    }
+
+    @Test
+    fun `moveRoom broadcasts state to room topic`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        val headerAccessor = SimpMessageHeaderAccessor.create()
+
+        gameService.handleJoin(
+            room.gameState,
+            "Josef",
+            "session-1"
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "Marie",
+            "session-2"
+        )
+
+        val move = Move(
+            player = "Josef",
+            type = UnitType.INFANTRY,
+            fromX = 3,
+            fromY = 2,
+            toX = 3,
+            toY = 3
+        )
+
+        controller.moveRoom(
+            room.roomId,
+            move,
+            headerAccessor
+        )
+
+        verify(messagingTemplate).convertAndSend(
+            "/topic/rooms/${room.roomId}/state",
+            room.gameState
+        )
+    }
+
+    @Test
+    fun `initRoom sends ROOM_NOT_FOUND for invalid room id`() {
+        val headerAccessor = SimpMessageHeaderAccessor.create()
+
+        controller.initRoom(
+            "invalid-room-id",
+            headerAccessor
+        )
+
+        verify(messagingTemplate).convertAndSendToUser(
+            anyString(),
+            eq("/queue/errors"),
+            eq(
+                ErrorMessage(
+                    ErrorCode.ROOM_NOT_FOUND,
+                    "Raum nicht gefunden."
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `joinRoom sends ROOM_NOT_FOUND for invalid room id`() {
+
+        controller.joinRoom(
+            "invalid-room-id",
+            "Josef",
+            headerAccessor
+        )
+
+        verify(messagingTemplate).convertAndSendToUser(
+            anyString(),
+            eq("/queue/errors"),
+            eq(
+                ErrorMessage(
+                    ErrorCode.ROOM_NOT_FOUND,
+                    "Raum nicht gefunden."
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `moveRoom sends ROOM_NOT_FOUND for invalid room id`() {
+
+        val move = Move(
+            player = "Josef",
+            type = UnitType.INFANTRY,
+            fromX = 0,
+            fromY = 0,
+            toX = 1,
+            toY = 0
+        )
+
+        controller.moveRoom(
+            "invalid-room-id",
+            move,
+            headerAccessor
+        )
+
+        verify(messagingTemplate).convertAndSendToUser(
+            anyString(),
+            eq("/queue/errors"),
+            eq(
+                ErrorMessage(
+                    ErrorCode.ROOM_NOT_FOUND,
+                    "Raum nicht gefunden."
+                )
+            )
+        )
     }
 
 }
