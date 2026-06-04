@@ -26,6 +26,10 @@ class WebSocketBrokerController(
     private val roomRegistry: RoomRegistry,
     private val messagingTemplate: SimpMessagingTemplate
 ) {
+    companion object {
+        private const val ROOM_NOT_FOUND_MESSAGE =
+            "Raum nicht gefunden."
+    }
 
     @MessageMapping("/hello")
     @SendTo("/topic/hello-response")
@@ -105,7 +109,7 @@ class WebSocketBrokerController(
             sendError(
                 headerAccessor.sessionId ?: "",
                 ErrorCode.ROOM_NOT_FOUND,
-                "Raum nicht gefunden."
+                ROOM_NOT_FOUND_MESSAGE
             )
             return null
         }
@@ -171,7 +175,7 @@ class WebSocketBrokerController(
             sendError(
                 sessionId,
                 ErrorCode.ROOM_NOT_FOUND,
-                "Raum nicht gefunden."
+                ROOM_NOT_FOUND_MESSAGE
             )
             return null
         }
@@ -244,7 +248,7 @@ class WebSocketBrokerController(
             sendError(
                 headerAccessor.sessionId ?: "",
                 ErrorCode.ROOM_NOT_FOUND,
-                "Raum nicht gefunden."
+                ROOM_NOT_FOUND_MESSAGE
             )
             return null
         }
