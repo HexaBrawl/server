@@ -77,10 +77,20 @@ class WebSocketBrokerController(
             return null
         }
 
-        val turnBefore = stateBefore.currentTurn
+        // Snapshot vor dem Move - wenn sich nach handleMove nichts geaendert hat,
+        // wurde der Move abgelehnt. Currentturn-Vergleich reicht hier nicht mehr,
+        // weil der Turn mit dem Rundensystem nicht nach jedem Move switcht.
+        val unitsBefore = stateBefore.units.map {
+            "${it.player}-${it.type}-${it.x},${it.y}"
+        }.toSet()
+
         val stateAfter = gameService.handleMove(move)
 
-        if (stateAfter.currentTurn == turnBefore) {
+        val unitsAfter = stateAfter.units.map {
+            "${it.player}-${it.type}-${it.x},${it.y}"
+        }.toSet()
+
+        if (unitsBefore == unitsAfter) {
             sendError(sessionId, ErrorCode.INVALID_MOVE, "Dieser Zug ist laut Regeln ungültig.")
             return null
         }
