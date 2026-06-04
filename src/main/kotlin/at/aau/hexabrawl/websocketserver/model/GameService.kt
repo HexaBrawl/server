@@ -202,6 +202,25 @@ class GameService(
         state.units.forEach { it.hasMovedThisTurn = false }
     }
 
+    /**
+     * Prueft ob der gegebene Spieler in dieser Runde bereits alle seine
+     * bewegbaren Einheiten gezogen hat. SKELETONs und BASEs zaehlen nicht
+     * als bewegbar.
+     *
+     * Gibt `false` zurueck wenn der Spieler keine bewegbaren Einheiten
+     * besitzt - in dem Fall muss der Turn manuell ueber endTurn beendet
+     * werden, sonst wuerde der Turn sofort wechseln ohne dass ein Move
+     * stattfand.
+     */
+    private fun allMovableUnitsHaveMoved(state: GameState, playerName: String): Boolean {
+        val movable = state.units.filter {
+            it.player == playerName &&
+                    it.type != UnitType.SKELETON &&
+                    it.type != UnitType.BASE
+        }
+        return movable.isNotEmpty() && movable.all { it.hasMovedThisTurn }
+    }
+
     // WICHTIG FÜR TEST  Nur den aktuellen Stand lesen
     fun getCurrentState(state: GameState): GameState = synchronized(state.lock) {
         return state
