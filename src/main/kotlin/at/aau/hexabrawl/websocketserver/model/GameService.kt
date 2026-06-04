@@ -192,6 +192,9 @@ class GameService(
                 p2.name
             else
                 p1.name
+
+        // Neue Runde fuer den naechsten Spieler: alle Einheiten duerfen wieder ziehen.
+        state.units.forEach { it.hasMovedThisTurn = false }
     }
 
     // WICHTIG FÜR TEST  Nur den aktuellen Stand lesen
