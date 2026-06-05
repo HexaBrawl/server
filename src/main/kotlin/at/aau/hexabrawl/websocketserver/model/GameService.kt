@@ -326,6 +326,7 @@ class GameService(
     fun initializeGame(state: GameState): GameState = synchronized(state.lock) {
         state.players.clear()
         state.units.clear()
+        state.fields.clear()
         state.currentTurn = null
         state.status = GameStatus.WAITING_FOR_PLAYERS
         println("Service: GAME INITIALIZED - Everything cleared")
@@ -361,6 +362,14 @@ class GameService(
             // Basis pro Spieler an der vordefinierten Position wiederherstellen
             val basePos = if (index == 0) BASE_POSITION_P1 else BASE_POSITION_P2
             state.units.add(GameUnit(player.name, basePos.first, basePos.second, UnitType.BASE))
+        }
+
+        // Board mit Startgebieten neu initialisieren - aber nur wenn beide
+        // Spieler da sind, sonst greift initializeBoard auf state.players[1] zu.
+        if (state.players.size == MAX_PLAYERS) {
+            initializeBoard(state)
+        } else {
+            state.fields.clear()
         }
 
         state.currentTurn = state.players.firstOrNull()?.name
