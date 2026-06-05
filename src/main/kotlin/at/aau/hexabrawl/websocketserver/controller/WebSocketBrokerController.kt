@@ -141,6 +141,13 @@ class WebSocketBrokerController(
             state
         )
 
+       /* if (
+            state.players.size == room.mode.maxPlayers &&
+            state.status == GameStatus.WAITING_FOR_PLAYERS
+        ) {
+            gameService.startGame(room.gameState)
+        }*/
+
         return state
     }
 

@@ -294,4 +294,73 @@ class GameModelTest {
         assertSame(state1, result)
     }
 
+
+    @Test
+    fun `triad outpost does not start after second player joins`() {
+        val gameService = GameService(CombatService())
+        val roomRegistry = RoomRegistry()
+
+        val room = roomRegistry.createRoom(
+            GameMode.TRIAD_OUTPOST
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P1",
+            "session-1"
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P2",
+            "session-2"
+        )
+        println(room.mode)
+        println(room.gameState.gameMode)
+
+        assertEquals(
+            GameStatus.WAITING_FOR_PLAYERS,
+            room.gameState.status
+        )
+    }
+
+    @Test
+    fun `triad outpost starts when third player joins`() {
+
+        val gameService = GameService(CombatService())
+        val roomRegistry = RoomRegistry()
+
+        val room = roomRegistry.createRoom(
+            GameMode.TRIAD_OUTPOST
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P1",
+            "session-1"
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P2",
+            "session-2"
+        )
+
+        assertEquals(
+            GameStatus.WAITING_FOR_PLAYERS,
+            room.gameState.status
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P3",
+            "session-3"
+        )
+
+        assertEquals(
+            GameStatus.IN_PROGRESS,
+            room.gameState.status
+        )
+    }
+
 }

@@ -18,7 +18,7 @@ class RoomRegistry {
         val roomId = UUID.randomUUID().toString()
         while (true) {
             val joinCode = generateJoinCode()
-            val room = Room(roomId, joinCode, mode)
+            val room = Room(roomId, joinCode, mode, GameState(gameMode = mode))
             if (byJoinCode.putIfAbsent(joinCode, room) == null) {
                 rooms[roomId] = room
                 return room

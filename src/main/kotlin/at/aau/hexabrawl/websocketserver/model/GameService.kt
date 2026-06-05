@@ -16,44 +16,27 @@ class GameService(
     fun handleJoin(state: GameState, playerName: String, sessionId:String=""): GameState = synchronized(state.lock) {
         // Spieler hinzufügen, falls noch nicht vorhanden und Platz ist
 
-        if (!state.players.any{it.name == playerName} && state.players.size < MAX_PLAYERS) {
+        if (!state.players.any{it.name == playerName} && state.players.size < state.gameMode.maxPlayers) {
             val color = if (state.players.isEmpty()) PlayerColor.RED else PlayerColor.BLUE
             state.players.add(Player(playerName, sessionId,color))
             println("JOIN: $playerName")
         }
 
         // Automatischer Start bei 2 Spielern
-        if (state.players.size == 2 && state.units.isEmpty()) {
-            val p1 = state.players[0]
-            val p2 = state.players[1]
-
-            // Start-Einheiten setzen
-            val startPositionsP1 = listOf(
-                Pair(2, 2),  // ARCHER
-                Pair(3, 2),  // INFANTRY
-                Pair(4, 2)   // CAVALRY
-            )
-
-            val startPositionsP2 = listOf(
-                Pair(5, 5),
-                Pair(6, 5),
-                Pair(7, 5)
-            )
-
-            UnitType.entries.filter { it != UnitType.SKELETON }.forEachIndexed { index, type ->
-                val (x1, y1) = startPositionsP1[index]
-                val (x2, y2) = startPositionsP2[index]
-
-                state.units.add(GameUnit(p1.name, x1, y1, type))
-                state.units.add(GameUnit(p2.name, x2, y2, type))
-            }
-
-            state.currentTurn = p1.name
-            state.status = GameStatus.IN_PROGRESS
-            println("Service: GAME STARTED")
+        if (state.players.size == state.gameMode.maxPlayers && state.units.isEmpty()) {
+            println("players=${state.players.size}, max=${state.gameMode.maxPlayers}")
+            startGame(state)
         }
         return state
 
+    }
+
+    fun startGame(state: GameState) {
+        when(state.gameMode) {
+            GameMode.DUAL_VALLEY -> startDualValleyGame(state)
+            GameMode.TRIAD_OUTPOST -> startTriadOutpostGame(state)
+            GameMode.BATTLEFIELD_PEAKS -> startBattlefieldPeaksGame(state)
+        }
     }
 
     //Bridge Method handleJoin
@@ -61,6 +44,52 @@ class GameService(
         playerName: String,
         sessionId: String = ""
     ): GameState = handleJoin(this.gameState, playerName, sessionId)
+
+
+    private fun startDualValleyGame(state: GameState)
+    {
+        val p1 = state.players[0]
+        val p2 = state.players[1]
+
+        // Start-Einheiten setzen
+        val startPositionsP1 = listOf(
+            Pair(2, 2),  // ARCHER
+            Pair(3, 2),  // INFANTRY
+            Pair(4, 2)   // CAVALRY
+        )
+
+        val startPositionsP2 = listOf(
+            Pair(5, 5),
+            Pair(6, 5),
+            Pair(7, 5)
+        )
+
+        UnitType.entries.filter { it != UnitType.SKELETON }.forEachIndexed { index, type ->
+            val (x1, y1) = startPositionsP1[index]
+            val (x2, y2) = startPositionsP2[index]
+
+            state.units.add(GameUnit(p1.name, x1, y1, type))
+            state.units.add(GameUnit(p2.name, x2, y2, type))
+        }
+
+        state.currentTurn = p1.name
+        state.status = GameStatus.IN_PROGRESS
+        println("Service: GAME STARTED")
+    }
+
+    private fun startTriadOutpostGame(state: GameState) {
+        state.currentTurn = state.players.first().name
+        state.status = GameStatus.IN_PROGRESS
+
+        println("Service: TRIAD OUTPOST GAME STARTED")
+    }
+
+    private fun startBattlefieldPeaksGame(state: GameState) {
+        state.currentTurn = state.players.first().name
+        state.status = GameStatus.IN_PROGRESS
+
+        println("Service: BATTLEFIELD PEAKS GAME STARTED")
+    }
 
     fun handleMove(state: GameState, move: Move): GameState = synchronized(state.lock) {
         if (state.status != GameStatus.IN_PROGRESS) return state
