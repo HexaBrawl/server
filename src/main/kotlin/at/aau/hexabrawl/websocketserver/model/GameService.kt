@@ -308,10 +308,16 @@ class GameService(
      * wenn alle bewegbaren Einheiten des aktuellen Spielers gezogen haben.
      */
     private fun finishMove(state: GameState, unit: GameUnit, playerName: String) {
-        // Falls die Einheit den Move ueberlebt hat, als bewegt markieren.
-        // Nach Combat kann sie aus state.units entfernt worden sein.
+        // Falls die Einheit den Move ueberlebt hat, als bewegt markieren
+        // und das Feld unter ihr erobern. Nach Combat kann sie aus
+        // state.units entfernt worden sein - dann faellt die Eroberung
+        // korrekterweise weg, weil niemand mehr auf dem Feld steht.
         if (unit in state.units) {
             unit.hasMovedThisTurn = true
+            // Eroberung: Das Feld auf dem die Einheit jetzt steht
+            // gehoert dem Spieler. Idempotent fuer eigene Felder.
+            state.fields.firstOrNull { it.x == unit.x && it.y == unit.y }
+                ?.let { it.owner = playerName }
         }
         // Auto-Switch wenn alle Einheiten gezogen haben.
         if (allMovableUnitsHaveMoved(state, playerName)) {
