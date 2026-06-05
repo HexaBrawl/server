@@ -37,6 +37,23 @@ class UnitTypeTest {
             GameUnit("Bob", 6, 5, UnitType.INFANTRY),
             GameUnit("Bob", 7, 5, UnitType.CAVALRY)
         ))
+
+        // Board und Startgebiete initialisieren (analog handleJoin).
+        // Wird gebraucht damit die Randfeld-Regel in handleMove greifen
+        // kann - ohne Fields wuerde jeder Move als "kein Randfeld"
+        // abgelehnt.
+        state.fields.clear()
+        for (x in 0 until 10) {
+            for (y in 0 until 10) {
+                state.fields.add(Field(x, y))
+            }
+        }
+        listOf(2 to 2, 3 to 2, 4 to 2, 3 to 0).forEach { (x, y) ->
+            state.fields.first { it.x == x && it.y == y }.owner = "Alice"
+        }
+        listOf(5 to 5, 6 to 5, 7 to 5, 6 to 7).forEach { (x, y) ->
+            state.fields.first { it.x == x && it.y == y }.owner = "Bob"
+        }
     }
 
     @Test

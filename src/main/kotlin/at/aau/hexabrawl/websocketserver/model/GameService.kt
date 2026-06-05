@@ -128,6 +128,21 @@ class GameService(
         }
         if (friendlyOnTarget) return state
 
+        // Randfeld-Regel: Das Zielfeld muss entweder eigenes Gebiet sein
+        // oder an eigenes Gebiet angrenzen. Verhindert "Sprung-Eroberungen"
+        // in entfernte, nicht-angrenzende Gebiete.
+        val targetField = state.fields.firstOrNull { it.x == move.toX && it.y == move.toY }
+        val isOwnField = targetField?.owner == move.player
+        val isBorderField = isAdjacentToOwnTerritory(state, move.toX, move.toY, move.player)
+        if (!isOwnField && !isBorderField) return state
+
+        // Skelett auf Zielfeld wird "wieder eingenommen" - egal von welchem
+        // Spieler. Muss VOR dem Combat-Check passieren damit es nicht
+        // versehentlich als Verteidiger interpretiert wird.
+        state.units.removeIf {
+            it.x == move.toX && it.y == move.toY && it.type == UnitType.SKELETON
+        }
+
         val enemyOnTarget = state.units.firstOrNull {
             it.x == move.toX && it.y == move.toY &&
                     it.player != move.player &&
@@ -300,14 +315,35 @@ class GameService(
      * wenn alle bewegbaren Einheiten des aktuellen Spielers gezogen haben.
      */
     private fun finishMove(state: GameState, unit: GameUnit, playerName: String) {
-        // Falls die Einheit den Move ueberlebt hat, als bewegt markieren.
-        // Nach Combat kann sie aus state.units entfernt worden sein.
+        // Falls die Einheit den Move ueberlebt hat, als bewegt markieren
+        // und das Feld unter ihr erobern. Nach Combat kann sie aus
+        // state.units entfernt worden sein - dann faellt die Eroberung
+        // korrekterweise weg, weil niemand mehr auf dem Feld steht.
         if (unit in state.units) {
             unit.hasMovedThisTurn = true
+            // Eroberung: Das Feld auf dem die Einheit jetzt steht
+            // gehoert dem Spieler. Idempotent fuer eigene Felder.
+            state.fields.firstOrNull { it.x == unit.x && it.y == unit.y }
+                ?.let { it.owner = playerName }
         }
         // Auto-Switch wenn alle Einheiten gezogen haben.
         if (allMovableUnitsHaveMoved(state, playerName)) {
             switchTurn(state)
+        }
+    }
+
+    /**
+     * Prueft ob das Feld (x, y) an mindestens ein Feld grenzt das dem
+     * angegebenen Spieler gehoert. Wird genutzt um die Randfeld-Regel
+     * fuer Eroberungen durchzusetzen: nur Felder die an eigenes Gebiet
+     * angrenzen koennen erobert werden.
+     *
+     * Liefert false wenn der Spieler kein eigenes Gebiet hat.
+     */
+    private fun isAdjacentToOwnTerritory(state: GameState, x: Int, y: Int, playerName: String): Boolean {
+        return state.fields.any { field ->
+            field.owner == playerName &&
+                    HexDistance.between(field.x, field.y, x, y) == 1
         }
     }
 
