@@ -136,6 +136,13 @@ class GameService(
         val isBorderField = isAdjacentToOwnTerritory(state, move.toX, move.toY, move.player)
         if (!isOwnField && !isBorderField) return state
 
+        // Skelett auf Zielfeld wird "wieder eingenommen" - egal von welchem
+        // Spieler. Muss VOR dem Combat-Check passieren damit es nicht
+        // versehentlich als Verteidiger interpretiert wird.
+        state.units.removeIf {
+            it.x == move.toX && it.y == move.toY && it.type == UnitType.SKELETON
+        }
+
         val enemyOnTarget = state.units.firstOrNull {
             it.x == move.toX && it.y == move.toY &&
                     it.player != move.player &&
