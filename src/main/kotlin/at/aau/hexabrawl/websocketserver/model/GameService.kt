@@ -230,6 +230,35 @@ class GameService(
     fun endTurn(playerName: String): GameState = endTurn(this.gameState, playerName)
 
 
+    /**
+     * Erzeugt alle Felder des Boards und weist die Startgebiete an die
+     * beiden Spieler zu. Vor dem Aufruf muessen beide Spieler in
+     * state.players existieren.
+     *
+     * Wird beim Spielstart und nach jedem Reset aufgerufen.
+     */
+    private fun initializeBoard(state: GameState) {
+        state.fields.clear()
+
+        // Alle Felder erzeugen, default neutral (owner = null).
+        for (x in 0 until BOARD_COLS) {
+            for (y in 0 until BOARD_ROWS) {
+                state.fields.add(Field(x, y))
+            }
+        }
+
+        // Startgebiete den Spielern zuweisen.
+        val p1 = state.players[0]
+        val p2 = state.players[1]
+
+        START_TERRITORY_P1.forEach { (x, y) ->
+            state.fields.first { it.x == x && it.y == y }.owner = p1.name
+        }
+        START_TERRITORY_P2.forEach { (x, y) ->
+            state.fields.first { it.x == x && it.y == y }.owner = p2.name
+        }
+    }
+
     private fun switchTurn(state: GameState) {
 
         val (p1, p2) = state.players
