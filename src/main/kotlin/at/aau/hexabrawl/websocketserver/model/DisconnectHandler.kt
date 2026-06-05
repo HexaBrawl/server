@@ -5,6 +5,13 @@ import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Component
 import org.springframework.web.socket.messaging.SessionDisconnectEvent
 
+/**
+ * Handles WebSocket disconnect events.
+ *
+ * When a client disconnects, the handler locates the affected room,
+ * removes the corresponding player from that room and broadcasts the
+ * updated game state to subscribers of the room-specific topic.
+ */
 @Component
 class DisconnectHandler(
     private val gameService: GameService,
@@ -12,6 +19,15 @@ class DisconnectHandler(
     private val messagingTemplate: SimpMessagingTemplate
 ) {
 
+    /**
+     * Processes a WebSocket disconnect event.
+     *
+     * The disconnected player is removed only from the room they belong to.
+     * The updated room state is then broadcast to all subscribers of the
+     * corresponding room topic.
+     *
+     * @param event The Spring WebSocket disconnect event.
+     */
     @EventListener
     fun handleDisconnect(event: SessionDisconnectEvent) {
         val sessionId = event.sessionId
@@ -23,8 +39,6 @@ class DisconnectHandler(
                     it.sessionId == sessionId
                 }
             } ?: return
-
-        val playerExists = gameService.gameState.players.any { it.sessionId == sessionId }
 
         val updatedState = gameService.handleDisconnect(room.gameState, sessionId)
 
