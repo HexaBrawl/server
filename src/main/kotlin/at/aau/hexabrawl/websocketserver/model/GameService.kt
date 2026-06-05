@@ -22,6 +22,22 @@ class GameService(
         // legitime Moves der bestehenden Test-Suite.
         val BASE_POSITION_P1: Pair<Int, Int> = Pair(3, 0)
         val BASE_POSITION_P2: Pair<Int, Int> = Pair(6, 7)
+
+        // Board-Dimensionen fuer DUAL_VALLEY (Standard-Modus).
+        // Wird spaeter durch GameMode-spezifische Werte ersetzt sobald
+        // der Multisession-PR gemergt ist.
+        const val BOARD_ROWS = 10
+        const val BOARD_COLS = 10
+
+        // Startgebiete pro Spieler: Felder unter den Start-Einheiten + Basis.
+        val START_TERRITORY_P1: List<Pair<Int, Int>> = listOf(
+            2 to 2, 3 to 2, 4 to 2,  // ARCHER, INFANTRY, CAVALRY
+            3 to 0                    // BASE
+        )
+        val START_TERRITORY_P2: List<Pair<Int, Int>> = listOf(
+            5 to 5, 6 to 5, 7 to 5,
+            6 to 7
+        )
     }
 
     fun handleJoin(state: GameState, playerName: String, sessionId:String=""): GameState = synchronized(state.lock) {
