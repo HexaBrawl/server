@@ -82,6 +82,8 @@ class GameService(
             state.units.add(GameUnit(p1.name, BASE_POSITION_P1.first, BASE_POSITION_P1.second, UnitType.BASE))
             state.units.add(GameUnit(p2.name, BASE_POSITION_P2.first, BASE_POSITION_P2.second, UnitType.BASE))
 
+            initializeBoard(state)
+
             state.currentTurn = p1.name
             state.status = GameStatus.IN_PROGRESS
             println("Service: GAME STARTED")
