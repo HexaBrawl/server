@@ -128,6 +128,14 @@ class GameService(
         }
         if (friendlyOnTarget) return state
 
+        // Randfeld-Regel: Das Zielfeld muss entweder eigenes Gebiet sein
+        // oder an eigenes Gebiet angrenzen. Verhindert "Sprung-Eroberungen"
+        // in entfernte, nicht-angrenzende Gebiete.
+        val targetField = state.fields.firstOrNull { it.x == move.toX && it.y == move.toY }
+        val isOwnField = targetField?.owner == move.player
+        val isBorderField = isAdjacentToOwnTerritory(state, move.toX, move.toY, move.player)
+        if (!isOwnField && !isBorderField) return state
+
         val enemyOnTarget = state.units.firstOrNull {
             it.x == move.toX && it.y == move.toY &&
                     it.player != move.player &&
