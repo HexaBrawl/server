@@ -22,6 +22,22 @@ class GameService(
         // legitime Moves der bestehenden Test-Suite.
         val BASE_POSITION_P1: Pair<Int, Int> = Pair(3, 0)
         val BASE_POSITION_P2: Pair<Int, Int> = Pair(6, 7)
+
+        // Board-Dimensionen fuer DUAL_VALLEY (Standard-Modus).
+        // Wird spaeter durch GameMode-spezifische Werte ersetzt sobald
+        // der Multisession-PR gemergt ist.
+        const val BOARD_ROWS = 10
+        const val BOARD_COLS = 10
+
+        // Startgebiete pro Spieler: Felder unter den Start-Einheiten + Basis.
+        val START_TERRITORY_P1: List<Pair<Int, Int>> = listOf(
+            2 to 2, 3 to 2, 4 to 2,  // ARCHER, INFANTRY, CAVALRY
+            3 to 0                    // BASE
+        )
+        val START_TERRITORY_P2: List<Pair<Int, Int>> = listOf(
+            5 to 5, 6 to 5, 7 to 5,
+            6 to 7
+        )
     }
 
     fun handleJoin(state: GameState, playerName: String, sessionId:String=""): GameState = synchronized(state.lock) {
@@ -65,6 +81,8 @@ class GameService(
             // wer die gegnerische Basis erreicht, gewinnt sofort (siehe Folge-Sub-Issue).
             state.units.add(GameUnit(p1.name, BASE_POSITION_P1.first, BASE_POSITION_P1.second, UnitType.BASE))
             state.units.add(GameUnit(p2.name, BASE_POSITION_P2.first, BASE_POSITION_P2.second, UnitType.BASE))
+
+            initializeBoard(state)
 
             state.currentTurn = p1.name
             state.status = GameStatus.IN_PROGRESS
@@ -214,6 +232,35 @@ class GameService(
     fun endTurn(playerName: String): GameState = endTurn(this.gameState, playerName)
 
 
+    /**
+     * Erzeugt alle Felder des Boards und weist die Startgebiete an die
+     * beiden Spieler zu. Vor dem Aufruf muessen beide Spieler in
+     * state.players existieren.
+     *
+     * Wird beim Spielstart und nach jedem Reset aufgerufen.
+     */
+    private fun initializeBoard(state: GameState) {
+        state.fields.clear()
+
+        // Alle Felder erzeugen, default neutral (owner = null).
+        for (x in 0 until BOARD_COLS) {
+            for (y in 0 until BOARD_ROWS) {
+                state.fields.add(Field(x, y))
+            }
+        }
+
+        // Startgebiete den Spielern zuweisen.
+        val p1 = state.players[0]
+        val p2 = state.players[1]
+
+        START_TERRITORY_P1.forEach { (x, y) ->
+            state.fields.first { it.x == x && it.y == y }.owner = p1.name
+        }
+        START_TERRITORY_P2.forEach { (x, y) ->
+            state.fields.first { it.x == x && it.y == y }.owner = p2.name
+        }
+    }
+
     private fun switchTurn(state: GameState) {
 
         val (p1, p2) = state.players
@@ -279,6 +326,7 @@ class GameService(
     fun initializeGame(state: GameState): GameState = synchronized(state.lock) {
         state.players.clear()
         state.units.clear()
+        state.fields.clear()
         state.currentTurn = null
         state.status = GameStatus.WAITING_FOR_PLAYERS
         println("Service: GAME INITIALIZED - Everything cleared")
@@ -314,6 +362,14 @@ class GameService(
             // Basis pro Spieler an der vordefinierten Position wiederherstellen
             val basePos = if (index == 0) BASE_POSITION_P1 else BASE_POSITION_P2
             state.units.add(GameUnit(player.name, basePos.first, basePos.second, UnitType.BASE))
+        }
+
+        // Board mit Startgebieten neu initialisieren - aber nur wenn beide
+        // Spieler da sind, sonst greift initializeBoard auf state.players[1] zu.
+        if (state.players.size == MAX_PLAYERS) {
+            initializeBoard(state)
+        } else {
+            state.fields.clear()
         }
 
         state.currentTurn = state.players.firstOrNull()?.name
