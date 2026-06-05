@@ -311,6 +311,21 @@ class GameService(
         }
     }
 
+    /**
+     * Prueft ob das Feld (x, y) an mindestens ein Feld grenzt das dem
+     * angegebenen Spieler gehoert. Wird genutzt um die Randfeld-Regel
+     * fuer Eroberungen durchzusetzen: nur Felder die an eigenes Gebiet
+     * angrenzen koennen erobert werden.
+     *
+     * Liefert false wenn der Spieler kein eigenes Gebiet hat.
+     */
+    private fun isAdjacentToOwnTerritory(state: GameState, x: Int, y: Int, playerName: String): Boolean {
+        return state.fields.any { field ->
+            field.owner == playerName &&
+                    HexDistance.between(field.x, field.y, x, y) == 1
+        }
+    }
+
     // WICHTIG FÜR TEST  Nur den aktuellen Stand lesen
     fun getCurrentState(state: GameState): GameState = synchronized(state.lock) {
         return state
