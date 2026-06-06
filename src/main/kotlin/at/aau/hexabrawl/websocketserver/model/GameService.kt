@@ -13,6 +13,23 @@ class GameService(
         const val MAX_PLAYERS = 2
     }
 
+    /**
+     * Adds a player to the given game state if there is still room available.
+     *
+     * The maximum number of players is determined by the current
+     * [GameMode] stored in the provided [GameState].
+     *
+     * When the required number of players for the selected game mode
+     * has joined, the game is started automatically and the initial
+     * unit positions are created.
+     *
+     * This method is thread-safe and synchronizes on the state's lock.
+     *
+     * @param state The game state to modify.
+     * @param playerName The name of the joining player.
+     * @param sessionId The WebSocket session identifier of the player.
+     * @return The updated game state.
+     */
     fun handleJoin(state: GameState, playerName: String, sessionId:String=""): GameState = synchronized(state.lock) {
         // Spieler hinzufügen, falls noch nicht vorhanden und Platz ist
         if (!state.players.any{it.name == playerName} && state.players.size < state.gameMode.maxPlayers) {
@@ -34,7 +51,21 @@ class GameService(
     }
 
 
-    fun startGame(state: GameState) {
+    /**
+     * Starts a game according to the game mode stored in the provided state.
+     *
+     * Depending on the selected [GameMode], the corresponding initial
+     * unit setup is created and the game is transitioned to
+     * [GameStatus.IN_PROGRESS].
+     *
+     * Supported game modes:
+     * - [GameMode.DUAL_VALLEY] (2 players)
+     * - [GameMode.TRIAD_OUTPOST] (3 players)
+     * - [GameMode.BATTLEFIELD_PEAKS] (4 players)
+     *
+     * @param state The game state to initialize.
+     */
+     fun startGame(state: GameState) {
         when(state.gameMode) {
             GameMode.DUAL_VALLEY -> startDualValleyGame(state)
             GameMode.TRIAD_OUTPOST -> startTriadOutpostGame(state)
@@ -49,6 +80,18 @@ class GameService(
     ): GameState = handleJoin(this.gameState, playerName, sessionId)
 
 
+    /**
+     * Initializes a DUAL_VALLEY game with two players.
+     *
+     * Creates the default starting units for both players at their
+     * predefined starting positions on opposite sides of the map.
+     *
+     * After all units have been placed, the first player receives the
+     * opening turn and the game status is set to
+     * [GameStatus.IN_PROGRESS].
+     *
+     * @param state The game state to initialize.
+     */
     private fun startDualValleyGame(state: GameState)
     {
         val p1 = state.players[0]
@@ -81,6 +124,20 @@ class GameService(
     }
 
 
+    /**
+     * Initializes a TRIAD_OUTPOST game with three players.
+     *
+     * Creates the starting units for all three players at predefined
+     * positions arranged around the map center in a triangular layout.
+     * This setup provides each player with an equal distance to the
+     * center and to the opposing players.
+     *
+     * After all units have been placed, the first player receives the
+     * opening turn and the game status is set to
+     * [GameStatus.IN_PROGRESS].
+     *
+     * @param state The game state to initialize.
+     */
     private fun startTriadOutpostGame(state: GameState) {
         val p1 = state.players[0]
         val p2 = state.players[1]
@@ -121,6 +178,20 @@ class GameService(
         println("Service: TRIAD OUTPOST GAME STARTED")
     }
 
+    /**
+     * Initializes a BATTLEFIELD_PEAKS game with four players.
+     *
+     * Creates the starting units for all four players at predefined
+     * positions arranged in a cross-shaped layout around the map.
+     * Each player starts from a different edge of the battlefield,
+     * providing a balanced setup with equal access to the central area.
+     *
+     * After all units have been placed, the first player receives the
+     * opening turn and the game status is set to
+     * [GameStatus.IN_PROGRESS].
+     *
+     * @param state The game state to initialize.
+     */
     private fun startBattlefieldPeaksGame(state: GameState) {
         val p1 = state.players[0]
         val p2 = state.players[1]
@@ -170,7 +241,23 @@ class GameService(
         println("Service: BATTLEFIELD PEAKS GAME STARTED")
     }
 
-
+    /*
+    * Executes a player's move and updates the game state accordingly.
+    *
+    * The move is validated against the current game rules. If the move
+    * is valid, the selected unit is moved to its new position and the
+    * turn is passed to the next player.
+    *
+    * Turn rotation supports both the classic two-player mode and the
+    * multiplayer game modes with three or four players.
+    *
+    * This method is thread-safe and synchronizes on the state's lock.
+    *
+    * @param state The game state to modify.
+    * @param move The move to execute.
+    * @return The updated game state.
+    * @throws IllegalArgumentException If the move is invalid.
+    */
     fun handleMove(state: GameState, move: Move): GameState = synchronized(state.lock) {
         if (state.status != GameStatus.IN_PROGRESS) return state
         if (move.player != state.currentTurn) return state
@@ -217,6 +304,22 @@ class GameService(
     ): GameState = handleMove(this.gameState, move)
 
 
+    /**
+     * Advances the turn to the next player.
+     *
+     * For games with two players, the original alternating turn logic
+     * is used to preserve the behaviour of the classic game mode and
+     * existing tests.
+     *
+     * For games with three or four players, turns are rotated through
+     * the player list in a circular manner. After the last player has
+     * taken a turn, the first player becomes active again.
+     *
+     * If the current player cannot be found in the player list, the
+     * first player is selected as a fallback.
+     *
+     * @param state The game state whose active player should be updated.
+     */
     private fun switchTurn(state: GameState) {
         // Falls das Spiel im klassischen 2-Spieler-Modus ist (deckt alle alten Tests ab)
         if (state.players.size == 2) {
@@ -240,9 +343,6 @@ class GameService(
             }
         }
     }
-
-
-
 
     // WICHTIG FÜR TEST  Nur den aktuellen Stand lesen
     fun getCurrentState(state: GameState): GameState = synchronized(state.lock) {
@@ -300,6 +400,21 @@ class GameService(
     //Bridge Method resetToStartCondition
     fun resetToStartCondition(): GameState = resetToStartCondition(this.gameState)
 
+    /**
+     * Removes a player from the game based on the associated session ID.
+     *
+     * If a matching player is found, the player and all of their units
+     * are removed from the game state.
+     *
+     * If the disconnected player was part of an active game, the game is
+     * marked as [GameStatus.FINISHED].
+     *
+     * This method is thread-safe and synchronizes on the state's lock.
+     *
+     * @param state The game state to update.
+     * @param sessionId The session identifier of the disconnected player.
+     * @return The updated game state.
+     */
     fun handleDisconnect(state: GameState, sessionId: String): GameState = synchronized(state.lock) {
         val player = state.players.find { it.sessionId == sessionId }
             ?: return state
