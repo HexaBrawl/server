@@ -294,4 +294,246 @@ class GameModelTest {
         assertSame(state1, result)
     }
 
+
+    @Test
+    fun `triad outpost does not start after second player joins`() {
+        val gameService = GameService(CombatService())
+        val roomRegistry = RoomRegistry()
+
+        val room = roomRegistry.createRoom(
+            GameMode.TRIAD_OUTPOST
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P1",
+            "session-1"
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P2",
+            "session-2"
+        )
+        println(room.mode)
+        println(room.gameState.gameMode)
+
+        assertEquals(
+            GameStatus.WAITING_FOR_PLAYERS,
+            room.gameState.status
+        )
+    }
+
+    @Test
+    fun `triad outpost starts when third player joins`() {
+
+        val gameService = GameService(CombatService())
+        val roomRegistry = RoomRegistry()
+
+        val room = roomRegistry.createRoom(
+            GameMode.TRIAD_OUTPOST
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P1",
+            "session-1"
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P2",
+            "session-2"
+        )
+
+        assertEquals(
+            GameStatus.WAITING_FOR_PLAYERS,
+            room.gameState.status
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P3",
+            "session-3"
+        )
+
+        assertEquals(
+            GameStatus.IN_PROGRESS,
+            room.gameState.status
+        )
+    }
+
+
+    @Test
+    fun `battlefield peaks does not start after third player joins`() {
+
+        val gameService = GameService(CombatService())
+        val roomRegistry = RoomRegistry()
+
+        val room = roomRegistry.createRoom(
+            GameMode.BATTLEFIELD_PEAKS
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P1",
+            "session-1"
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P2",
+            "session-2"
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P3",
+            "session-3"
+        )
+
+        assertEquals(
+            GameStatus.WAITING_FOR_PLAYERS,
+            room.gameState.status
+        )
+    }
+
+    @Test
+    fun `battlefield peaks starts when fourth player joins`() {
+
+        val gameService = GameService(CombatService())
+        val roomRegistry = RoomRegistry()
+
+        val room = roomRegistry.createRoom(
+            GameMode.BATTLEFIELD_PEAKS
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P1",
+            "session-1"
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P2",
+            "session-2"
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P3",
+            "session-3"
+        )
+
+        assertEquals(
+            GameStatus.WAITING_FOR_PLAYERS,
+            room.gameState.status
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P4",
+            "session-4"
+        )
+
+        assertEquals(
+            GameStatus.IN_PROGRESS,
+            room.gameState.status
+        )
+    }
+
+    @Test
+    fun `triad outpost switches turn from first to second player`() {
+
+        val roomRegistry = RoomRegistry()
+        val gameService = GameService(CombatService())
+
+        val room = roomRegistry.createRoom(
+            GameMode.TRIAD_OUTPOST
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P1",
+            "session-1"
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P2",
+            "session-2"
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P3",
+            "session-3"
+        )
+
+        assertEquals(
+            "P1",
+            room.gameState.currentTurn
+        )
+
+        val move = Move(
+            player = "P1",
+            type = UnitType.INFANTRY,
+            fromX = 5,
+            fromY = 2,
+            toX = 5,
+            toY = 3
+        )
+
+        val state = gameService.handleMove(
+            room.gameState,
+            move
+        )
+
+        assertEquals(
+            "P2",
+            state.currentTurn
+        )
+    }
+
+    @Test
+    fun `battlefield peaks switches turn from first to second player`() {
+
+        val roomRegistry = RoomRegistry()
+        val gameService = GameService(CombatService())
+
+        val room = roomRegistry.createRoom(
+            GameMode.BATTLEFIELD_PEAKS
+        )
+
+        gameService.handleJoin(room.gameState, "P1", "session-1")
+        gameService.handleJoin(room.gameState, "P2", "session-2")
+        gameService.handleJoin(room.gameState, "P3", "session-3")
+        gameService.handleJoin(room.gameState, "P4", "session-4")
+
+        assertEquals(
+            "P1",
+            room.gameState.currentTurn
+        )
+
+        val move = Move(
+            player = "P1",
+            type = UnitType.INFANTRY,
+            fromX = 5,
+            fromY = 1,
+            toX = 5,
+            toY = 2
+        )
+
+        val state = gameService.handleMove(
+            room.gameState,
+            move
+        )
+
+        assertEquals(
+            "P2",
+            state.currentTurn
+        )
+    }
+
 }
