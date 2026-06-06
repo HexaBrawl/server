@@ -363,4 +363,83 @@ class GameModelTest {
         )
     }
 
+
+    @Test
+    fun `battlefield peaks does not start after third player joins`() {
+
+        val gameService = GameService(CombatService())
+        val roomRegistry = RoomRegistry()
+
+        val room = roomRegistry.createRoom(
+            GameMode.BATTLEFIELD_PEAKS
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P1",
+            "session-1"
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P2",
+            "session-2"
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P3",
+            "session-3"
+        )
+
+        assertEquals(
+            GameStatus.WAITING_FOR_PLAYERS,
+            room.gameState.status
+        )
+    }
+
+    @Test
+    fun `battlefield peaks starts when fourth player joins`() {
+
+        val gameService = GameService(CombatService())
+        val roomRegistry = RoomRegistry()
+
+        val room = roomRegistry.createRoom(
+            GameMode.BATTLEFIELD_PEAKS
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P1",
+            "session-1"
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P2",
+            "session-2"
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P3",
+            "session-3"
+        )
+
+        assertEquals(
+            GameStatus.WAITING_FOR_PLAYERS,
+            room.gameState.status
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P4",
+            "session-4"
+        )
+
+        assertEquals(
+            GameStatus.IN_PROGRESS,
+            room.gameState.status
+        )
+    }
 }

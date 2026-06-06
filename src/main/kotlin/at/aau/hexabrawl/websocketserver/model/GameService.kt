@@ -15,21 +15,24 @@ class GameService(
 
     fun handleJoin(state: GameState, playerName: String, sessionId:String=""): GameState = synchronized(state.lock) {
         // Spieler hinzufügen, falls noch nicht vorhanden und Platz ist
-
         if (!state.players.any{it.name == playerName} && state.players.size < state.gameMode.maxPlayers) {
-            val color = if (state.players.isEmpty()) PlayerColor.RED else PlayerColor.BLUE
-            state.players.add(Player(playerName, sessionId,color))
-            println("JOIN: $playerName")
+
+            // Dynamische Farbauswahl für bis zu 4 Spieler anhand der aktuellen Listengröße
+            val colors = listOf(PlayerColor.RED, PlayerColor.BLUE, PlayerColor.GREEN, PlayerColor.YELLOW)
+            val color = colors.getOrElse(state.players.size) { PlayerColor.RED }
+
+            state.players.add(Player(playerName, sessionId, color))
+            println("JOIN: $playerName mit Farbe $color")
         }
 
-        // Automatischer Start bei 2 Spielern
+        // Automatischer Start bei Erreichen der maximalen Spieleranzahl des Modus
         if (state.players.size == state.gameMode.maxPlayers && state.units.isEmpty()) {
             println("players=${state.players.size}, max=${state.gameMode.maxPlayers}")
             startGame(state)
         }
         return state
-
     }
+
 
     fun startGame(state: GameState) {
         when(state.gameMode) {
@@ -77,19 +80,96 @@ class GameService(
         println("Service: GAME STARTED")
     }
 
-    private fun startTriadOutpostGame(state: GameState) {
-        state.currentTurn = state.players.first().name
-        state.status = GameStatus.IN_PROGRESS
 
+    private fun startTriadOutpostGame(state: GameState) {
+        val p1 = state.players[0]
+        val p2 = state.players[1]
+        val p3 = state.players[2]
+
+        // Start-Einheiten für 3 Spieler setzen
+        // Index 0: ARCHER, Index 1: INFANTRY, Index 2: CAVALRY
+        val startPositionsP1 = listOf(
+            Pair(4, 2),  // ARCHER (Süden)
+            Pair(5, 2),  // INFANTRY
+            Pair(6, 2)   // CAVALRY
+        )
+
+        val startPositionsP2 = listOf(
+            Pair(2, 5),  // ARCHER (Nordwesten)
+            Pair(2, 6),  // INFANTRY
+            Pair(3, 6)   // CAVALRY
+        )
+
+        val startPositionsP3 = listOf(
+            Pair(7, 6),  // ARCHER (Nordosten)
+            Pair(8, 6),  // INFANTRY
+            Pair(8, 5)   // CAVALRY
+        )
+
+        UnitType.entries.filter { it != UnitType.SKELETON }.forEachIndexed { index, type ->
+            val (x1, y1) = startPositionsP1[index]
+            val (x2, y2) = startPositionsP2[index]
+            val (x3, y3) = startPositionsP3[index]
+
+            state.units.add(GameUnit(p1.name, x1, y1, type))
+            state.units.add(GameUnit(p2.name, x2, y2, type))
+            state.units.add(GameUnit(p3.name, x3, y3, type))
+        }
+
+        state.currentTurn = p1.name
+        state.status = GameStatus.IN_PROGRESS
         println("Service: TRIAD OUTPOST GAME STARTED")
     }
 
     private fun startBattlefieldPeaksGame(state: GameState) {
-        state.currentTurn = state.players.first().name
-        state.status = GameStatus.IN_PROGRESS
+        val p1 = state.players[0]
+        val p2 = state.players[1]
+        val p3 = state.players[2]
+        val p4 = state.players[3]
 
+        // Start-Einheiten für 4 Spieler setzen
+        // Index 0: ARCHER, Index 1: INFANTRY, Index 2: CAVALRY
+        val startPositionsP1 = listOf(
+            Pair(4, 1),  // ARCHER (Süden)
+            Pair(5, 1),  // INFANTRY
+            Pair(6, 1)   // CAVALRY
+        )
+
+        val startPositionsP2 = listOf(
+            Pair(1, 4),  // ARCHER (Westen)
+            Pair(1, 5),  // INFANTRY
+            Pair(1, 6)   // CAVALRY
+        )
+
+        val startPositionsP3 = listOf(
+            Pair(9, 4),  // ARCHER (Osten)
+            Pair(9, 5),  // INFANTRY
+            Pair(9, 6)   // CAVALRY
+        )
+
+        val startPositionsP4 = listOf(
+            Pair(4, 9),  // ARCHER (Norden)
+            Pair(5, 9),  // INFANTRY
+            Pair(6, 9)   // CAVALRY
+        )
+
+        UnitType.entries.filter { it != UnitType.SKELETON }.forEachIndexed { index, type ->
+            val (x1, y1) = startPositionsP1[index]
+            val (x2, y2) = startPositionsP2[index]
+            val (x3, y3) = startPositionsP3[index]
+            val (x4, y4) = startPositionsP4[index]
+
+            state.units.add(GameUnit(p1.name, x1, y1, type))
+            state.units.add(GameUnit(p2.name, x2, y2, type))
+            state.units.add(GameUnit(p3.name, x3, y3, type))
+            state.units.add(GameUnit(p4.name, x4, y4, type))
+        }
+
+        state.currentTurn = p1.name
+        state.status = GameStatus.IN_PROGRESS
         println("Service: BATTLEFIELD PEAKS GAME STARTED")
     }
+
 
     fun handleMove(state: GameState, move: Move): GameState = synchronized(state.lock) {
         if (state.status != GameStatus.IN_PROGRESS) return state
@@ -126,9 +206,8 @@ class GameService(
         unit.x = move.toX
         unit.y = move.toY
 
-        val (p1, p2) = state.players
-        state.currentTurn = if (state.currentTurn == p1.name) p2.name else p1.name
-
+        // Ersetzt die alte 2-Spieler-Zuweisung durch den zentralen Rundenwechsel
+        switchTurn(state)
         return state
     }
 
@@ -139,15 +218,31 @@ class GameService(
 
 
     private fun switchTurn(state: GameState) {
+        // Falls das Spiel im klassischen 2-Spieler-Modus ist (deckt alle alten Tests ab)
+        if (state.players.size == 2) {
+            val p1 = state.players[0]
+            val p2 = state.players[1]
 
-        val (p1, p2) = state.players
+            // alte, originale Logik
+            state.currentTurn = if (state.currentTurn == p1.name) p2.name else p1.name
+            return
+        }
 
-        state.currentTurn =
-            if (state.currentTurn == p1.name)
-                p2.name
-            else
-                p1.name
+        // Dynamische Rotation für 3 oder 4 Spieler im echten Spiel
+        if (state.players.isNotEmpty()) {
+            val currentIndex = state.players.indexOfFirst { it.name == state.currentTurn }
+            if (currentIndex != -1) {
+                val nextIndex = (currentIndex + 1) % state.players.size
+                state.currentTurn = state.players[nextIndex].name
+            } else {
+                // Falls der aktuelle Turn aus irgendeinem Grund nicht matcht, fängt der Erste an
+                state.currentTurn = state.players.firstOrNull()?.name
+            }
+        }
     }
+
+
+
 
     // WICHTIG FÜR TEST  Nur den aktuellen Stand lesen
     fun getCurrentState(state: GameState): GameState = synchronized(state.lock) {
