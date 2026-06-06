@@ -256,7 +256,7 @@ class GameService(
     * @param state The game state to modify.
     * @param move The move to execute.
     * @return The updated game state.
-    * @throws IllegalArgumentException If the move is invalid.
+
     */
     fun handleMove(state: GameState, move: Move): GameState = synchronized(state.lock) {
         if (state.status != GameStatus.IN_PROGRESS) return state
