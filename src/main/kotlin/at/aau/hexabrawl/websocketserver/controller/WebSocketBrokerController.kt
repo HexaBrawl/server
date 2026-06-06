@@ -43,25 +43,6 @@ class WebSocketBrokerController(
         return message
     }
 
-    @MessageMapping("/join")
-    @SendTo("/topic/game")
-    fun join(
-        playerName: String,
-        headerAccessor: SimpMessageHeaderAccessor
-    ): GameState? {
-
-        val sessionId = headerAccessor.sessionId ?: ""
-        val currentState = gameService.getCurrentState()
-
-        if (currentState.players.size >= GameService.MAX_PLAYERS &&
-            !currentState.players.any { it.name == playerName }) {
-            sendError(sessionId, ErrorCode.GAME_FULL, "Beitritt verweigert: Spiel ist voll.")
-            return null
-        }
-
-        return gameService.handleJoin(playerName, sessionId)
-    }
-
     /**
      * Broadcasts the current game state to all subscribers of the specified room.
      *

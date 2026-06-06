@@ -186,11 +186,21 @@ class WebSocketBrokerControllerTest {
         assertTrue(result.units.isEmpty())
     }
 
+
     @Test
     fun `game stays waiting when only one player joins`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
         val localHeaderAccessor = SimpMessageHeaderAccessor.create()
 
-        val state = controller.join("Alice", localHeaderAccessor)!!
+        val state = controller.joinRoom(
+            room.roomId,
+            "Alice",
+            localHeaderAccessor
+        )!!
 
         assertEquals(1, state.players.size)
         assertEquals(GameStatus.WAITING_FOR_PLAYERS, state.status)
@@ -278,13 +288,20 @@ class WebSocketBrokerControllerTest {
         assertEquals("", state.players[0].sessionId)
     }
 
+
     @Test
     fun `join uses empty sessionId when header sessionId is null`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
         val localHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
 
         `when`(localHeaderAccessor.sessionId).thenReturn(null)
 
-        val state = controller.join(
+        val state = controller.joinRoom(
+            room.roomId,
             "Alice",
             localHeaderAccessor
         )!!
@@ -295,13 +312,20 @@ class WebSocketBrokerControllerTest {
         )
     }
 
+
     @Test
     fun `player can join game with sessionId`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
         val localHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
 
         `when`(localHeaderAccessor.sessionId).thenReturn("session-1")
 
-        val state = controller.join(
+        val state = controller.joinRoom(
+            room.roomId,
             "Josef",
             localHeaderAccessor
         )!!
@@ -309,22 +333,50 @@ class WebSocketBrokerControllerTest {
         assertTrue(
             state.players.any { it.name == "Josef" }
         )
+
         assertEquals(1, state.players.size)
-        assertEquals("session-1", state.players[0].sessionId)
+
+        assertEquals(
+            "session-1",
+            state.players[0].sessionId
+        )
     }
+
 
     @Test
     fun `join via websocket sends GAME_FULL error when full`() {
-        controller.handleJoin("P1", "session-1")
-        controller.handleJoin("P2", "session-2")
 
-        val result = controller.join("P3", headerAccessor)
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            "P1",
+            headerAccessor
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            "P2",
+            headerAccessor
+        )
+
+        val result = controller.joinRoom(
+            room.roomId,
+            "P3",
+            headerAccessor
+        )
 
         assertNull(result)
+
         verify(messagingTemplate).convertAndSendToUser(
             eq("test-session"),
             eq("/queue/errors"),
-            argThat { it is ErrorMessage && it.errorCode == ErrorCode.GAME_FULL }
+            argThat {
+                it is ErrorMessage &&
+                        it.errorCode == ErrorCode.GAME_FULL
+            }
         )
     }
 
