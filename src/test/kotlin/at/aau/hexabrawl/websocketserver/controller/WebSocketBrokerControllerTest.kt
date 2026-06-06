@@ -229,13 +229,28 @@ class WebSocketBrokerControllerTest {
     }
 
     @Test
-    fun `init returns current state`() {
-        controller.handleJoin("Alice", "session-1")
-        controller.handleJoin("Bob", "session-2")
+    fun `room state contains joined players`() {
 
-        val state = controller.init()
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
 
-        assertEquals(2, state.players.size)
+        controller.joinRoom(
+            room.roomId,
+            "Josef",
+            headerAccessor
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            "Marie",
+            headerAccessor
+        )
+
+        assertEquals(
+            2,
+            room.gameState.players.size
+        )
     }
 
     @Test

@@ -144,11 +144,6 @@ class WebSocketBrokerController(
         return state
     }
 
-    @MessageMapping("/init")
-    @SendTo("/topic/game")
-    fun init(): GameState {
-        return gameService.getCurrentState()
-    }
 
     /**
      * Returns the current game state of the specified room.
