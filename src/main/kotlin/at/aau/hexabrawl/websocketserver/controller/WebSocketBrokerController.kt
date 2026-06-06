@@ -118,7 +118,7 @@ class WebSocketBrokerController(
 
         val currentState = gameService.getCurrentState(room.gameState)
 
-        if (currentState.players.size >= GameService.MAX_PLAYERS &&
+        if (currentState.players.size >= room.mode.maxPlayers &&
             !currentState.players.any { it.name == playerName }) {
 
             sendError(
@@ -140,13 +140,6 @@ class WebSocketBrokerController(
             roomId,
             state
         )
-
-       /* if (
-            state.players.size == room.mode.maxPlayers &&
-            state.status == GameStatus.WAITING_FOR_PLAYERS
-        ) {
-            gameService.startGame(room.gameState)
-        }*/
 
         return state
     }

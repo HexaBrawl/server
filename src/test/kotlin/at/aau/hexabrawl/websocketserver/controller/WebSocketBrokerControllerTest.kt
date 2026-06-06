@@ -795,4 +795,41 @@ class WebSocketBrokerControllerTest {
         )
     }
 
+    @Test
+    fun `joining final player broadcasts started game state`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.TRIAD_OUTPOST
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            "P1",
+            headerAccessor
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            "P2",
+            headerAccessor
+        )
+
+        val state = controller.joinRoom(
+            room.roomId,
+            "P3",
+            headerAccessor
+        )
+
+        assertEquals(
+            GameStatus.IN_PROGRESS,
+            state?.status
+        )
+
+        verify(messagingTemplate, atLeastOnce())
+            .convertAndSend(
+                eq("/topic/rooms/${room.roomId}/state"),
+                any(GameState::class.java)
+            )
+    }
+
 }
