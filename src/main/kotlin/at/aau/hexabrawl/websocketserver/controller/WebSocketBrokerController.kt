@@ -43,25 +43,6 @@ class WebSocketBrokerController(
         return message
     }
 
-    @MessageMapping("/join")
-    @SendTo("/topic/game")
-    fun join(
-        playerName: String,
-        headerAccessor: SimpMessageHeaderAccessor
-    ): GameState? {
-
-        val sessionId = headerAccessor.sessionId ?: ""
-        val currentState = gameService.getCurrentState()
-
-        if (currentState.players.size >= GameService.MAX_PLAYERS &&
-            !currentState.players.any { it.name == playerName }) {
-            sendError(sessionId, ErrorCode.GAME_FULL, "Beitritt verweigert: Spiel ist voll.")
-            return null
-        }
-
-        return gameService.handleJoin(playerName, sessionId)
-    }
-
     /**
      * Broadcasts the current game state to all subscribers of the specified room.
      *
@@ -144,11 +125,6 @@ class WebSocketBrokerController(
         return state
     }
 
-    @MessageMapping("/init")
-    @SendTo("/topic/game")
-    fun init(): GameState {
-        return gameService.getCurrentState()
-    }
 
     /**
      * Returns the current game state of the specified room.
@@ -192,34 +168,7 @@ class WebSocketBrokerController(
         return state
     }
 
-    @MessageMapping("/move")
-    @SendTo("/topic/game")
-    fun move(move: Move, headerAccessor: SimpMessageHeaderAccessor): GameState? {
-        val sessionId = headerAccessor.sessionId ?: ""
-        val stateBefore = gameService.getCurrentState()
-
-        if (stateBefore.status != GameStatus.IN_PROGRESS) {
-            sendError(sessionId, ErrorCode.GAME_NOT_STARTED, "Zug abgelehnt: Spiel läuft nicht.")
-            return null
-        }
-
-        if (move.player != stateBefore.currentTurn) {
-            sendError(sessionId, ErrorCode.NOT_YOUR_TURN, "Es ist nicht dein Zug!")
-            return null
-        }
-
-        val turnBefore = stateBefore.currentTurn
-        val stateAfter = gameService.handleMove(move)
-
-        if (stateAfter.currentTurn == turnBefore) {
-            sendError(sessionId, ErrorCode.INVALID_MOVE, "Dieser Zug ist laut Regeln ungültig.")
-            return null
-        }
-
-        return stateAfter
-    }
-
-    /**
+     /**
      * Executes a move in the specified game room.
      *
      * The room is identified by its unique roomId. The move is validated against

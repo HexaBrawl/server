@@ -186,11 +186,21 @@ class WebSocketBrokerControllerTest {
         assertTrue(result.units.isEmpty())
     }
 
+
     @Test
     fun `game stays waiting when only one player joins`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
         val localHeaderAccessor = SimpMessageHeaderAccessor.create()
 
-        val state = controller.join("Alice", localHeaderAccessor)!!
+        val state = controller.joinRoom(
+            room.roomId,
+            "Alice",
+            localHeaderAccessor
+        )!!
 
         assertEquals(1, state.players.size)
         assertEquals(GameStatus.WAITING_FOR_PLAYERS, state.status)
@@ -229,13 +239,28 @@ class WebSocketBrokerControllerTest {
     }
 
     @Test
-    fun `init returns current state`() {
-        controller.handleJoin("Alice", "session-1")
-        controller.handleJoin("Bob", "session-2")
+    fun `room state contains joined players`() {
 
-        val state = controller.init()
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
 
-        assertEquals(2, state.players.size)
+        controller.joinRoom(
+            room.roomId,
+            "Josef",
+            headerAccessor
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            "Marie",
+            headerAccessor
+        )
+
+        assertEquals(
+            2,
+            room.gameState.players.size
+        )
     }
 
     @Test
@@ -263,13 +288,20 @@ class WebSocketBrokerControllerTest {
         assertEquals("", state.players[0].sessionId)
     }
 
+
     @Test
     fun `join uses empty sessionId when header sessionId is null`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
         val localHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
 
         `when`(localHeaderAccessor.sessionId).thenReturn(null)
 
-        val state = controller.join(
+        val state = controller.joinRoom(
+            room.roomId,
             "Alice",
             localHeaderAccessor
         )!!
@@ -280,13 +312,20 @@ class WebSocketBrokerControllerTest {
         )
     }
 
+
     @Test
     fun `player can join game with sessionId`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
         val localHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
 
         `when`(localHeaderAccessor.sessionId).thenReturn("session-1")
 
-        val state = controller.join(
+        val state = controller.joinRoom(
+            room.roomId,
             "Josef",
             localHeaderAccessor
         )!!
@@ -294,75 +333,184 @@ class WebSocketBrokerControllerTest {
         assertTrue(
             state.players.any { it.name == "Josef" }
         )
+
         assertEquals(1, state.players.size)
-        assertEquals("session-1", state.players[0].sessionId)
+
+        assertEquals(
+            "session-1",
+            state.players[0].sessionId
+        )
     }
+
 
     @Test
     fun `join via websocket sends GAME_FULL error when full`() {
-        controller.handleJoin("P1", "session-1")
-        controller.handleJoin("P2", "session-2")
 
-        val result = controller.join("P3", headerAccessor)
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            "P1",
+            headerAccessor
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            "P2",
+            headerAccessor
+        )
+
+        val result = controller.joinRoom(
+            room.roomId,
+            "P3",
+            headerAccessor
+        )
 
         assertNull(result)
+
         verify(messagingTemplate).convertAndSendToUser(
             eq("test-session"),
             eq("/queue/errors"),
-            argThat { it is ErrorMessage && it.errorCode == ErrorCode.GAME_FULL }
+            argThat {
+                it is ErrorMessage &&
+                        it.errorCode == ErrorCode.GAME_FULL
+            }
         )
     }
 
     @Test
     fun `move via websocket sends GAME_NOT_STARTED error`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
         val move = Move(player = "P1")
 
-        val result = controller.move(move, headerAccessor)
+        val result = controller.moveRoom(
+            room.roomId,
+            move,
+            headerAccessor
+        )
 
         assertNull(result)
+
         verify(messagingTemplate).convertAndSendToUser(
             eq("test-session"),
             eq("/queue/errors"),
-            argThat { it is ErrorMessage && it.errorCode == ErrorCode.GAME_NOT_STARTED }
+            argThat {
+                it is ErrorMessage &&
+                        it.errorCode == ErrorCode.GAME_NOT_STARTED
+            }
         )
     }
 
     @Test
     fun `move via websocket sends NOT_YOUR_TURN error`() {
-        controller.handleJoin("P1", "session-1")
-        controller.handleJoin("P2", "session-2")
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            "P1",
+            headerAccessor
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            "P2",
+            headerAccessor
+        )
 
         val move = Move(player = "P2")
-        val result = controller.move(move, headerAccessor)
+
+        val result = controller.moveRoom(
+            room.roomId,
+            move,
+            headerAccessor
+        )
 
         assertNull(result)
+
         verify(messagingTemplate).convertAndSendToUser(
             eq("test-session"),
             eq("/queue/errors"),
-            argThat { it is ErrorMessage && it.errorCode == ErrorCode.NOT_YOUR_TURN }
+            argThat {
+                it is ErrorMessage &&
+                        it.errorCode == ErrorCode.NOT_YOUR_TURN
+            }
         )
     }
+
 
     @Test
     fun `move via websocket sends INVALID_MOVE error`() {
-        controller.handleJoin("P1", "session-1")
-        controller.handleJoin("P2", "session-2")
 
-        val move = Move(player = "P1", fromX = 0, fromY = 0, toX = 9, toY = 9)
-        val result = controller.move(move, headerAccessor)
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            "P1",
+            headerAccessor
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            "P2",
+            headerAccessor
+        )
+
+        val move = Move(
+            player = "P1",
+            fromX = 0,
+            fromY = 0,
+            toX = 9,
+            toY = 9
+        )
+
+        val result = controller.moveRoom(
+            room.roomId,
+            move,
+            headerAccessor
+        )
 
         assertNull(result)
+
         verify(messagingTemplate).convertAndSendToUser(
             eq("test-session"),
             eq("/queue/errors"),
-            argThat { it is ErrorMessage && it.errorCode == ErrorCode.INVALID_MOVE }
+            argThat {
+                it is ErrorMessage &&
+                        it.errorCode == ErrorCode.INVALID_MOVE
+            }
         )
     }
+
 
     @Test
     fun `broadcasts new state on success`() {
-        controller.handleJoin("Alice", "session-1")
-        controller.handleJoin("Bob", "session-2")
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            "Alice",
+            headerAccessor
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            "Bob",
+            headerAccessor
+        )
 
         val move = Move(
             player = "Alice",
@@ -373,17 +521,42 @@ class WebSocketBrokerControllerTest {
             toY = 3
         )
 
-        val result = controller.move(move, headerAccessor)
+        // Join-Broadcasts ignorieren
+        clearInvocations(messagingTemplate)
+
+        val result = controller.moveRoom(
+            room.roomId,
+            move,
+            headerAccessor
+        )
 
         assertNotNull(result)
 
-        verifyNoInteractions(messagingTemplate)
+        verify(messagingTemplate).convertAndSend(
+            eq("/topic/rooms/${room.roomId}/state"),
+            eq(result!!)
+        )
     }
+
 
     @Test
     fun `valid move switches turn`() {
-        controller.handleJoin("Alice", "session-1")
-        controller.handleJoin("Bob", "session-2")
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            "Alice",
+            headerAccessor
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            "Bob",
+            headerAccessor
+        )
 
         val move = Move(
             player = "Alice",
@@ -393,11 +566,19 @@ class WebSocketBrokerControllerTest {
             toX = 3,
             toY = 3
         )
-        val result = controller.move(move, headerAccessor)
+
+        val result = controller.moveRoom(
+            room.roomId,
+            move,
+            headerAccessor
+        )
 
         assertNotNull(result)
 
-        assertEquals("Bob", result?.currentTurn)
+        assertEquals(
+            "Bob",
+            result?.currentTurn
+        )
     }
 
     @Test
