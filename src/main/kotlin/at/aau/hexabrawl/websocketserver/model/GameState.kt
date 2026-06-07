@@ -12,7 +12,8 @@ data class GameState(
     val units: MutableList<GameUnit> = mutableListOf(),
     var currentTurn: String? = null,
     var status: GameStatus = GameStatus.WAITING_FOR_PLAYERS,
-    var gameMode: GameMode = GameMode.DUAL_VALLEY
+    var gameMode: GameMode = GameMode.DUAL_VALLEY,
+    var winner: String? = null
 )
 {
     @JsonIgnore

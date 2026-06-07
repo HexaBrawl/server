@@ -5,5 +5,7 @@ enum class ErrorCode {
     INVALID_MOVE,
     GAME_FULL,
     GAME_NOT_STARTED,
+    INSUFFICIENT_GOLD,
+    COLOR_ALREADY_TAKEN,
     ROOM_NOT_FOUND
 }

@@ -5,20 +5,17 @@ import at.aau.hexabrawl.websocketserver.model.ErrorMessage
 import at.aau.hexabrawl.websocketserver.model.GameService
 import at.aau.hexabrawl.websocketserver.model.GameState
 import at.aau.hexabrawl.websocketserver.model.GameStatus
+import at.aau.hexabrawl.websocketserver.model.JoinRequest
 import at.aau.hexabrawl.websocketserver.model.Move
+import at.aau.hexabrawl.websocketserver.model.PlayerColor
 import at.aau.hexabrawl.websocketserver.model.RoomRegistry
 import at.aau.hexabrawl.websocketserver.model.StompMessage
 import org.springframework.messaging.handler.annotation.DestinationVariable
 import org.springframework.messaging.handler.annotation.MessageMapping
 import org.springframework.messaging.handler.annotation.SendTo
-import org.springframework.stereotype.Controller
-import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestBody
-import org.springframework.web.bind.annotation.ResponseBody
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
-import org.springframework.messaging.handler.annotation.Header
 import org.springframework.messaging.simp.SimpMessagingTemplate
-import org.springframework.messaging.simp.annotation.SendToUser
+import org.springframework.stereotype.Controller
 
 @Controller
 class WebSocketBrokerController(
@@ -27,8 +24,7 @@ class WebSocketBrokerController(
     private val messagingTemplate: SimpMessagingTemplate
 ) {
     companion object {
-        private const val ROOM_NOT_FOUND_MESSAGE =
-            "Raum nicht gefunden."
+        private const val ROOM_NOT_FOUND_MESSAGE = "Raum nicht gefunden."
     }
 
     @MessageMapping("/hello")
@@ -49,14 +45,8 @@ class WebSocketBrokerController(
      * The state is sent to the room-specific STOMP topic
      * "/topic/rooms/{roomId}/state", ensuring that only clients subscribed
      * to this room receive the update.
-     *
-     * @param roomId Unique identifier of the room whose state is broadcast.
-     * @param state Current game state of the room.
      */
-    private fun sendRoomState(
-        roomId: String,
-        state: GameState
-    ) {
+    private fun sendRoomState(roomId: String, state: GameState) {
         messagingTemplate.convertAndSend(
             "/topic/rooms/$roomId/state",
             state
@@ -66,123 +56,90 @@ class WebSocketBrokerController(
     /**
      * Adds a player to the specified game room.
      *
-     * The room is identified by its unique roomId. If the room exists and is not
-     * full, the player is added to the room's game state and the updated state is
-     * broadcast to all subscribers of the room-specific topic.
-     *
-     * If the room does not exist, a ROOM_NOT_FOUND error is sent to the client.
-     *
-     * @param roomId Unique identifier of the target room.
-     * @param playerName Name of the player joining the room.
-     * @param headerAccessor Provides access to the STOMP session information.
-     * @return Updated GameState if the player was successfully added; null otherwise.
+     * Konsolidiert die Room-Architektur (#51) mit der Color-Auswahl aus
+     * #107 und der Color-Konflikt-Erkennung aus #60/main:
+     *  - Body ist [JoinRequest] (name + color), wie die App ihn schickt
+     *  - Room-Existenz wird zuerst geprueft (ROOM_NOT_FOUND sonst)
+     *  - Mode-Vollbelegung -> GAME_FULL
+     *  - Farb-Konflikt -> COLOR_ALREADY_TAKEN (nur wenn Spieler neu ist;
+     *    Re-Join mit gleichem Namen ist okay)
+     *  - Erfolg: handleJoin mit color, dann Broadcast auf room-Topic
      */
     @MessageMapping("/rooms/{roomId}/join")
     fun joinRoom(
         @DestinationVariable roomId: String,
-        playerName: String,
+        request: JoinRequest,
         headerAccessor: SimpMessageHeaderAccessor
     ): GameState? {
+        val sessionId = headerAccessor.sessionId ?: ""
 
         val room = roomRegistry.findById(roomId)
-
         if (room == null) {
-            sendError(
-                headerAccessor.sessionId ?: "",
-                ErrorCode.ROOM_NOT_FOUND,
-                ROOM_NOT_FOUND_MESSAGE
-            )
+            sendError(sessionId, ErrorCode.ROOM_NOT_FOUND, ROOM_NOT_FOUND_MESSAGE)
             return null
         }
 
-        val sessionId = headerAccessor.sessionId ?: ""
-
         val currentState = gameService.getCurrentState(room.gameState)
 
+        // Spiel voll?
         if (currentState.players.size >= room.mode.maxPlayers &&
-            !currentState.players.any { it.name == playerName }) {
+            !currentState.players.any { it.name == request.name }
+        ) {
+            sendError(sessionId, ErrorCode.GAME_FULL, "Beitritt verweigert: Spiel ist voll.")
+            return null
+        }
 
+        // Farb-Konflikt: nur fuer wirklich neue Spieler MIT explizit
+        // gesetzter Farbe pruefen. Wenn der Client keine Farbe schickt,
+        // vergibt handleJoin sie dynamisch und kann selbst keinen
+        // Konflikt erzeugen.
+        val requestedColor = request.color
+        if (requestedColor != null &&
+            !currentState.players.any { it.name == request.name } &&
+            gameService.isColorTaken(room.gameState, requestedColor)
+        ) {
             sendError(
                 sessionId,
-                ErrorCode.GAME_FULL,
-                "Beitritt verweigert: Spiel ist voll."
+                ErrorCode.COLOR_ALREADY_TAKEN,
+                "Beitritt verweigert: Farbe '$requestedColor' ist bereits vergeben."
             )
-
             return null
         }
 
         val state = gameService.handleJoin(
             room.gameState,
-            playerName,
-            sessionId
+            request.name,
+            sessionId,
+            request.color
         )
 
-        sendRoomState(
-            roomId,
-            state
-        )
-
+        sendRoomState(roomId, state)
         return state
     }
 
-
     /**
      * Returns the current game state of the specified room.
-     *
-     * The room is identified by its unique roomId. The current state is
-     * broadcast to all subscribers of the room-specific topic and returned
-     * to the requesting client.
-     *
-     * If the room does not exist, a ROOM_NOT_FOUND error is sent to the client.
-     *
-     * @param roomId Unique identifier of the requested room.
-     * @param headerAccessor Provides access to the STOMP session information.
-     * @return Current GameState of the room, or null if the room does not exist.
      */
     @MessageMapping("/rooms/{roomId}/init")
     fun initRoom(
         @DestinationVariable roomId: String,
         headerAccessor: SimpMessageHeaderAccessor
     ): GameState? {
-
         val sessionId = headerAccessor.sessionId ?: ""
+
         val room = roomRegistry.findById(roomId)
         if (room == null) {
-            sendError(
-                sessionId,
-                ErrorCode.ROOM_NOT_FOUND,
-                ROOM_NOT_FOUND_MESSAGE
-            )
+            sendError(sessionId, ErrorCode.ROOM_NOT_FOUND, ROOM_NOT_FOUND_MESSAGE)
             return null
         }
 
-        val state = gameService.getCurrentState(
-            room.gameState
-        )
-
-        sendRoomState(
-            roomId,
-            state
-        )
-
+        val state = gameService.getCurrentState(room.gameState)
+        sendRoomState(roomId, state)
         return state
     }
 
-     /**
+    /**
      * Executes a move in the specified game room.
-     *
-     * The room is identified by its unique roomId. The move is validated against
-     * the room's current game state. If the move is valid, the updated game state
-     * is broadcast to all subscribers of the room-specific topic.
-     *
-     * If the room does not exist, a ROOM_NOT_FOUND error is sent to the client.
-     * Additional errors are reported if the game has not started, it is not the
-     * player's turn, or the move is invalid.
-     *
-     * @param roomId Unique identifier of the target room.
-     * @param move The move to be executed.
-     * @param headerAccessor Provides access to the STOMP session information.
-     * @return Updated GameState after a successful move; null otherwise.
      */
     @MessageMapping("/rooms/{roomId}/move")
     fun moveRoom(
@@ -190,66 +147,82 @@ class WebSocketBrokerController(
         move: Move,
         headerAccessor: SimpMessageHeaderAccessor
     ): GameState? {
+        val sessionId = headerAccessor.sessionId ?: ""
 
         val room = roomRegistry.findById(roomId)
-
         if (room == null) {
-            sendError(
-                headerAccessor.sessionId ?: "",
-                ErrorCode.ROOM_NOT_FOUND,
-                ROOM_NOT_FOUND_MESSAGE
-            )
+            sendError(sessionId, ErrorCode.ROOM_NOT_FOUND, ROOM_NOT_FOUND_MESSAGE)
             return null
         }
-
-        val sessionId = headerAccessor.sessionId ?: ""
 
         val stateBefore = gameService.getCurrentState(room.gameState)
 
         if (stateBefore.status != GameStatus.IN_PROGRESS) {
-            sendError(
-                sessionId,
-                ErrorCode.GAME_NOT_STARTED,
-                "Zug abgelehnt: Spiel läuft nicht."
-            )
+            sendError(sessionId, ErrorCode.GAME_NOT_STARTED, "Zug abgelehnt: Spiel läuft nicht.")
             return null
         }
 
         if (move.player != stateBefore.currentTurn) {
-            sendError(
-                sessionId,
-                ErrorCode.NOT_YOUR_TURN,
-                "Es ist nicht dein Zug!"
-            )
+            sendError(sessionId, ErrorCode.NOT_YOUR_TURN, "Es ist nicht dein Zug!")
             return null
         }
 
         val turnBefore = stateBefore.currentTurn
-
-        val stateAfter = gameService.handleMove(
-            room.gameState,
-            move
-        )
+        val stateAfter = gameService.handleMove(room.gameState, move)
 
         if (stateAfter.currentTurn == turnBefore) {
-            sendError(
-                sessionId,
-                ErrorCode.INVALID_MOVE,
-                "Dieser Zug ist laut Regeln ungültig."
-            )
+            sendError(sessionId, ErrorCode.INVALID_MOVE, "Dieser Zug ist laut Regeln ungültig.")
             return null
         }
 
-        sendRoomState(
-            roomId,
-            stateAfter
-        )
-
+        sendRoomState(roomId, stateAfter)
         return stateAfter
     }
 
+    /**
+     * Kauft eine Farm fuer den Spieler im angegebenen Room.
+     *
+     * Portiert das `/buyFarm`-Mapping aus main (#60) in die room-scoped
+     * Architektur (#51) und uebernimmt dabei auch die kebab-case-
+     * Konvention, die die App erwartet (`/app/rooms/{id}/buy-farm`).
+     *
+     * Spieler wird ueber die sessionId aus dem STOMP-Header identifiziert
+     * (sicherer als Payload-Trust). Bei zu wenig Gold: INSUFFICIENT_GOLD.
+     *
+     * Schlaegt damit Task #10 (Buy-Farm Room-Endpoint) gleich mit ab —
+     * sonst waere die buyFarm-Logik aus main beim Merge ohne Mapping
+     * im Codebase verwaist.
+     */
+    @MessageMapping("/rooms/{roomId}/buy-farm")
+    fun buyFarmRoom(
+        @DestinationVariable roomId: String,
+        headerAccessor: SimpMessageHeaderAccessor
+    ): GameState? {
+        val sessionId = headerAccessor.sessionId ?: ""
 
-    fun handleJoin(name: String, sessionId: String) = gameService.handleJoin(name, sessionId)
+        val room = roomRegistry.findById(roomId)
+        if (room == null) {
+            sendError(sessionId, ErrorCode.ROOM_NOT_FOUND, ROOM_NOT_FOUND_MESSAGE)
+            return null
+        }
+
+        val state = room.gameState
+        val player = state.players.find { it.sessionId == sessionId } ?: return null
+
+        val cost = GameService.FARM_BASE_COST + (player.farms * GameService.FARM_COST_INCREMENT)
+        if (player.gold < cost) {
+            sendError(sessionId, ErrorCode.INSUFFICIENT_GOLD, "Nicht genug Gold für eine Farm!")
+            return null
+        }
+
+        val updated = gameService.buyFarm(state, player.name)
+        sendRoomState(roomId, updated)
+        return updated
+    }
+
+    // Bridges fuer Tests, die noch ueber den globalen GameState gehen.
+    fun handleJoin(name: String, sessionId: String, color: PlayerColor? = null) =
+        gameService.handleJoin(name, sessionId, color)
     fun handleMove(move: Move) = gameService.handleMove(move)
 
     private fun sendError(user: String, code: ErrorCode, msg: String) {

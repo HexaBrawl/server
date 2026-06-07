@@ -50,10 +50,12 @@ class WebSocketBrokerControllerTest {
 
         assertEquals(2, state.players.size)
         assertNotNull(state.currentTurn)
-        assertEquals(6, state.units.size)
+        // 3 regulaere Einheiten (ARCHER, INFANTRY, CAVALRY) + 1 BASE pro Spieler = 8 Units total.
+        assertEquals(8, state.units.size)
         assertTrue(state.units.any { it.type == UnitType.ARCHER })
         assertTrue(state.units.any { it.type == UnitType.INFANTRY })
         assertTrue(state.units.any { it.type == UnitType.CAVALRY })
+        assertTrue(state.units.any { it.type == UnitType.BASE })
         assertEquals(GameStatus.IN_PROGRESS, state.status)
     }
 
@@ -141,6 +143,9 @@ class WebSocketBrokerControllerTest {
         controller.handleJoin("Alice", "session-1")
         controller.handleJoin("Bob", "session-2")
 
+        // Gold geben, damit sie nach der Runde nicht pleitegehen
+        gameService.getCurrentState().players.forEach { it.gold = 100 }
+
         // First move
         controller.handleMove(
             Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3)
@@ -198,7 +203,7 @@ class WebSocketBrokerControllerTest {
 
         val state = controller.joinRoom(
             room.roomId,
-            "Alice",
+            JoinRequest(name = "Alice"),
             localHeaderAccessor
         )!!
 
@@ -225,6 +230,9 @@ class WebSocketBrokerControllerTest {
         controller.handleJoin("Alice", "session-1")
         controller.handleJoin("Bob", "session-2")
 
+        // Gold geben, damit sie nach der Runde nicht pleitegehen
+        gameService.getCurrentState().players.forEach { it.gold = 100 }
+
         // Alice move
         val state1 = controller.handleMove(
             Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3)
@@ -247,13 +255,13 @@ class WebSocketBrokerControllerTest {
 
         controller.joinRoom(
             room.roomId,
-            "Josef",
+            JoinRequest(name = "Josef"),
             headerAccessor
         )
 
         controller.joinRoom(
             room.roomId,
-            "Marie",
+            JoinRequest(name = "Marie"),
             headerAccessor
         )
 
@@ -302,7 +310,7 @@ class WebSocketBrokerControllerTest {
 
         val state = controller.joinRoom(
             room.roomId,
-            "Alice",
+            JoinRequest(name = "Alice"),
             localHeaderAccessor
         )!!
 
@@ -326,7 +334,7 @@ class WebSocketBrokerControllerTest {
 
         val state = controller.joinRoom(
             room.roomId,
-            "Josef",
+            JoinRequest(name = "Josef"),
             localHeaderAccessor
         )!!
 
@@ -352,19 +360,19 @@ class WebSocketBrokerControllerTest {
 
         controller.joinRoom(
             room.roomId,
-            "P1",
+            JoinRequest(name = "P1", color = PlayerColor.RED),
             headerAccessor
         )
 
         controller.joinRoom(
             room.roomId,
-            "P2",
+            JoinRequest(name = "P2", color = PlayerColor.BLUE),
             headerAccessor
         )
 
         val result = controller.joinRoom(
             room.roomId,
-            "P3",
+            JoinRequest(name = "P3", color = PlayerColor.GREEN),
             headerAccessor
         )
 
@@ -416,13 +424,13 @@ class WebSocketBrokerControllerTest {
 
         controller.joinRoom(
             room.roomId,
-            "P1",
+            JoinRequest(name = "P1"),
             headerAccessor
         )
 
         controller.joinRoom(
             room.roomId,
-            "P2",
+            JoinRequest(name = "P2"),
             headerAccessor
         )
 
@@ -456,13 +464,13 @@ class WebSocketBrokerControllerTest {
 
         controller.joinRoom(
             room.roomId,
-            "P1",
+            JoinRequest(name = "P1"),
             headerAccessor
         )
 
         controller.joinRoom(
             room.roomId,
-            "P2",
+            JoinRequest(name = "P2"),
             headerAccessor
         )
 
@@ -494,6 +502,14 @@ class WebSocketBrokerControllerTest {
 
 
     @Test
+    fun `move via websocket rejected when game status is FINISHED`() {
+        controller.handleJoin("Alice", "session-1")
+        controller.handleJoin("Bob", "session-2")
+
+        gameService.gameState.status = GameStatus.FINISHED
+    }
+
+    @Test
     fun `broadcasts new state on success`() {
 
         val room = roomRegistry.createRoom(
@@ -502,13 +518,13 @@ class WebSocketBrokerControllerTest {
 
         controller.joinRoom(
             room.roomId,
-            "Alice",
+            JoinRequest(name = "Alice"),
             headerAccessor
         )
 
         controller.joinRoom(
             room.roomId,
-            "Bob",
+            JoinRequest(name = "Bob"),
             headerAccessor
         )
 
@@ -548,13 +564,13 @@ class WebSocketBrokerControllerTest {
 
         controller.joinRoom(
             room.roomId,
-            "Alice",
+            JoinRequest(name = "Alice"),
             headerAccessor
         )
 
         controller.joinRoom(
             room.roomId,
-            "Bob",
+            JoinRequest(name = "Bob"),
             headerAccessor
         )
 
@@ -611,7 +627,7 @@ class WebSocketBrokerControllerTest {
 
         val result = controller.joinRoom(
             "invalid-room-id",
-            "Josef",
+            JoinRequest(name = "Josef"),
             headerAccessor
         )
 
@@ -629,7 +645,7 @@ class WebSocketBrokerControllerTest {
 
         controller.joinRoom(
             room.roomId,
-            "Josef",
+            JoinRequest(name = "Josef"),
             headerAccessor
         )
 
@@ -720,7 +736,7 @@ class WebSocketBrokerControllerTest {
 
         controller.joinRoom(
             room.roomId,
-            "Josef",
+            JoinRequest(name = "Josef"),
             headerAccessor
         )
 
@@ -798,7 +814,7 @@ class WebSocketBrokerControllerTest {
 
         controller.joinRoom(
             "invalid-room-id",
-            "Josef",
+            JoinRequest(name = "Josef"),
             headerAccessor
         )
 
@@ -865,7 +881,7 @@ class WebSocketBrokerControllerTest {
 
         val result = controller.joinRoom(
             room.roomId,
-            "Marie",
+            JoinRequest(name = "Marie"),
             headerAccessor
         )
 
@@ -985,19 +1001,19 @@ class WebSocketBrokerControllerTest {
 
         controller.joinRoom(
             room.roomId,
-            "P1",
+            JoinRequest(name = "P1", color = PlayerColor.RED),
             headerAccessor
         )
 
         controller.joinRoom(
             room.roomId,
-            "P2",
+            JoinRequest(name = "P2", color = PlayerColor.BLUE),
             headerAccessor
         )
 
         val state = controller.joinRoom(
             room.roomId,
-            "P3",
+            JoinRequest(name = "P3", color = PlayerColor.GREEN),
             headerAccessor
         )
 
@@ -1013,4 +1029,165 @@ class WebSocketBrokerControllerTest {
             )
     }
 
+    // ---- Buy-Farm-Tests (#60, portiert von /buyFarm auf /rooms/{id}/buy-farm) ----
+
+    @Test
+    fun `buyFarmRoom returns updated state when gold is sufficient`() {
+        val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
+
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Alice", color = PlayerColor.RED),
+            headerAccessor
+        )
+        val secondHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
+        `when`(secondHeaderAccessor.sessionId).thenReturn("session-2")
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Bob", color = PlayerColor.BLUE),
+            secondHeaderAccessor
+        )
+
+        val alice = room.gameState.players.first { it.name == "Alice" }
+        alice.gold = 20  // genug Gold
+
+        val result = controller.buyFarmRoom(room.roomId, headerAccessor)
+
+        assertNotNull(result)
+        assertEquals(1, result?.players?.first { it.name == "Alice" }?.farms)
+        // 20 - FARM_BASE_COST(10) = 10
+        assertEquals(10, result?.players?.first { it.name == "Alice" }?.gold)
+    }
+
+    @Test
+    fun `buyFarmRoom sends INSUFFICIENT_GOLD error when poor`() {
+        val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
+
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Alice", color = PlayerColor.RED),
+            headerAccessor
+        )
+        val secondHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
+        `when`(secondHeaderAccessor.sessionId).thenReturn("session-2")
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Bob", color = PlayerColor.BLUE),
+            secondHeaderAccessor
+        )
+
+        val alice = room.gameState.players.first { it.name == "Alice" }
+        alice.gold = 5  // zu wenig fuer Farm (Kosten 10)
+
+        val result = controller.buyFarmRoom(room.roomId, headerAccessor)
+
+        assertNull(result)
+        verify(messagingTemplate).convertAndSendToUser(
+            eq("test-session"),
+            eq("/queue/errors"),
+            argThat { it is ErrorMessage && it.errorCode == ErrorCode.INSUFFICIENT_GOLD }
+        )
+    }
+
+    @Test
+    fun `buyFarmRoom returns null if player session is unknown`() {
+        val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
+        // Niemand beigetreten -> headerAccessor.sessionId ist "test-session", kein Match
+        val result = controller.buyFarmRoom(room.roomId, headerAccessor)
+        assertNull(result)
+    }
+
+    @Test
+    fun `buyFarmRoom handles null sessionId from headerAccessor gracefully`() {
+        val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
+        val localHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
+        `when`(localHeaderAccessor.sessionId).thenReturn(null)
+
+        val result = controller.buyFarmRoom(room.roomId, localHeaderAccessor)
+        assertNull(result)
+    }
+
+    // ---- Color-/Reconnect-Tests fuer Sub-Issue #107 ----
+
+    @Test
+    fun `joinRoom allows reconnecting player even if game is max capacity`() {
+        val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
+
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Alice", color = PlayerColor.RED),
+            headerAccessor
+        )
+        val secondHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
+        `when`(secondHeaderAccessor.sessionId).thenReturn("session-2")
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Bob", color = PlayerColor.BLUE),
+            secondHeaderAccessor
+        )
+
+        // Alice joint neu mit anderer Session
+        val reconnectHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
+        `when`(reconnectHeaderAccessor.sessionId).thenReturn("session-3")
+
+        val state = controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Alice", color = PlayerColor.RED),
+            reconnectHeaderAccessor
+        )
+
+        // Re-Join wird durchgewinkt, kein GAME_FULL
+        assertNotNull(state)
+        assertEquals(2, state?.players?.size)
+    }
+
+    @Test
+    fun `joinRoom applies color from JoinRequest`() {
+        val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
+
+        val state = controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Alice", color = PlayerColor.GREEN),
+            headerAccessor
+        )!!
+
+        assertEquals(PlayerColor.GREEN, state.players[0].color)
+    }
+
+    @Test
+    fun `joinRoom with duplicate color sends COLOR_ALREADY_TAKEN error`() {
+        val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
+
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Alice", color = PlayerColor.RED),
+            headerAccessor
+        )
+
+        val secondHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
+        `when`(secondHeaderAccessor.sessionId).thenReturn("session-2")
+
+        val result = controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Bob", color = PlayerColor.RED),
+            secondHeaderAccessor
+        )
+
+        assertNull(result)
+        verify(messagingTemplate).convertAndSendToUser(
+            eq("session-2"),
+            eq("/queue/errors"),
+            argThat { it is ErrorMessage && it.errorCode == ErrorCode.COLOR_ALREADY_TAKEN }
+        )
+    }
+
+    @Test
+    fun `PlayerColor supports all four colors`() {
+        assertEquals(4, PlayerColor.entries.size)
+        assertTrue(
+            PlayerColor.entries.containsAll(
+                listOf(PlayerColor.RED, PlayerColor.BLUE, PlayerColor.GREEN, PlayerColor.YELLOW)
+            )
+        )
+    }
 }
