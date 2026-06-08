@@ -39,13 +39,6 @@ class WebSocketBrokerController(
         return message
     }
 
-    /**
-     * Broadcasts the current game state to all subscribers of the specified room.
-     *
-     * The state is sent to the room-specific STOMP topic
-     * "/topic/rooms/{roomId}/state", ensuring that only clients subscribed
-     * to this room receive the update.
-     */
     private fun sendRoomState(roomId: String, state: GameState) {
         messagingTemplate.convertAndSend(
             "/topic/rooms/$roomId/state",
@@ -53,18 +46,6 @@ class WebSocketBrokerController(
         )
     }
 
-    /**
-     * Adds a player to the specified game room.
-     *
-     * Konsolidiert die Room-Architektur (#51) mit der Color-Auswahl aus
-     * #107 und der Color-Konflikt-Erkennung aus #60/main:
-     *  - Body ist [JoinRequest] (name + color), wie die App ihn schickt
-     *  - Room-Existenz wird zuerst geprueft (ROOM_NOT_FOUND sonst)
-     *  - Mode-Vollbelegung -> GAME_FULL
-     *  - Farb-Konflikt -> COLOR_ALREADY_TAKEN (nur wenn Spieler neu ist;
-     *    Re-Join mit gleichem Namen ist okay)
-     *  - Erfolg: handleJoin mit color, dann Broadcast auf room-Topic
-     */
     @MessageMapping("/rooms/{roomId}/join")
     fun joinRoom(
         @DestinationVariable roomId: String,
@@ -81,7 +62,6 @@ class WebSocketBrokerController(
 
         val currentState = gameService.getCurrentState(room.gameState)
 
-        // Spiel voll?
         if (currentState.players.size >= room.mode.maxPlayers &&
             !currentState.players.any { it.name == request.name }
         ) {
@@ -89,10 +69,6 @@ class WebSocketBrokerController(
             return null
         }
 
-        // Farb-Konflikt: nur fuer wirklich neue Spieler MIT explizit
-        // gesetzter Farbe pruefen. Wenn der Client keine Farbe schickt,
-        // vergibt handleJoin sie dynamisch und kann selbst keinen
-        // Konflikt erzeugen.
         val requestedColor = request.color
         if (requestedColor != null &&
             !currentState.players.any { it.name == request.name } &&
@@ -117,9 +93,6 @@ class WebSocketBrokerController(
         return state
     }
 
-    /**
-     * Returns the current game state of the specified room.
-     */
     @MessageMapping("/rooms/{roomId}/init")
     fun initRoom(
         @DestinationVariable roomId: String,
@@ -138,9 +111,6 @@ class WebSocketBrokerController(
         return state
     }
 
-    /**
-     * Executes a move in the specified game room.
-     */
     @MessageMapping("/rooms/{roomId}/move")
     fun moveRoom(
         @DestinationVariable roomId: String,
@@ -167,10 +137,20 @@ class WebSocketBrokerController(
             return null
         }
 
-        val turnBefore = stateBefore.currentTurn
+        // Snapshot vor dem Move - wenn sich nach handleMove nichts geaendert hat,
+        // wurde der Move abgelehnt. Currentturn-Vergleich reicht hier nicht mehr,
+        // weil der Turn mit dem Rundensystem nicht nach jedem Move switcht.
+        val unitsBefore = stateBefore.units.map {
+            "${it.player}-${it.type}-${it.x},${it.y}"
+        }.toSet()
+
         val stateAfter = gameService.handleMove(room.gameState, move)
 
-        if (stateAfter.currentTurn == turnBefore) {
+        val unitsAfter = stateAfter.units.map {
+            "${it.player}-${it.type}-${it.x},${it.y}"
+        }.toSet()
+
+        if (unitsBefore == unitsAfter) {
             sendError(sessionId, ErrorCode.INVALID_MOVE, "Dieser Zug ist laut Regeln ungültig.")
             return null
         }
@@ -179,20 +159,37 @@ class WebSocketBrokerController(
         return stateAfter
     }
 
-    /**
-     * Kauft eine Farm fuer den Spieler im angegebenen Room.
-     *
-     * Portiert das `/buyFarm`-Mapping aus main (#60) in die room-scoped
-     * Architektur (#51) und uebernimmt dabei auch die kebab-case-
-     * Konvention, die die App erwartet (`/app/rooms/{id}/buy-farm`).
-     *
-     * Spieler wird ueber die sessionId aus dem STOMP-Header identifiziert
-     * (sicherer als Payload-Trust). Bei zu wenig Gold: INSUFFICIENT_GOLD.
-     *
-     * Schlaegt damit Task #10 (Buy-Farm Room-Endpoint) gleich mit ab —
-     * sonst waere die buyFarm-Logik aus main beim Merge ohne Mapping
-     * im Codebase verwaist.
-     */
+    @MessageMapping("/rooms/{roomId}/end-turn")
+    fun endTurnRoom(
+        @DestinationVariable roomId: String,
+        playerName: String,
+        headerAccessor: SimpMessageHeaderAccessor
+    ): GameState? {
+        val sessionId = headerAccessor.sessionId ?: ""
+
+        val room = roomRegistry.findById(roomId)
+        if (room == null) {
+            sendError(sessionId, ErrorCode.ROOM_NOT_FOUND, ROOM_NOT_FOUND_MESSAGE)
+            return null
+        }
+
+        val stateBefore = gameService.getCurrentState(room.gameState)
+
+        if (stateBefore.status != GameStatus.IN_PROGRESS) {
+            sendError(sessionId, ErrorCode.GAME_NOT_STARTED, "Runde beenden abgelehnt: Spiel laeuft nicht.")
+            return null
+        }
+
+        if (stateBefore.currentTurn != playerName) {
+            sendError(sessionId, ErrorCode.NOT_YOUR_TURN, "Du kannst nicht die Runde eines anderen Spielers beenden!")
+            return null
+        }
+
+        val state = gameService.endTurn(room.gameState, playerName)
+        sendRoomState(roomId, state)
+        return state
+    }
+
     @MessageMapping("/rooms/{roomId}/buy-farm")
     fun buyFarmRoom(
         @DestinationVariable roomId: String,
@@ -224,6 +221,19 @@ class WebSocketBrokerController(
     fun handleJoin(name: String, sessionId: String, color: PlayerColor? = null) =
         gameService.handleJoin(name, sessionId, color)
     fun handleMove(move: Move) = gameService.handleMove(move)
+    fun endTurn(playerName: String, headerAccessor: SimpMessageHeaderAccessor): GameState? {
+        val sessionId = headerAccessor.sessionId ?: ""
+        val stateBefore = gameService.getCurrentState()
+        if (stateBefore.status != GameStatus.IN_PROGRESS) {
+            sendError(sessionId, ErrorCode.GAME_NOT_STARTED, "Runde beenden abgelehnt: Spiel laeuft nicht.")
+            return null
+        }
+        if (stateBefore.currentTurn != playerName) {
+            sendError(sessionId, ErrorCode.NOT_YOUR_TURN, "Du kannst nicht die Runde eines anderen Spielers beenden!")
+            return null
+        }
+        return gameService.endTurn(playerName)
+    }
 
     private fun sendError(user: String, code: ErrorCode, msg: String) {
         val errorResponse = ErrorMessage(code, msg)

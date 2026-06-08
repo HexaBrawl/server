@@ -72,19 +72,22 @@ class GameServiceTest {
         assertThat(bobAfter.x).isEqualTo(bobBefore.x)
         assertThat(bobAfter.y).isEqualTo(bobBefore.y)
 
-        // Alice gültiger Move → garantiert freies Feld
-        gameService.handleMove(
-            Move("Alice", UnitType.INFANTRY,
-                aliceBefore.x, aliceBefore.y,
-                0, 0) //  garantiert frei
-        )
+        // Alice muss alle 3 bewegbaren Einheiten ziehen, damit der Turn switcht.
+        // Mit Distanz-Regel (max 2 Hex) muss INFANTRY auf ein nahes Feld.
+        val aliceTargetX = aliceBefore.x
+        val aliceTargetY = aliceBefore.y + 1
+        gameService.handleMove(Move("Alice", UnitType.ARCHER, 1, 2, 1, 3))
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY,
+            aliceBefore.x, aliceBefore.y,
+            aliceTargetX, aliceTargetY))
+        gameService.handleMove(Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
 
         val aliceAfter = gameService.getCurrentState().units.first {
             it.player == "Alice" && it.type == UnitType.INFANTRY
         }
 
-        assertThat(aliceAfter.x).isEqualTo(0)
-        assertThat(aliceAfter.y).isEqualTo(0)
+        assertThat(aliceAfter.x).isEqualTo(aliceTargetX)
+        assertThat(aliceAfter.y).isEqualTo(aliceTargetY)
 
         assertThat(gameService.getCurrentState().currentTurn).isEqualTo("Bob")
     }
@@ -150,6 +153,10 @@ class GameServiceTest {
         val aliceInfantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
         val bobCavalry    = state.units.first { it.player == "Bob"   && it.type == UnitType.CAVALRY  }
 
+        // Bobs CAVALRY in Reichweite platzieren (Distanz 1, freies Feld).
+        bobCavalry.x = aliceInfantry.x
+        bobCavalry.y = aliceInfantry.y + 1
+
         // INFANTRY beats CAVALRY → Alice gewinnt
         gameService.handleMove(Move(
             player = "Alice", type = UnitType.INFANTRY,
@@ -176,10 +183,11 @@ class GameServiceTest {
         state.units.removeIf { it.type == UnitType.BASE }
 
         val aliceArcher = state.units.first { it.player == "Alice" && it.type == UnitType.ARCHER }
+        // Move auf nahes leeres Feld (Distanz 1) - mit der 2-Hex-Regel ist (0,0) zu weit.
         gameService.handleMove(Move(
             player = "Alice", type = UnitType.ARCHER,
             fromX = aliceArcher.x, fromY = aliceArcher.y,
-            toX = 0, toY = 0
+            toX = aliceArcher.x, toY = aliceArcher.y + 1
         ))
 
         val updated = gameService.getCurrentState()
@@ -198,7 +206,17 @@ class GameServiceTest {
         val aliceInfantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
         val bobCavalry    = state.units.first { it.player == "Bob"   && it.type == UnitType.CAVALRY  }
 
-        // INFANTRY beats CAVALRY: Bob verliert CAVALRY, beide Basen stehen weiterhin
+        // Bobs CAVALRY in Reichweite platzieren (Distanz 1, freies Feld).
+        bobCavalry.x = aliceInfantry.x
+        bobCavalry.y = aliceInfantry.y + 1
+
+        // Alice bewegt zuerst ARCHER und CAVALRY auf freie Felder,
+        // dann greift INFANTRY an. Das ist ihr dritter und letzter Zug -
+        // Turn switcht zu Bob.
+        gameService.handleMove(Move("Alice", UnitType.ARCHER, 1, 2, 1, 3))
+        gameService.handleMove(Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
+
+        // INFANTRY beats CAVALRY: Bob verliert CAVALRY, beide Basen stehen weiterhin.
         gameService.handleMove(Move(
             player = "Alice", type = UnitType.INFANTRY,
             fromX = aliceInfantry.x, fromY = aliceInfantry.y,
@@ -220,12 +238,15 @@ class GameServiceTest {
         val state = gameService.getCurrentState()
         val aliceArcher = state.units.first { it.player == "Alice" && it.type == UnitType.ARCHER }
 
-        // Move auf garantiert leeres Feld → kein Combat, kein Unit-Verlust, kein Win
+        // Alice bewegt alle 3 Einheiten - kein Combat, keine Unit-Verluste, kein Win.
+        // (0,0) waere ausserhalb der 2-Hex-Reichweite, daher nahes Feld.
         gameService.handleMove(Move(
             player = "Alice", type = UnitType.ARCHER,
             fromX = aliceArcher.x, fromY = aliceArcher.y,
-            toX = 0, toY = 0
+            toX = aliceArcher.x, toY = aliceArcher.y + 1
         ))
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY, 2, 3, 2, 4))
+        gameService.handleMove(Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
 
         val updated = gameService.getCurrentState()
         assertThat(updated.status).isEqualTo(GameStatus.IN_PROGRESS)
@@ -311,6 +332,11 @@ class GameServiceTest {
         val aliceInfantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
         val bobBase       = state.units.first { it.player == "Bob"   && it.type == UnitType.BASE }
 
+        // Bobs BASE in Reichweite verschieben (Distanz 1) - mit der 2-Hex-Regel
+        // ist die Originalposition (6,7) sonst nicht in einem Zug erreichbar.
+        bobBase.x = aliceInfantry.x
+        bobBase.y = aliceInfantry.y + 1
+
         // Alice zieht ihre INFANTRY direkt auf Bob's Basis-Hex - das beendet
         // das Spiel sofort, unabhaengig vom Stein-Schere-Papier-System.
         gameService.handleMove(Move(
@@ -360,6 +386,10 @@ class GameServiceTest {
         val aliceInfantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
         val bobCavalry    = state.units.first { it.player == "Bob"   && it.type == UnitType.CAVALRY }
 
+        // Bobs CAVALRY in Reichweite platzieren (Distanz 1, freies Feld).
+        bobCavalry.x = aliceInfantry.x
+        bobCavalry.y = aliceInfantry.y + 1
+
         // Alice greift Bob's CAVALRY an. INFANTRY beats CAVALRY,
         // Bob verliert seine einzige regulaere Unit - hat aber noch Basis.
         gameService.handleMove(Move(
@@ -396,16 +426,17 @@ class GameServiceTest {
         gameService.handleJoin("Bob")
 
         val state = gameService.getCurrentState()
-        // Beide Spieler bekommen genug Gold
         state.players.forEach { it.gold = 20 }
 
-        // Zug Alice
+        // Alice bewegt eine Einheit zu einem gueltigen Randfeld und beendet Runde
         val aliceInf = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
-        gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, 0, 0))
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, aliceInf.x, aliceInf.y + 1))
+        gameService.endTurn("Alice")
 
-        // Zug Bob -> Beendet die Runde, applyUpkeep wird getriggert
+        // Bob bewegt eine Einheit und beendet Runde -> Runden-Wrap-Around -> applyUpkeep
         val bobInf = state.units.first { it.player == "Bob" && it.type == UnitType.INFANTRY }
-        gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, 1, 1))
+        gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, bobInf.x, bobInf.y + 1))
+        gameService.endTurn("Bob")
 
         // Bei 3 Start-Einheiten kostet der Unterhalt 12 Gold (3+4+5). 20 - 12 = 8.
         assertThat(state.players.first { it.name == "Alice" }.gold).isEqualTo(8)
@@ -419,17 +450,17 @@ class GameServiceTest {
         gameService.handleJoin("Bob")
 
         val state = gameService.getCurrentState()
-        // Spieler bekommen exakt das Gold für den Unterhalt von 3 Einheiten
         state.players.forEach { it.gold = 12 }
 
         val aliceInf = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
-        gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, 0, 0))
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, aliceInf.x, aliceInf.y + 1))
+        gameService.endTurn("Alice")
 
         val bobInf = state.units.first { it.player == "Bob" && it.type == UnitType.INFANTRY }
-        gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, 1, 1))
+        gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, bobInf.x, bobInf.y + 1))
+        gameService.endTurn("Bob")
 
         val alice = state.players.first { it.name == "Alice" }
-        // Gold muss genau auf 0 fallen, aber die Einheiten müssen bleiben
         assertThat(alice.gold).isEqualTo(0)
         assertThat(state.units.count { it.player == "Alice" }).isEqualTo(4)
     }
@@ -441,15 +472,16 @@ class GameServiceTest {
         gameService.handleJoin("Bob")
 
         val state = gameService.getCurrentState()
-        // Alice hat 1 Gold zu wenig. Bob hat genug.
         state.players.first { it.name == "Alice" }.gold = 11
         state.players.first { it.name == "Bob" }.gold = 20
 
         val aliceInf = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
-        gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, 0, 0))
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, aliceInf.x, aliceInf.y + 1))
+        gameService.endTurn("Alice")
 
         val bobInf = state.units.first { it.player == "Bob" && it.type == UnitType.INFANTRY }
-        gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, 1, 1))
+        gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, bobInf.x, bobInf.y + 1))
+        gameService.endTurn("Bob")
 
         val alice = state.players.first { it.name == "Alice" }
 
@@ -471,18 +503,18 @@ class GameServiceTest {
         gameService.handleJoin("Bob")
 
         val state = gameService.getCurrentState()
-        // Alice hat zu wenig Geld und geht pleite
         state.players.first { it.name == "Alice" }.gold = 5
         state.players.first { it.name == "Bob" }.gold = 20
 
         val aliceInf = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
-        gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, 0, 0))
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, aliceInf.x, aliceInf.y + 1))
+        gameService.endTurn("Alice")
 
         val bobInf = state.units.first { it.player == "Bob" && it.type == UnitType.INFANTRY }
-        gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, 1, 1))
+        gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, bobInf.x, bobInf.y + 1))
+        gameService.endTurn("Bob")
 
         // Da Alice durch Insolvenz zwar ihre Armee verliert, aber die Basis noch steht, geht das Spiel weiter.
-        // Bob gewinnt noch nicht automatisch.
         assertThat(state.status).isEqualTo(GameStatus.IN_PROGRESS)
         assertThat(state.winner).isNull()
     }
@@ -537,9 +569,11 @@ class GameServiceTest {
         bob.gold = 10
 
         val aliceInf = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
-        gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, 0, 0))
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, aliceInf.x, aliceInf.y + 1))
+        gameService.endTurn("Alice")
         val bobInf = state.units.first { it.player == "Bob" && it.type == UnitType.INFANTRY }
-        gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, 1, 1))
+        gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, bobInf.x, bobInf.y + 1))
+        gameService.endTurn("Bob")
 
         assertThat(alice.gold).isEqualTo(1)
         assertThat(alice.farms).isEqualTo(1)

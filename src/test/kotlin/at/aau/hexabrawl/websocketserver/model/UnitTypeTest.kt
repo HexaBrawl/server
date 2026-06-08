@@ -37,6 +37,23 @@ class UnitTypeTest {
             GameUnit("Bob", 6, 5, UnitType.INFANTRY),
             GameUnit("Bob", 7, 5, UnitType.CAVALRY)
         ))
+
+        // Board und Startgebiete initialisieren (analog handleJoin).
+        // Wird gebraucht damit die Randfeld-Regel in handleMove greifen
+        // kann - ohne Fields wuerde jeder Move als "kein Randfeld"
+        // abgelehnt.
+        state.fields.clear()
+        for (x in 0 until 10) {
+            for (y in 0 until 10) {
+                state.fields.add(Field(x, y))
+            }
+        }
+        listOf(2 to 2, 3 to 2, 4 to 2, 3 to 0).forEach { (x, y) ->
+            state.fields.first { it.x == x && it.y == y }.owner = "Alice"
+        }
+        listOf(5 to 5, 6 to 5, 7 to 5, 6 to 7).forEach { (x, y) ->
+            state.fields.first { it.x == x && it.y == y }.owner = "Bob"
+        }
     }
 
     @Test
@@ -138,16 +155,15 @@ class UnitTypeTest {
             it.player == "Alice" && it.type == UnitType.ARCHER
         }
 
-        val move = Move(
-            player = "Alice",
-            type = UnitType.ARCHER,
-            fromX = archer.x,
-            fromY = archer.y,
-            toX = archer.x,
-            toY = archer.y + 1
-        )
-
-        val state = gameService.handleMove(move)
+        // Mit Rundensystem switcht der Turn erst wenn alle 3 bewegbaren
+        // Einheiten gezogen haben.
+        gameService.handleMove(Move(
+            player = "Alice", type = UnitType.ARCHER,
+            fromX = archer.x, fromY = archer.y,
+            toX = archer.x, toY = archer.y + 1
+        ))
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY, 2, 3, 2, 4))
+        val state = gameService.handleMove(Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
 
         assertEquals("Bob", state.currentTurn)
     }
@@ -158,7 +174,7 @@ class UnitTypeTest {
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
 
-        val move = Move("Alice", UnitType.CAVALRY, 3, 2, 4, 4) // falscher Typ
+        val move = Move("Alice", UnitType.ARCHER, 2, 3, 2, 4) // kein ARCHER bei (2,3) - nur INFANTRY
 
         val state = gameService.handleMove(move)
 
@@ -166,7 +182,7 @@ class UnitTypeTest {
             it.player == "Alice" && it.type == UnitType.INFANTRY
         }
 
-        assertEquals(3, unit.x)
+        assertEquals(2, unit.x)
     }
 
 
@@ -182,6 +198,12 @@ class UnitTypeTest {
         val bob = gameService.getCurrentState().units.first {
             it.player == "Bob" && it.type == UnitType.INFANTRY
         }
+
+        // Bobs INFANTRY in Reichweite von Alice platzieren - die Distanz-Regel
+        // (max 2 Hex) wuerde sonst greifen und den Combat-Test verhindern.
+        // (4,3) ist frei und Distanz 1 zu Alice INFANTRY auf (3,2).
+        bob.x = 4
+        bob.y = 3
 
         val move = Move("Alice", UnitType.INFANTRY, alice.x, alice.y, bob.x, bob.y)
         val state = gameService.handleMove(move)
