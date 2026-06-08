@@ -23,25 +23,32 @@ class GameService(
         const val FARM_BASE_COST = 10
         const val FARM_COST_INCREMENT = 1
 
-        // Basis-Positionen für DUAL_VALLEY (#104). Sieg-relevant — siehe checkWinCondition.
-        // Bewusst an die Grid-Raender gesetzt, damit haeufige Test-Move-Ziele
-        // wie (6,6) oder (3,1) frei bleiben.
-        val BASE_POSITION_P1: Pair<Int, Int> = Pair(3, 0)
-        val BASE_POSITION_P2: Pair<Int, Int> = Pair(6, 7)
+        // Board-Dimensionen pro Modus.
+        const val DUAL_VALLEY_BOARD_ROWS = 10
+        const val DUAL_VALLEY_BOARD_COLS = 10
+        const val TRIAD_BOARD_ROWS = 12
+        const val TRIAD_BOARD_COLS = 12
+        const val BATTLEFIELD_BOARD_ROWS = 13
+        const val BATTLEFIELD_BOARD_COLS = 13
 
-        // Board-Dimensionen fuer DUAL_VALLEY (Standard-Modus).
-        const val BOARD_ROWS = 10
-        const val BOARD_COLS = 10
+        // Basis-Positionen fuer DUAL_VALLEY (#104).
+        val BASE_POSITION_P1: Pair<Int, Int> = Pair(2, 2)
+        val BASE_POSITION_P2: Pair<Int, Int> = Pair(7, 7)
 
-        // Startgebiete pro Spieler: Felder unter den Start-Einheiten + Basis.
+        // Startgebiete DUAL_VALLEY: Basis + 6 angrenzende Felder.
         val START_TERRITORY_P1: List<Pair<Int, Int>> = listOf(
-            2 to 2, 3 to 2, 4 to 2,  // ARCHER, INFANTRY, CAVALRY
-            3 to 0                    // BASE
+            2 to 2, 1 to 1, 1 to 2, 2 to 1, 2 to 3, 3 to 1, 3 to 2
         )
         val START_TERRITORY_P2: List<Pair<Int, Int>> = listOf(
-            5 to 5, 6 to 5, 7 to 5,
-            6 to 7
+            7 to 7, 6 to 7, 6 to 8, 7 to 6, 7 to 8, 8 to 7, 8 to 8
         )
+
+        // Liefert die 6 Nachbarfelder eines Hex-Feldes in "odd-q offset" Koordinaten.
+        fun hexNeighbors(x: Int, y: Int): List<Pair<Int, Int>> =
+            if (x % 2 == 0)
+                listOf(x - 1 to y - 1, x - 1 to y, x to y - 1, x to y + 1, x + 1 to y - 1, x + 1 to y)
+            else
+                listOf(x - 1 to y, x - 1 to y + 1, x to y - 1, x to y + 1, x + 1 to y, x + 1 to y + 1)
     }
 
     /**
