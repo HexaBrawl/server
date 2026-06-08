@@ -265,13 +265,11 @@ class GameService(
         }
         if (friendlyOnTarget) return state
 
-        // Randfeld-Regel: nur fuer DUAL_VALLEY, wo das Board initialisiert ist.
-        if (state.gameMode == GameMode.DUAL_VALLEY) {
-            val targetField = state.fields.firstOrNull { it.x == move.toX && it.y == move.toY }
-            val isOwnField = targetField?.owner == move.player
-            val isBorderField = isAdjacentToOwnTerritory(state, move.toX, move.toY, move.player)
-            if (!isOwnField && !isBorderField) return state
-        }
+        // Randfeld-Regel: Einheit darf nur auf eigenes oder angrenzendes Feld ziehen.
+        val targetField = state.fields.firstOrNull { it.x == move.toX && it.y == move.toY }
+        val isOwnField = targetField?.owner == move.player
+        val isBorderField = isAdjacentToOwnTerritory(state, move.toX, move.toY, move.player)
+        if (!isOwnField && !isBorderField) return state
 
         // Skelett auf Zielfeld entfernen bevor Combat geprueft wird.
         state.units.removeIf {
@@ -315,13 +313,8 @@ class GameService(
 
     fun handleMove(move: Move): GameState = handleMove(this.gameState, move)
 
-    /**
-     * Win-Condition basiert auf BASE-Existenz und ist aktuell
-     * nur fuer [GameMode.DUAL_VALLEY] aktiv.
-     */
     private fun checkWinCondition(state: GameState) {
         if (state.status != GameStatus.IN_PROGRESS) return
-        if (state.gameMode != GameMode.DUAL_VALLEY) return
 
         val playersWithBase = state.units
             .filter { it.type == UnitType.BASE }
@@ -435,11 +428,8 @@ class GameService(
     private fun finishMove(state: GameState, unit: GameUnit, playerName: String) {
         if (unit in state.units) {
             unit.hasMovedThisTurn = true
-            // Felderoberung nur fuer DUAL_VALLEY.
-            if (state.gameMode == GameMode.DUAL_VALLEY) {
-                state.fields.firstOrNull { it.x == unit.x && it.y == unit.y }
-                    ?.let { it.owner = playerName }
-            }
+            state.fields.firstOrNull { it.x == unit.x && it.y == unit.y }
+                ?.let { it.owner = playerName }
         }
         // DUAL_VALLEY: Turn erst wechseln wenn alle Einheiten gezogen haben.
         // TRIAD/BATTLEFIELD: sofort nach jedem Zug wechseln.
