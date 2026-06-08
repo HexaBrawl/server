@@ -76,11 +76,11 @@ class GameServiceTest {
         // Mit Distanz-Regel (max 2 Hex) muss INFANTRY auf ein nahes Feld.
         val aliceTargetX = aliceBefore.x
         val aliceTargetY = aliceBefore.y + 1
-        gameService.handleMove(Move("Alice", UnitType.ARCHER, 2, 2, 2, 3))
+        gameService.handleMove(Move("Alice", UnitType.ARCHER, 1, 2, 1, 3))
         gameService.handleMove(Move("Alice", UnitType.INFANTRY,
             aliceBefore.x, aliceBefore.y,
             aliceTargetX, aliceTargetY))
-        gameService.handleMove(Move("Alice", UnitType.CAVALRY, 4, 2, 4, 3))
+        gameService.handleMove(Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
 
         val aliceAfter = gameService.getCurrentState().units.first {
             it.player == "Alice" && it.type == UnitType.INFANTRY
@@ -213,8 +213,8 @@ class GameServiceTest {
         // Alice bewegt zuerst ARCHER und CAVALRY auf freie Felder,
         // dann greift INFANTRY an. Das ist ihr dritter und letzter Zug -
         // Turn switcht zu Bob.
-        gameService.handleMove(Move("Alice", UnitType.ARCHER, 2, 2, 2, 3))
-        gameService.handleMove(Move("Alice", UnitType.CAVALRY, 4, 2, 4, 3))
+        gameService.handleMove(Move("Alice", UnitType.ARCHER, 1, 2, 1, 3))
+        gameService.handleMove(Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
 
         // INFANTRY beats CAVALRY: Bob verliert CAVALRY, beide Basen stehen weiterhin.
         gameService.handleMove(Move(
@@ -245,8 +245,8 @@ class GameServiceTest {
             fromX = aliceArcher.x, fromY = aliceArcher.y,
             toX = aliceArcher.x, toY = aliceArcher.y + 1
         ))
-        gameService.handleMove(Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3))
-        gameService.handleMove(Move("Alice", UnitType.CAVALRY, 4, 2, 4, 3))
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY, 2, 3, 2, 4))
+        gameService.handleMove(Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
 
         val updated = gameService.getCurrentState()
         assertThat(updated.status).isEqualTo(GameStatus.IN_PROGRESS)
