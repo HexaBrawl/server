@@ -141,7 +141,8 @@ class GameService(
         state.units.add(GameUnit(p1.name, BASE_POSITION_P1.first, BASE_POSITION_P1.second, UnitType.BASE))
         state.units.add(GameUnit(p2.name, BASE_POSITION_P2.first, BASE_POSITION_P2.second, UnitType.BASE))
 
-        initializeBoard(state)
+        initializeBoard(state, DUAL_VALLEY_BOARD_COLS, DUAL_VALLEY_BOARD_ROWS,
+            mapOf(p1.name to START_TERRITORY_P1, p2.name to START_TERRITORY_P2))
 
         state.currentTurn = p1.name
         state.status = GameStatus.IN_PROGRESS
@@ -365,26 +366,27 @@ class GameService(
 
     /**
      * Erzeugt alle Felder des Boards und weist die Startgebiete zu.
-     * Nur fuer DUAL_VALLEY (2 Spieler). Vor dem Aufruf muessen beide
-     * Spieler in state.players existieren.
+     *
+     * @param cols  Anzahl der Spalten
+     * @param rows  Anzahl der Zeilen
+     * @param territories  Mapping von Spielername → Liste der Startfelder
      */
-    private fun initializeBoard(state: GameState) {
+    private fun initializeBoard(
+        state: GameState,
+        cols: Int,
+        rows: Int,
+        territories: Map<String, List<Pair<Int, Int>>>
+    ) {
         state.fields.clear()
-
-        for (x in 0 until BOARD_COLS) {
-            for (y in 0 until BOARD_ROWS) {
+        for (x in 0 until cols) {
+            for (y in 0 until rows) {
                 state.fields.add(Field(x, y))
             }
         }
-
-        val p1 = state.players[0]
-        val p2 = state.players[1]
-
-        START_TERRITORY_P1.forEach { (x, y) ->
-            state.fields.first { it.x == x && it.y == y }.owner = p1.name
-        }
-        START_TERRITORY_P2.forEach { (x, y) ->
-            state.fields.first { it.x == x && it.y == y }.owner = p2.name
+        territories.forEach { (playerName, fields) ->
+            fields.forEach { (x, y) ->
+                state.fields.firstOrNull { it.x == x && it.y == y }?.owner = playerName
+            }
         }
     }
 
@@ -515,7 +517,8 @@ class GameService(
         }
 
         if (state.gameMode == GameMode.DUAL_VALLEY && state.players.size == 2) {
-            initializeBoard(state)
+            initializeBoard(state, DUAL_VALLEY_BOARD_COLS, DUAL_VALLEY_BOARD_ROWS,
+                mapOf(state.players[0].name to START_TERRITORY_P1, state.players[1].name to START_TERRITORY_P2))
         } else {
             state.fields.clear()
         }
