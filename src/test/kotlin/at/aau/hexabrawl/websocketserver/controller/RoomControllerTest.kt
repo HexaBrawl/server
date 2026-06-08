@@ -138,6 +138,34 @@ class RoomControllerTest {
         assertEquals(joinCode, response.body?.joinCode)
     }
 
+    // ===== GET /api/rooms/by-code/{joinCode} =====
+
+    @Test
+    fun `getRoomByJoinCode returns 200 for existing code`() {
+        val created = controller.createRoom(GameMode.DUAL_VALLEY)
+        val joinCode = created.body?.joinCode!!
+
+        val response = controller.getRoomByJoinCode(joinCode)
+        assertEquals(HttpStatus.OK, response.statusCode)
+    }
+
+    @Test
+    fun `getRoomByJoinCode returns correct room`() {
+        val created = controller.createRoom(GameMode.DUAL_VALLEY)
+        val joinCode = created.body?.joinCode!!
+        val roomId = created.body?.roomId!!
+
+        val response = controller.getRoomByJoinCode(joinCode)
+        assertEquals(roomId, response.body?.roomId)
+        assertEquals(joinCode, response.body?.joinCode)
+    }
+
+    @Test
+    fun `getRoomByJoinCode returns 404 for unknown code`() {
+        val response = controller.getRoomByJoinCode("XXXXXX")
+        assertEquals(HttpStatus.NOT_FOUND, response.statusCode)
+    }
+
     // ===== RoomDTO =====
 
     @Test

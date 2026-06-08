@@ -58,4 +58,21 @@ class RoomController(private val roomRegistry: RoomRegistry, private val cleanup
             ResponseEntity.notFound().build()
         }
     }
+
+    /**
+     * GET /api/rooms/by-code/{joinCode}
+     * Returns a single room by its 6-character join code.
+     *
+     * @param joinCode The short join code shared between players.
+     * @return The room as DTO or 404 if not found.
+     */
+    @GetMapping("/by-code/{joinCode}")
+    fun getRoomByJoinCode(@PathVariable joinCode: String): ResponseEntity<RoomDTO> {
+        val room = roomRegistry.findByJoinCode(joinCode)
+        return if (room != null) {
+            ResponseEntity.ok(room.toDTO())
+        } else {
+            ResponseEntity.notFound().build()
+        }
+    }
 }
