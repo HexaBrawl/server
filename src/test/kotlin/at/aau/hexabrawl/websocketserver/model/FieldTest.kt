@@ -19,8 +19,8 @@ class FieldTest {
         gameService.handleJoin("Bob")
         val state = gameService.getCurrentState()
 
-        // 10x10 = 100 Felder
-        assertEquals(100, state.fields.size)
+        // 9x9 = 81 Felder
+        assertEquals(81, state.fields.size)
     }
 
     @Test
@@ -30,7 +30,7 @@ class FieldTest {
         val state = gameService.getCurrentState()
 
         val aliceFields = state.fields.filter { it.owner == "Alice" }
-        assertEquals(4, aliceFields.size)  // 3 Einheiten + 1 Basis
+        assertEquals(7, aliceFields.size)  // Basis + 6 angrenzende Felder
     }
 
     @Test
@@ -40,7 +40,7 @@ class FieldTest {
         val state = gameService.getCurrentState()
 
         val bobFields = state.fields.filter { it.owner == "Bob" }
-        assertEquals(4, bobFields.size)
+        assertEquals(7, bobFields.size)
     }
 
     @Test
@@ -50,7 +50,7 @@ class FieldTest {
         val state = gameService.getCurrentState()
 
         val neutralFields = state.fields.filter { it.owner == null }
-        assertEquals(100 - 8, neutralFields.size)  // 92 neutral
+        assertEquals(81 - 14, neutralFields.size)  // 67 neutral
     }
 
     @Test
@@ -83,9 +83,9 @@ class FieldTest {
         gameService.resetToStartCondition()
 
         val state = gameService.getCurrentState()
-        assertEquals(100, state.fields.size)
-        assertEquals(4, state.fields.count { it.owner == "Alice" })
-        assertEquals(4, state.fields.count { it.owner == "Bob" })
+        assertEquals(81, state.fields.size)
+        assertEquals(7, state.fields.count { it.owner == "Alice" })
+        assertEquals(7, state.fields.count { it.owner == "Bob" })
     }
 
     @Test
@@ -95,8 +95,8 @@ class FieldTest {
         val state = gameService.getCurrentState()
 
         // Sanity check: jedes (x,y) im Raster existiert genau einmal
-        for (x in 0 until GameService.BOARD_COLS) {
-            for (y in 0 until GameService.BOARD_ROWS) {
+        for (x in 0 until GameService.DUAL_VALLEY_BOARD_COLS) {
+            for (y in 0 until GameService.DUAL_VALLEY_BOARD_ROWS) {
                 val count = state.fields.count { it.x == x && it.y == y }
                 assertEquals(1, count, "Feld ($x,$y) sollte genau einmal existieren")
             }
