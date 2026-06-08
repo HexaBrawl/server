@@ -24,10 +24,10 @@ class GameService(
         const val FARM_COST_INCREMENT = 1
 
         // Board-Dimensionen pro Modus.
-        const val DUAL_VALLEY_BOARD_ROWS = 10
-        const val DUAL_VALLEY_BOARD_COLS = 10
-        const val TRIAD_BOARD_ROWS = 12
-        const val TRIAD_BOARD_COLS = 12
+        const val DUAL_VALLEY_BOARD_ROWS = 9
+        const val DUAL_VALLEY_BOARD_COLS = 9
+        const val TRIAD_BOARD_ROWS = 11
+        const val TRIAD_BOARD_COLS = 11
         const val BATTLEFIELD_BOARD_ROWS = 13
         const val BATTLEFIELD_BOARD_COLS = 13
 
