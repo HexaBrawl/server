@@ -471,43 +471,36 @@ class GameService(
 
     /**
      * SPIELER BEHALTEN — fuer /test/reset.
+     *
+     * Delegiert an startGame, wenn alle Spieler fuer den aktuellen Modus
+     * vorhanden sind. Andernfalls werden nur DUAL_VALLEY-Einheiten als
+     * Fallback gesetzt (Testendpunkt mit unvollstaendiger Spielerzahl).
      */
     fun resetToStartCondition(state: GameState): GameState = synchronized(state.lock) {
         state.units.clear()
+        state.fields.clear()
 
-        val dualValleyUnitPos = listOf(
-            listOf(1 to 2, 2 to 3, 3 to 2),  // P1
-            listOf(8 to 7, 7 to 8, 6 to 7)    // P2
-        )
-
-        state.players.forEachIndexed { index, player ->
-            val positions = dualValleyUnitPos.getOrElse(index) { emptyList() }
-
-            UnitType.entries
-                .filter { it != UnitType.SKELETON && it != UnitType.BASE }
-                .forEachIndexed { typeIndex, type ->
-                    val (x, y) = positions.getOrElse(typeIndex) { index * 4 + typeIndex to 0 }
-                    state.units.add(GameUnit(player = player.name, x = x, y = y, type = type))
-                }
-
-            // BASE nur fuer DUAL_VALLEY mit 2 Spielern
-            if (state.gameMode == GameMode.DUAL_VALLEY && state.players.size == 2) {
-                val basePos = if (index == 0) BASE_POSITION_P1 else BASE_POSITION_P2
-                state.units.add(GameUnit(player.name, basePos.first, basePos.second, UnitType.BASE))
-            }
-        }
-
-        if (state.gameMode == GameMode.DUAL_VALLEY && state.players.size == 2) {
-            initializeBoard(state, DUAL_VALLEY_BOARD_COLS, DUAL_VALLEY_BOARD_ROWS,
-                mapOf(state.players[0].name to START_TERRITORY_P1, state.players[1].name to START_TERRITORY_P2))
+        if (state.players.size == state.gameMode.maxPlayers) {
+            startGame(state)
         } else {
-            state.fields.clear()
+            val fallbackPos = listOf(
+                listOf(1 to 2, 2 to 3, 3 to 2),
+                listOf(8 to 7, 7 to 8, 6 to 7)
+            )
+            state.players.forEachIndexed { index, player ->
+                val positions = fallbackPos.getOrElse(index) { emptyList() }
+                UnitType.entries
+                    .filter { it != UnitType.SKELETON && it != UnitType.BASE }
+                    .forEachIndexed { typeIndex, type ->
+                        val (x, y) = positions.getOrElse(typeIndex) { index * 4 + typeIndex to 0 }
+                        state.units.add(GameUnit(player = player.name, x = x, y = y, type = type))
+                    }
+            }
+            state.currentTurn = state.players.firstOrNull()?.name
+            state.status = GameStatus.IN_PROGRESS
         }
 
-        state.currentTurn = state.players.firstOrNull()?.name
-        state.status = GameStatus.IN_PROGRESS
-
-        println("Service: Reset - Units for ${state.players} recreated at start positions.")
+        println("Service: Reset to start condition for ${state.players.size} players.")
         return state
     }
 
