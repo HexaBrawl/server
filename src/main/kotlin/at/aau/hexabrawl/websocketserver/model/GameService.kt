@@ -192,41 +192,24 @@ class GameService(
         println("Service: TRIAD OUTPOST GAME STARTED")
     }
 
-    /**
-     * Startet ein BATTLEFIELD_PEAKS-Spiel (4 Spieler).
-     *
-     * TODO: BASE-Positionen fuer 4 Spieler designen. Bis dahin ist
-     * [checkWinCondition] in diesem Modus deaktiviert.
-     */
     private fun startBattlefieldPeaksGame(state: GameState) {
         val p1 = state.players[0]
         val p2 = state.players[1]
         val p3 = state.players[2]
         val p4 = state.players[3]
 
-        val startPositionsP1 = listOf(
-            Pair(4, 1),  // ARCHER (Sueden)
-            Pair(5, 1),  // INFANTRY
-            Pair(6, 1)   // CAVALRY
+        // Basen: Kreuzformation auf 13x13, 6 Schritte zu Nachbarn, 8 zu Gegenueber.
+        val bases = listOf(
+            Pair(6, 10),  // P1 Sued
+            Pair(2,  6),  // P2 West
+            Pair(10, 6),  // P3 Ost
+            Pair(6,  2)   // P4 Nord
         )
 
-        val startPositionsP2 = listOf(
-            Pair(1, 4),  // ARCHER (Westen)
-            Pair(1, 5),  // INFANTRY
-            Pair(1, 6)   // CAVALRY
-        )
-
-        val startPositionsP3 = listOf(
-            Pair(9, 4),  // ARCHER (Osten)
-            Pair(9, 5),  // INFANTRY
-            Pair(9, 6)   // CAVALRY
-        )
-
-        val startPositionsP4 = listOf(
-            Pair(4, 9),  // ARCHER (Norden)
-            Pair(5, 9),  // INFANTRY
-            Pair(6, 9)   // CAVALRY
-        )
+        val startPositionsP1 = listOf(Pair(5, 9), Pair(6, 9), Pair(7, 9))   // Einheiten um P1-Basis
+        val startPositionsP2 = listOf(Pair(2, 5), Pair(3, 5), Pair(3, 6))   // Einheiten um P2-Basis
+        val startPositionsP3 = listOf(Pair(10, 5), Pair(9, 5), Pair(9, 6))  // Einheiten um P3-Basis
+        val startPositionsP4 = listOf(Pair(5, 2), Pair(6, 3), Pair(7, 2))   // Einheiten um P4-Basis
 
         UnitType.entries
             .filter { it != UnitType.SKELETON && it != UnitType.BASE }
@@ -240,6 +223,18 @@ class GameService(
                 state.units.add(GameUnit(p3.name, x3, y3, type))
                 state.units.add(GameUnit(p4.name, x4, y4, type))
             }
+
+        listOf(p1 to bases[0], p2 to bases[1], p3 to bases[2], p4 to bases[3]).forEach { (p, base) ->
+            state.units.add(GameUnit(p.name, base.first, base.second, UnitType.BASE))
+        }
+
+        val territories = mapOf(
+            p1.name to (listOf(bases[0]) + hexNeighbors(bases[0].first, bases[0].second)),
+            p2.name to (listOf(bases[1]) + hexNeighbors(bases[1].first, bases[1].second)),
+            p3.name to (listOf(bases[2]) + hexNeighbors(bases[2].first, bases[2].second)),
+            p4.name to (listOf(bases[3]) + hexNeighbors(bases[3].first, bases[3].second))
+        )
+        initializeBoard(state, BATTLEFIELD_BOARD_COLS, BATTLEFIELD_BOARD_ROWS, territories)
 
         state.currentTurn = p1.name
         state.status = GameStatus.IN_PROGRESS
