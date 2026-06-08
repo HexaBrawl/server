@@ -10,22 +10,26 @@ class GameService(
     val gameState = GameState()
 
     companion object {
+        // veraltet — Mode-spezifische Spielerzahl kommt aus state.gameMode.maxPlayers (#51).
+        // Wird noch von einigen Tests referenziert, daher nicht entfernt.
         const val MAX_PLAYERS = 2
 
         // Maximale Hex-Distanz, die eine Einheit pro Zug zuruecklegen darf.
-        // Spielregel: jede Einheit darf bis zu 2 Felder weit ziehen.
         const val MAX_MOVE_DISTANCE = 2
 
-        // Basis-Positionen für DUAL_VALLEY-Modus (8x8-Grid).
+        // Wirtschaftssystem (#60)
+        const val STARTING_GOLD = 6
+        const val FARM_INCOME_PER_ROUND = 3
+        const val FARM_BASE_COST = 10
+        const val FARM_COST_INCREMENT = 1
+
+        // Basis-Positionen für DUAL_VALLEY (#104). Sieg-relevant — siehe checkWinCondition.
         // Bewusst an die Grid-Raender gesetzt, damit haeufige Test-Move-Ziele
-        // wie (6,6) oder (3,1) frei bleiben - sonst blockiert friendlyOnTarget
-        // legitime Moves der bestehenden Test-Suite.
+        // wie (6,6) oder (3,1) frei bleiben.
         val BASE_POSITION_P1: Pair<Int, Int> = Pair(3, 0)
         val BASE_POSITION_P2: Pair<Int, Int> = Pair(6, 7)
 
         // Board-Dimensionen fuer DUAL_VALLEY (Standard-Modus).
-        // Wird spaeter durch GameMode-spezifische Werte ersetzt sobald
-        // der Multisession-PR gemergt ist.
         const val BOARD_ROWS = 10
         const val BOARD_COLS = 10
 
@@ -40,69 +44,206 @@ class GameService(
         )
     }
 
-    fun handleJoin(state: GameState, playerName: String, sessionId:String=""): GameState = synchronized(state.lock) {
-        // Spieler hinzufügen, falls noch nicht vorhanden und Platz ist
+    /**
+     * Fuegt einen Spieler dem Spiel hinzu.
+     *
+     * Konsolidiert drei Issue-Stroeme:
+     *  - Multi-Mode (#51): Maximale Spielerzahl kommt aus state.gameMode.maxPlayers
+     *  - Color-Auswahl (#107): Farbe kann vom Client mitgegeben werden,
+     *    Fallback ist dynamisch je nach Position in der Spielerliste
+     *  - Wirtschaft (#60): Neue Spieler bekommen STARTING_GOLD
+     *
+     * Thread-safe ueber state.lock.
+     */
+    fun handleJoin(
+        state: GameState,
+        playerName: String,
+        sessionId: String = "",
+        color: PlayerColor? = null
+    ): GameState = synchronized(state.lock) {
+        if (!state.players.any { it.name == playerName } && state.players.size < state.gameMode.maxPlayers) {
 
-        if (!state.players.any{it.name == playerName} && state.players.size < MAX_PLAYERS) {
-            val color = if (state.players.isEmpty()) PlayerColor.RED else PlayerColor.BLUE
-            state.players.add(Player(playerName, sessionId,color))
-            println("JOIN: $playerName")
+            val colors = listOf(PlayerColor.RED, PlayerColor.BLUE, PlayerColor.GREEN, PlayerColor.YELLOW)
+            val assignedColor = color ?: colors.getOrElse(state.players.size) { PlayerColor.RED }
+
+            if (state.players.any { it.color == assignedColor }) {
+                return@synchronized state
+            }
+
+            state.players.add(Player(playerName, sessionId, assignedColor, STARTING_GOLD))
+            println("JOIN: $playerName (color: $assignedColor)")
         }
 
-        // Automatischer Start bei 2 Spielern
-        if (state.players.size == 2 && state.units.isEmpty()) {
-            val p1 = state.players[0]
-            val p2 = state.players[1]
-
-            // Start-Einheiten setzen
-            val startPositionsP1 = listOf(
-                Pair(2, 2),  // ARCHER
-                Pair(3, 2),  // INFANTRY
-                Pair(4, 2)   // CAVALRY
-            )
-
-            val startPositionsP2 = listOf(
-                Pair(5, 5),
-                Pair(6, 5),
-                Pair(7, 5)
-            )
-
-            UnitType.entries
-                .filter { it != UnitType.SKELETON && it != UnitType.BASE }
-                .forEachIndexed { index, type ->
-                    val (x1, y1) = startPositionsP1[index]
-                    val (x2, y2) = startPositionsP2[index]
-
-                    state.units.add(GameUnit(p1.name, x1, y1, type))
-                    state.units.add(GameUnit(p2.name, x2, y2, type))
-                }
-
-            // Basis pro Spieler platzieren - das ist die Sieg-relevante Entitaet:
-            // wer die gegnerische Basis erreicht, gewinnt sofort (siehe Folge-Sub-Issue).
-            state.units.add(GameUnit(p1.name, BASE_POSITION_P1.first, BASE_POSITION_P1.second, UnitType.BASE))
-            state.units.add(GameUnit(p2.name, BASE_POSITION_P2.first, BASE_POSITION_P2.second, UnitType.BASE))
-
-            initializeBoard(state)
-
-            state.currentTurn = p1.name
-            state.status = GameStatus.IN_PROGRESS
-            println("Service: GAME STARTED")
+        // Auto-Start bei Erreichen der Mode-Spielerzahl
+        if (state.players.size == state.gameMode.maxPlayers && state.units.isEmpty()) {
+            println("players=${state.players.size}, max=${state.gameMode.maxPlayers}")
+            startGame(state)
         }
         return state
-
     }
 
-    //Bridge Method handleJoin
+    // Bridge fuer den globalen Single-Game-Pfad (Tests + Backward-Compat).
     fun handleJoin(
         playerName: String,
-        sessionId: String = ""
-    ): GameState = handleJoin(this.gameState, playerName, sessionId)
+        sessionId: String = "",
+        color: PlayerColor? = null
+    ): GameState = handleJoin(this.gameState, playerName, sessionId, color)
+
+    fun isColorTaken(state: GameState, color: PlayerColor): Boolean = synchronized(state.lock) {
+        return state.players.any { it.color == color }
+    }
+
+    fun isColorTaken(color: PlayerColor): Boolean = isColorTaken(this.gameState, color)
+
+    /**
+     * Dispatcht den modus-spezifischen Spielstart.
+     */
+    fun startGame(state: GameState) {
+        when (state.gameMode) {
+            GameMode.DUAL_VALLEY -> startDualValleyGame(state)
+            GameMode.TRIAD_OUTPOST -> startTriadOutpostGame(state)
+            GameMode.BATTLEFIELD_PEAKS -> startBattlefieldPeaksGame(state)
+        }
+    }
+
+    private fun startDualValleyGame(state: GameState) {
+        val p1 = state.players[0]
+        val p2 = state.players[1]
+
+        val startPositionsP1 = listOf(
+            Pair(2, 2),  // ARCHER
+            Pair(3, 2),  // INFANTRY
+            Pair(4, 2)   // CAVALRY
+        )
+
+        val startPositionsP2 = listOf(
+            Pair(5, 5),
+            Pair(6, 5),
+            Pair(7, 5)
+        )
+
+        UnitType.entries
+            .filter { it != UnitType.SKELETON && it != UnitType.BASE }
+            .forEachIndexed { index, type ->
+                val (x1, y1) = startPositionsP1[index]
+                val (x2, y2) = startPositionsP2[index]
+                state.units.add(GameUnit(p1.name, x1, y1, type))
+                state.units.add(GameUnit(p2.name, x2, y2, type))
+            }
+
+        state.units.add(GameUnit(p1.name, BASE_POSITION_P1.first, BASE_POSITION_P1.second, UnitType.BASE))
+        state.units.add(GameUnit(p2.name, BASE_POSITION_P2.first, BASE_POSITION_P2.second, UnitType.BASE))
+
+        initializeBoard(state)
+
+        state.currentTurn = p1.name
+        state.status = GameStatus.IN_PROGRESS
+        println("Service: GAME STARTED")
+    }
+
+    /**
+     * Startet ein TRIAD_OUTPOST-Spiel (3 Spieler).
+     *
+     * TODO: BASE-Positionen fuer 3 Spieler designen. Bis dahin ist
+     * [checkWinCondition] in diesem Modus deaktiviert.
+     */
+    private fun startTriadOutpostGame(state: GameState) {
+        val p1 = state.players[0]
+        val p2 = state.players[1]
+        val p3 = state.players[2]
+
+        val startPositionsP1 = listOf(
+            Pair(4, 2),  // ARCHER (Sueden)
+            Pair(5, 2),  // INFANTRY
+            Pair(6, 2)   // CAVALRY
+        )
+
+        val startPositionsP2 = listOf(
+            Pair(2, 5),  // ARCHER (Nordwesten)
+            Pair(2, 6),  // INFANTRY
+            Pair(3, 6)   // CAVALRY
+        )
+
+        val startPositionsP3 = listOf(
+            Pair(7, 6),  // ARCHER (Nordosten)
+            Pair(8, 6),  // INFANTRY
+            Pair(8, 5)   // CAVALRY
+        )
+
+        UnitType.entries
+            .filter { it != UnitType.SKELETON && it != UnitType.BASE }
+            .forEachIndexed { index, type ->
+                val (x1, y1) = startPositionsP1[index]
+                val (x2, y2) = startPositionsP2[index]
+                val (x3, y3) = startPositionsP3[index]
+                state.units.add(GameUnit(p1.name, x1, y1, type))
+                state.units.add(GameUnit(p2.name, x2, y2, type))
+                state.units.add(GameUnit(p3.name, x3, y3, type))
+            }
+
+        state.currentTurn = p1.name
+        state.status = GameStatus.IN_PROGRESS
+        println("Service: TRIAD OUTPOST GAME STARTED")
+    }
+
+    /**
+     * Startet ein BATTLEFIELD_PEAKS-Spiel (4 Spieler).
+     *
+     * TODO: BASE-Positionen fuer 4 Spieler designen. Bis dahin ist
+     * [checkWinCondition] in diesem Modus deaktiviert.
+     */
+    private fun startBattlefieldPeaksGame(state: GameState) {
+        val p1 = state.players[0]
+        val p2 = state.players[1]
+        val p3 = state.players[2]
+        val p4 = state.players[3]
+
+        val startPositionsP1 = listOf(
+            Pair(4, 1),  // ARCHER (Sueden)
+            Pair(5, 1),  // INFANTRY
+            Pair(6, 1)   // CAVALRY
+        )
+
+        val startPositionsP2 = listOf(
+            Pair(1, 4),  // ARCHER (Westen)
+            Pair(1, 5),  // INFANTRY
+            Pair(1, 6)   // CAVALRY
+        )
+
+        val startPositionsP3 = listOf(
+            Pair(9, 4),  // ARCHER (Osten)
+            Pair(9, 5),  // INFANTRY
+            Pair(9, 6)   // CAVALRY
+        )
+
+        val startPositionsP4 = listOf(
+            Pair(4, 9),  // ARCHER (Norden)
+            Pair(5, 9),  // INFANTRY
+            Pair(6, 9)   // CAVALRY
+        )
+
+        UnitType.entries
+            .filter { it != UnitType.SKELETON && it != UnitType.BASE }
+            .forEachIndexed { index, type ->
+                val (x1, y1) = startPositionsP1[index]
+                val (x2, y2) = startPositionsP2[index]
+                val (x3, y3) = startPositionsP3[index]
+                val (x4, y4) = startPositionsP4[index]
+                state.units.add(GameUnit(p1.name, x1, y1, type))
+                state.units.add(GameUnit(p2.name, x2, y2, type))
+                state.units.add(GameUnit(p3.name, x3, y3, type))
+                state.units.add(GameUnit(p4.name, x4, y4, type))
+            }
+
+        state.currentTurn = p1.name
+        state.status = GameStatus.IN_PROGRESS
+        println("Service: BATTLEFIELD PEAKS GAME STARTED")
+    }
 
     fun handleMove(state: GameState, move: Move): GameState = synchronized(state.lock) {
         if (state.status != GameStatus.IN_PROGRESS) return state
         if (move.player != state.currentTurn) return state
 
-        // Basen sind stationaer - sie koennen nicht via Move-Befehl bewegt werden.
         if (move.type == UnitType.BASE) return state
 
         val unit = state.units.firstOrNull {
@@ -113,14 +254,9 @@ class GameService(
                     it.y == move.fromY
         } ?: return state
 
-        // Distanz pruefen: zu weite Zuege werden abgelehnt, ebenso "Null-Zuege"
-        // auf das Startfeld. Der Controller wandelt das in INVALID_MOVE um.
         val distance = HexDistance.between(move.fromX, move.fromY, move.toX, move.toY)
         if (distance == 0 || distance > MAX_MOVE_DISTANCE) return state
 
-        // Eine Einheit darf pro Runde nur einmal bewegt werden.
-        // Verhindert dass ein Spieler dieselbe Einheit zweimal in einer Runde
-        // zieht.
         if (unit.hasMovedThisTurn) return state
 
         val friendlyOnTarget = state.units.any {
@@ -128,17 +264,15 @@ class GameService(
         }
         if (friendlyOnTarget) return state
 
-        // Randfeld-Regel: Das Zielfeld muss entweder eigenes Gebiet sein
-        // oder an eigenes Gebiet angrenzen. Verhindert "Sprung-Eroberungen"
-        // in entfernte, nicht-angrenzende Gebiete.
-        val targetField = state.fields.firstOrNull { it.x == move.toX && it.y == move.toY }
-        val isOwnField = targetField?.owner == move.player
-        val isBorderField = isAdjacentToOwnTerritory(state, move.toX, move.toY, move.player)
-        if (!isOwnField && !isBorderField) return state
+        // Randfeld-Regel: nur fuer DUAL_VALLEY, wo das Board initialisiert ist.
+        if (state.gameMode == GameMode.DUAL_VALLEY) {
+            val targetField = state.fields.firstOrNull { it.x == move.toX && it.y == move.toY }
+            val isOwnField = targetField?.owner == move.player
+            val isBorderField = isAdjacentToOwnTerritory(state, move.toX, move.toY, move.player)
+            if (!isOwnField && !isBorderField) return state
+        }
 
-        // Skelett auf Zielfeld wird "wieder eingenommen" - egal von welchem
-        // Spieler. Muss VOR dem Combat-Check passieren damit es nicht
-        // versehentlich als Verteidiger interpretiert wird.
+        // Skelett auf Zielfeld entfernen bevor Combat geprueft wird.
         state.units.removeIf {
             it.x == move.toX && it.y == move.toY && it.type == UnitType.SKELETON
         }
@@ -150,10 +284,7 @@ class GameService(
         }
 
         if (enemyOnTarget != null) {
-            // Basis-Angriff: Basen sind nicht combat-faehig - sie werden ohne
-            // Stein-Schere-Papier-Resolution direkt zerstoert. Der Angreifer
-            // ueberlebt immer und zieht auf die Basis-Position.
-            // checkWinCondition triggert anschliessend den Sieg.
+            // Basis-Angriff: nicht combat-faehig, direkt zerstoeren.
             if (enemyOnTarget.type == UnitType.BASE) {
                 state.units.remove(enemyOnTarget)
                 unit.x = move.toX
@@ -181,25 +312,15 @@ class GameService(
         return state
     }
 
+    fun handleMove(move: Move): GameState = handleMove(this.gameState, move)
+
     /**
-     * Checks whether the match has ended after the latest mutation.
-     *
-     * Win condition is based on BASE existence:
-     * - If exactly one player still has a BASE on the board, that player
-     *   is declared the winner.
-     * - If no player has a BASE left (e.g. both bases were destroyed in
-     *   the same sequence of events), the match ends as a draw.
-     * - Otherwise the game continues.
-     *
-     * Regular unit losses (ARCHER/INFANTRY/CAVALRY) no longer end the
-     * match - players can lose all their regular units and the game
-     * continues as long as their base stands.
-     *
-     * Only runs while the game is IN_PROGRESS, so calling it from
-     * non-success paths or before game start is harmless.
+     * Win-Condition basiert auf BASE-Existenz und ist aktuell
+     * nur fuer [GameMode.DUAL_VALLEY] aktiv.
      */
     private fun checkWinCondition(state: GameState) {
         if (state.status != GameStatus.IN_PROGRESS) return
+        if (state.gameMode != GameMode.DUAL_VALLEY) return
 
         val playersWithBase = state.units
             .filter { it.type == UnitType.BASE }
@@ -218,23 +339,13 @@ class GameService(
                 state.currentTurn = null
             }
             else -> {
-                // >= 2 players still have a base: game continues.
+                // >= 2: Spiel laeuft weiter.
             }
         }
     }
 
-    //Bridge Method handleMove
-    fun handleMove(
-        move: Move
-    ): GameState = handleMove(this.gameState, move)
-
     /**
      * Beendet die Runde des angegebenen Spielers freiwillig.
-     *
-     * Wird vom Controller aufgerufen wenn der Spieler auf "Runde beenden"
-     * klickt - auch wenn noch nicht alle Einheiten bewegt wurden. Nur der
-     * aktuelle Spieler kann seinen eigenen Turn beenden, andere werden
-     * ignoriert.
      */
     fun endTurn(state: GameState, playerName: String): GameState = synchronized(state.lock) {
         if (state.status != GameStatus.IN_PROGRESS) return state
@@ -243,28 +354,22 @@ class GameService(
         return state
     }
 
-    //Bridge Method endTurn
     fun endTurn(playerName: String): GameState = endTurn(this.gameState, playerName)
 
-
     /**
-     * Erzeugt alle Felder des Boards und weist die Startgebiete an die
-     * beiden Spieler zu. Vor dem Aufruf muessen beide Spieler in
-     * state.players existieren.
-     *
-     * Wird beim Spielstart und nach jedem Reset aufgerufen.
+     * Erzeugt alle Felder des Boards und weist die Startgebiete zu.
+     * Nur fuer DUAL_VALLEY (2 Spieler). Vor dem Aufruf muessen beide
+     * Spieler in state.players existieren.
      */
     private fun initializeBoard(state: GameState) {
         state.fields.clear()
 
-        // Alle Felder erzeugen, default neutral (owner = null).
         for (x in 0 until BOARD_COLS) {
             for (y in 0 until BOARD_ROWS) {
                 state.fields.add(Field(x, y))
             }
         }
 
-        // Startgebiete den Spielern zuweisen.
         val p1 = state.players[0]
         val p2 = state.players[1]
 
@@ -276,30 +381,41 @@ class GameService(
         }
     }
 
+    /**
+     * Naechsten Spieler an die Reihe nehmen.
+     *
+     *  - 2 Spieler: einfache Alternation
+     *  - 3/4 Spieler: zyklische Rotation (#51)
+     *  - hasMovedThisTurn wird immer zurueckgesetzt (#61)
+     *  - Runden-Wrap-Around: Upkeep sobald wieder Spieler 1 dran ist (#60)
+     */
     private fun switchTurn(state: GameState) {
+        if (state.players.isEmpty()) return
 
-        val (p1, p2) = state.players
+        val wasFirstBefore = state.currentTurn == state.players[0].name
 
-        state.currentTurn =
-            if (state.currentTurn == p1.name)
-                p2.name
-            else
-                p1.name
+        if (state.players.size == 2) {
+            val p1 = state.players[0]
+            val p2 = state.players[1]
+            state.currentTurn = if (state.currentTurn == p1.name) p2.name else p1.name
+        } else {
+            val currentIndex = state.players.indexOfFirst { it.name == state.currentTurn }
+            state.currentTurn = if (currentIndex != -1) {
+                state.players[(currentIndex + 1) % state.players.size].name
+            } else {
+                state.players.firstOrNull()?.name
+            }
+        }
 
-        // Neue Runde fuer den naechsten Spieler: alle Einheiten duerfen wieder ziehen.
+        // Neue Runde: alle Einheiten duerfen wieder ziehen.
         state.units.forEach { it.hasMovedThisTurn = false }
+
+        // Runden-Wrap-Around: Upkeep wenn wieder Spieler 1 dran ist.
+        if (!wasFirstBefore && state.currentTurn == state.players[0].name) {
+            applyUpkeep(state)
+        }
     }
 
-    /**
-     * Prueft ob der gegebene Spieler in dieser Runde bereits alle seine
-     * bewegbaren Einheiten gezogen hat. SKELETONs und BASEs zaehlen nicht
-     * als bewegbar.
-     *
-     * Gibt `false` zurueck wenn der Spieler keine bewegbaren Einheiten
-     * besitzt - in dem Fall muss der Turn manuell ueber endTurn beendet
-     * werden, sonst wuerde der Turn sofort wechseln ohne dass ein Move
-     * stattfand.
-     */
     private fun allMovableUnitsHaveMoved(state: GameState, playerName: String): Boolean {
         val movable = state.units.filter {
             it.player == playerName &&
@@ -311,35 +427,29 @@ class GameService(
 
     /**
      * Wird nach jedem erfolgreichen Move aufgerufen. Markiert die Einheit
-     * als bewegt (falls sie noch lebt) und switcht automatisch den Turn
-     * wenn alle bewegbaren Einheiten des aktuellen Spielers gezogen haben.
+     * als bewegt, erobert das Feld und switcht automatisch den Turn wenn
+     * alle bewegbaren Einheiten des aktuellen Spielers gezogen haben.
      */
     private fun finishMove(state: GameState, unit: GameUnit, playerName: String) {
-        // Falls die Einheit den Move ueberlebt hat, als bewegt markieren
-        // und das Feld unter ihr erobern. Nach Combat kann sie aus
-        // state.units entfernt worden sein - dann faellt die Eroberung
-        // korrekterweise weg, weil niemand mehr auf dem Feld steht.
         if (unit in state.units) {
             unit.hasMovedThisTurn = true
-            // Eroberung: Das Feld auf dem die Einheit jetzt steht
-            // gehoert dem Spieler. Idempotent fuer eigene Felder.
-            state.fields.firstOrNull { it.x == unit.x && it.y == unit.y }
-                ?.let { it.owner = playerName }
+            // Felderoberung nur fuer DUAL_VALLEY.
+            if (state.gameMode == GameMode.DUAL_VALLEY) {
+                state.fields.firstOrNull { it.x == unit.x && it.y == unit.y }
+                    ?.let { it.owner = playerName }
+            }
         }
-        // Auto-Switch wenn alle Einheiten gezogen haben.
-        if (allMovableUnitsHaveMoved(state, playerName)) {
+        // DUAL_VALLEY: Turn erst wechseln wenn alle Einheiten gezogen haben.
+        // TRIAD/BATTLEFIELD: sofort nach jedem Zug wechseln.
+        if (state.gameMode == GameMode.DUAL_VALLEY) {
+            if (allMovableUnitsHaveMoved(state, playerName)) {
+                switchTurn(state)
+            }
+        } else {
             switchTurn(state)
         }
     }
 
-    /**
-     * Prueft ob das Feld (x, y) an mindestens ein Feld grenzt das dem
-     * angegebenen Spieler gehoert. Wird genutzt um die Randfeld-Regel
-     * fuer Eroberungen durchzusetzen: nur Felder die an eigenes Gebiet
-     * angrenzen koennen erobert werden.
-     *
-     * Liefert false wenn der Spieler kein eigenes Gebiet hat.
-     */
     private fun isAdjacentToOwnTerritory(state: GameState, x: Int, y: Int, playerName: String): Boolean {
         return state.fields.any { field ->
             field.owner == playerName &&
@@ -347,18 +457,14 @@ class GameService(
         }
     }
 
-    // WICHTIG FÜR TEST  Nur den aktuellen Stand lesen
+    // WICHTIG FÜR TEST — nur den aktuellen Stand lesen
     fun getCurrentState(state: GameState): GameState = synchronized(state.lock) {
         return state
     }
 
-    //Bridge Method getCurrentState
-    fun getCurrentState(): GameState =
-        getCurrentState(this.gameState)
+    fun getCurrentState(): GameState = getCurrentState(this.gameState)
 
-
-
-    // ALLES AUF NULL - Für /test/init
+    // ALLES AUF NULL — fuer /test/init
     fun initializeGame(state: GameState): GameState = synchronized(state.lock) {
         state.players.clear()
         state.units.clear()
@@ -369,40 +475,39 @@ class GameService(
         return state
     }
 
-    //Bridge Method initializeGame
     fun initializeGame(): GameState = initializeGame(this.gameState)
 
-    // SPIELER BEHALTEN - Für /test/reset
+    /**
+     * SPIELER BEHALTEN — fuer /test/reset.
+     */
     fun resetToStartCondition(state: GameState): GameState = synchronized(state.lock) {
-        state.units.clear() // Alte Einheiten löschen
+        state.units.clear()
 
-        // Für jeden verbliebenen Spieler eine neue Start-Einheit erstellen
         state.players.forEachIndexed { index, player ->
-            // Jedem Spieler eine feste Startposition zuordnen
-            // Beispiel: Spieler 1 bei (0,0), Spieler 2 bei (5,5) - Werte an Grid anpassen!
             val startX = if (index == 0) 2 else 5
             val startY = if (index == 0) 2 else 5
 
             UnitType.entries
                 .filter { it != UnitType.SKELETON && it != UnitType.BASE }
                 .forEachIndexed { typeIndex, type ->
-                    val newUnit = GameUnit(
-                        player = player.name,
-                        x = startX + typeIndex,
-                        y = startY,
-                        type = type
+                    state.units.add(
+                        GameUnit(
+                            player = player.name,
+                            x = startX + typeIndex,
+                            y = startY,
+                            type = type
+                        )
                     )
-                    state.units.add(newUnit)
                 }
 
-            // Basis pro Spieler an der vordefinierten Position wiederherstellen
-            val basePos = if (index == 0) BASE_POSITION_P1 else BASE_POSITION_P2
-            state.units.add(GameUnit(player.name, basePos.first, basePos.second, UnitType.BASE))
+            // BASE nur fuer DUAL_VALLEY mit 2 Spielern
+            if (state.gameMode == GameMode.DUAL_VALLEY && state.players.size == 2) {
+                val basePos = if (index == 0) BASE_POSITION_P1 else BASE_POSITION_P2
+                state.units.add(GameUnit(player.name, basePos.first, basePos.second, UnitType.BASE))
+            }
         }
 
-        // Board mit Startgebieten neu initialisieren - aber nur wenn beide
-        // Spieler da sind, sonst greift initializeBoard auf state.players[1] zu.
-        if (state.players.size == MAX_PLAYERS) {
+        if (state.gameMode == GameMode.DUAL_VALLEY && state.players.size == 2) {
             initializeBoard(state)
         } else {
             state.fields.clear()
@@ -415,20 +520,28 @@ class GameService(
         return state
     }
 
-    //Bridge Method resetToStartCondition
     fun resetToStartCondition(): GameState = resetToStartCondition(this.gameState)
 
+    /**
+     * Entfernt einen disconnecteten Spieler und seine Einheiten.
+     *
+     *  - DUAL_VALLEY: checkWinCondition (BASE-basiert)
+     *  - TRIAD/BATTLEFIELD: Fallback — Disconnect beendet das Spiel sofort
+     */
     fun handleDisconnect(state: GameState, sessionId: String): GameState = synchronized(state.lock) {
         val player = state.players.find { it.sessionId == sessionId }
             ?: return state
 
-        // Spieler und seine Units entfernen
         state.players.remove(player)
         state.units.removeIf { it.player == player.name }
 
-        // Win-Bedingung neu auswerten - kann das Match beenden, wenn jetzt nur
-        // noch ein (oder kein) Spieler mit Einheiten übrig ist.
         checkWinCondition(state)
+
+        // Fallback fuer Modi ohne BASE-Win
+        if (state.status == GameStatus.IN_PROGRESS && state.gameMode != GameMode.DUAL_VALLEY) {
+            state.status = GameStatus.FINISHED
+            state.currentTurn = null
+        }
 
         if (state.status == GameStatus.FINISHED) {
             println("Service: GAME FINISHED - ${player.name} disconnected, winner: ${state.winner}")
@@ -439,9 +552,52 @@ class GameService(
         return state
     }
 
-    //Bridge Method handleDisconnect
-    fun handleDisconnect(
-        sessionId: String
-    ): GameState = handleDisconnect(this.gameState, sessionId)
+    fun handleDisconnect(sessionId: String): GameState = handleDisconnect(this.gameState, sessionId)
 
+    /**
+     * Wirtschafts-Rundenabschluss (#60).
+     * Farm-Einkommen gutschreiben, Unterhalt abziehen (1. Einheit 3 Gold, jede weitere +1).
+     * Bei Insolvenz: Gold auf 0, alle lebenden Truppen → SKELETON.
+     */
+    private fun applyUpkeep(state: GameState) {
+        state.players.forEach { player ->
+            player.gold += player.farms * FARM_INCOME_PER_ROUND
+
+            val playerUnits = state.units.filter {
+                it.player == player.name && it.type != UnitType.SKELETON && it.type != UnitType.BASE
+            }
+            val unitCount = playerUnits.size
+            val upkeep = (0 until unitCount).sumOf { 3 + it }
+
+            if (player.gold >= upkeep) {
+                player.gold -= upkeep
+            } else {
+                player.gold = 0
+                playerUnits.forEach { it.type = UnitType.SKELETON }
+            }
+        }
+
+        checkWinCondition(state)
+    }
+
+    /**
+     * Kauft eine Farm fuer den Spieler (#60).
+     * Preis: FARM_BASE_COST + farms * FARM_COST_INCREMENT (10, 11, 12, ...).
+     */
+    fun buyFarm(state: GameState, playerName: String): GameState = synchronized(state.lock) {
+        if (state.status != GameStatus.IN_PROGRESS) return state
+
+        val player = state.players.find { it.name == playerName } ?: return state
+
+        val cost = FARM_BASE_COST + (player.farms * FARM_COST_INCREMENT)
+
+        if (player.gold >= cost) {
+            player.gold -= cost
+            player.farms += 1
+            println("Service: $playerName kaufte Farm für $cost. (Total: ${player.farms})")
+        } else {
+            println("Service: $playerName hat zu wenig Gold ($cost) für Farm.")
+        }
+        return state
+    }
 }

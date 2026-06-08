@@ -15,12 +15,14 @@ class WebSocketBrokerControllerTest {
     private lateinit var gameService: GameService
     private lateinit var messagingTemplate: SimpMessagingTemplate // Neu für Issue #24
     private lateinit var headerAccessor: SimpMessageHeaderAccessor // Neu für Issue #24
+    private lateinit var roomRegistry: RoomRegistry
 
     @BeforeEach
     fun setup() {
         gameService = GameService(CombatService())
+        roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java) // Mock erstellen
-        controller = WebSocketBrokerController(gameService, messagingTemplate)
+        controller = WebSocketBrokerController(gameService, roomRegistry, messagingTemplate)
 
         headerAccessor = mock(SimpMessageHeaderAccessor::class.java)
         `when`(headerAccessor.sessionId).thenReturn("test-session")
@@ -143,6 +145,9 @@ class WebSocketBrokerControllerTest {
         controller.handleJoin("Alice", "session-1")
         controller.handleJoin("Bob", "session-2")
 
+        // Gold geben, damit sie nach der Runde nicht pleitegehen
+        gameService.getCurrentState().players.forEach { it.gold = 100 }
+
         // Alice bewegt alle 3 bewegbaren Einheiten - dann ist Bob dran.
         controller.handleMove(Move("Alice", UnitType.ARCHER, 2, 2, 2, 3))
         controller.handleMove(Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3))
@@ -188,11 +193,21 @@ class WebSocketBrokerControllerTest {
         assertTrue(result.units.isEmpty())
     }
 
+
     @Test
     fun `game stays waiting when only one player joins`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
         val localHeaderAccessor = SimpMessageHeaderAccessor.create()
 
-        val state = controller.join("Alice", localHeaderAccessor)!!
+        val state = controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Alice"),
+            localHeaderAccessor
+        )!!
 
         assertEquals(1, state.players.size)
         assertEquals(GameStatus.WAITING_FOR_PLAYERS, state.status)
@@ -217,6 +232,9 @@ class WebSocketBrokerControllerTest {
         controller.handleJoin("Alice", "session-1")
         controller.handleJoin("Bob", "session-2")
 
+        // Gold geben, damit sie nach der Runde nicht pleitegehen
+        gameService.getCurrentState().players.forEach { it.gold = 100 }
+
         // Alice bewegt alle 3 Einheiten - dann switcht zu Bob
         controller.handleMove(Move("Alice", UnitType.ARCHER, 2, 2, 2, 3))
         controller.handleMove(Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3))
@@ -231,13 +249,28 @@ class WebSocketBrokerControllerTest {
     }
 
     @Test
-    fun `init returns current state`() {
-        controller.handleJoin("Alice", "session-1")
-        controller.handleJoin("Bob", "session-2")
+    fun `room state contains joined players`() {
 
-        val state = controller.init()
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
 
-        assertEquals(2, state.players.size)
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Josef"),
+            headerAccessor
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Marie"),
+            headerAccessor
+        )
+
+        assertEquals(
+            2,
+            room.gameState.players.size
+        )
     }
 
     @Test
@@ -265,14 +298,21 @@ class WebSocketBrokerControllerTest {
         assertEquals("", state.players[0].sessionId)
     }
 
+
     @Test
     fun `join uses empty sessionId when header sessionId is null`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
         val localHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
 
         `when`(localHeaderAccessor.sessionId).thenReturn(null)
 
-        val state = controller.join(
-            "Alice",
+        val state = controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Alice"),
             localHeaderAccessor
         )!!
 
@@ -282,84 +322,186 @@ class WebSocketBrokerControllerTest {
         )
     }
 
+
     @Test
     fun `player can join game with sessionId`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
         val localHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
 
         `when`(localHeaderAccessor.sessionId).thenReturn("session-1")
 
-        val state = controller.join(
-            "Josef",
+        val state = controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Josef"),
             localHeaderAccessor
         )!!
 
         assertTrue(
             state.players.any { it.name == "Josef" }
         )
+
         assertEquals(1, state.players.size)
-        assertEquals("session-1", state.players[0].sessionId)
+
+        assertEquals(
+            "session-1",
+            state.players[0].sessionId
+        )
     }
+
 
     @Test
     fun `join via websocket sends GAME_FULL error when full`() {
-        controller.handleJoin("P1", "session-1")
-        controller.handleJoin("P2", "session-2")
 
-        val result = controller.join("P3", headerAccessor)
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "P1", color = PlayerColor.RED),
+            headerAccessor
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "P2", color = PlayerColor.BLUE),
+            headerAccessor
+        )
+
+        val result = controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "P3", color = PlayerColor.GREEN),
+            headerAccessor
+        )
 
         assertNull(result)
+
         verify(messagingTemplate).convertAndSendToUser(
             eq("test-session"),
             eq("/queue/errors"),
-            argThat { it is ErrorMessage && it.errorCode == ErrorCode.GAME_FULL }
+            argThat {
+                it is ErrorMessage &&
+                        it.errorCode == ErrorCode.GAME_FULL
+            }
         )
     }
 
     @Test
     fun `move via websocket sends GAME_NOT_STARTED error`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
         val move = Move(player = "P1")
 
-        val result = controller.move(move, headerAccessor)
+        val result = controller.moveRoom(
+            room.roomId,
+            move,
+            headerAccessor
+        )
 
         assertNull(result)
+
         verify(messagingTemplate).convertAndSendToUser(
             eq("test-session"),
             eq("/queue/errors"),
-            argThat { it is ErrorMessage && it.errorCode == ErrorCode.GAME_NOT_STARTED }
+            argThat {
+                it is ErrorMessage &&
+                        it.errorCode == ErrorCode.GAME_NOT_STARTED
+            }
         )
     }
 
     @Test
     fun `move via websocket sends NOT_YOUR_TURN error`() {
-        controller.handleJoin("P1", "session-1")
-        controller.handleJoin("P2", "session-2")
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "P1"),
+            headerAccessor
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "P2"),
+            headerAccessor
+        )
 
         val move = Move(player = "P2")
-        val result = controller.move(move, headerAccessor)
+
+        val result = controller.moveRoom(
+            room.roomId,
+            move,
+            headerAccessor
+        )
 
         assertNull(result)
+
         verify(messagingTemplate).convertAndSendToUser(
             eq("test-session"),
             eq("/queue/errors"),
-            argThat { it is ErrorMessage && it.errorCode == ErrorCode.NOT_YOUR_TURN }
+            argThat {
+                it is ErrorMessage &&
+                        it.errorCode == ErrorCode.NOT_YOUR_TURN
+            }
         )
     }
+
 
     @Test
     fun `move via websocket sends INVALID_MOVE error`() {
-        controller.handleJoin("P1", "session-1")
-        controller.handleJoin("P2", "session-2")
 
-        val move = Move(player = "P1", fromX = 0, fromY = 0, toX = 9, toY = 9)
-        val result = controller.move(move, headerAccessor)
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "P1"),
+            headerAccessor
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "P2"),
+            headerAccessor
+        )
+
+        val move = Move(
+            player = "P1",
+            fromX = 0,
+            fromY = 0,
+            toX = 9,
+            toY = 9
+        )
+
+        val result = controller.moveRoom(
+            room.roomId,
+            move,
+            headerAccessor
+        )
 
         assertNull(result)
+
         verify(messagingTemplate).convertAndSendToUser(
             eq("test-session"),
             eq("/queue/errors"),
-            argThat { it is ErrorMessage && it.errorCode == ErrorCode.INVALID_MOVE }
+            argThat {
+                it is ErrorMessage &&
+                        it.errorCode == ErrorCode.INVALID_MOVE
+            }
         )
     }
+
 
     @Test
     fun `move via websocket rejected when game status is FINISHED`() {
@@ -371,8 +513,22 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `broadcasts new state on success`() {
-        controller.handleJoin("Alice", "session-1")
-        controller.handleJoin("Bob", "session-2")
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Alice"),
+            headerAccessor
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Bob"),
+            headerAccessor
+        )
 
         val move = Move(
             player = "Alice",
@@ -383,29 +539,652 @@ class WebSocketBrokerControllerTest {
             toY = 3
         )
 
-        val result = controller.move(move, headerAccessor)
+        // Join-Broadcasts ignorieren
+        clearInvocations(messagingTemplate)
+
+        val result = controller.moveRoom(
+            room.roomId,
+            move,
+            headerAccessor
+        )
 
         assertNotNull(result)
 
-        verifyNoInteractions(messagingTemplate)
+        verify(messagingTemplate).convertAndSend(
+            eq("/topic/rooms/${room.roomId}/state"),
+            eq(result!!)
+        )
     }
+
 
     @Test
     fun `valid move switches turn`() {
-        controller.handleJoin("Alice", "session-1")
-        controller.handleJoin("Bob", "session-2")
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Alice"),
+            headerAccessor
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Bob"),
+            headerAccessor
+        )
 
         // Alle 3 bewegbaren Einheiten bewegen damit der Turn switcht.
-        controller.move(Move("Alice", UnitType.ARCHER, 2, 2, 2, 3), headerAccessor)
-        controller.move(Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3), headerAccessor)
-        val result = controller.move(
+        controller.moveRoom(room.roomId, Move("Alice", UnitType.ARCHER, 2, 2, 2, 3), headerAccessor)
+        controller.moveRoom(room.roomId, Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3), headerAccessor)
+        val result = controller.moveRoom(
+            room.roomId,
             Move("Alice", UnitType.CAVALRY, 4, 2, 4, 3),
             headerAccessor
         )
 
         assertNotNull(result)
 
-        assertEquals("Bob", result?.currentTurn)
+        assertEquals(
+            "Bob",
+            result?.currentTurn
+        )
+    }
+
+    @Test
+    fun `initRoom returns null for invalid room id`() {
+        val result = controller.initRoom("invalid-room-id", headerAccessor)
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `initRoom returns state of requested room`() {
+
+        val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
+
+        room.gameState.players.add(
+            Player("Josef", "session1", PlayerColor.RED)
+        )
+
+        val result = controller.initRoom(room.roomId, headerAccessor)
+
+        assertNotNull(result)
+        assertEquals(1, result!!.players.size)
+        assertEquals("Josef", result.players[0].name)
+    }
+
+    @Test
+    fun `joinRoom returns null for invalid room id`() {
+
+        val headerAccessor = SimpMessageHeaderAccessor.create()
+
+        val result = controller.joinRoom(
+            "invalid-room-id",
+            JoinRequest(name = "Josef"),
+            headerAccessor
+        )
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `joinRoom adds player to requested room`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        val headerAccessor = SimpMessageHeaderAccessor.create()
+
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Josef"),
+            headerAccessor
+        )
+
+        assertEquals(
+            1,
+            room.gameState.players.size
+        )
+
+        assertEquals(
+            "Josef",
+            room.gameState.players[0].name
+        )
+    }
+
+    @Test
+    fun `moveRoom returns null for invalid room id`() {
+
+        val headerAccessor = SimpMessageHeaderAccessor.create()
+
+        val move = Move(
+            player = "Josef",
+            type = UnitType.INFANTRY,
+            fromX = 0,
+            fromY = 0,
+            toX = 1,
+            toY = 0
+        )
+
+        val result = controller.moveRoom(
+            "invalid-room-id",
+            move,
+            headerAccessor
+        )
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `moveRoom returns null when game not started`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        val headerAccessor = SimpMessageHeaderAccessor.create()
+
+        val move = Move(
+            player = "Josef",
+            type = UnitType.INFANTRY,
+            fromX = 0,
+            fromY = 0,
+            toX = 1,
+            toY = 0
+        )
+
+        val result = controller.moveRoom(
+            room.roomId,
+            move,
+            headerAccessor
+        )
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `initRoom broadcasts state to room topic`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        controller.initRoom(room.roomId, headerAccessor)
+
+        verify(messagingTemplate).convertAndSend(
+            "/topic/rooms/${room.roomId}/state",
+            room.gameState
+        )
+    }
+
+    @Test
+    fun `joinRoom broadcasts state to room topic`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        val headerAccessor = SimpMessageHeaderAccessor.create()
+
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Josef"),
+            headerAccessor
+        )
+
+        verify(messagingTemplate).convertAndSend(
+            "/topic/rooms/${room.roomId}/state",
+            room.gameState
+        )
+    }
+
+    @Test
+    fun `moveRoom broadcasts state to room topic`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        val headerAccessor = SimpMessageHeaderAccessor.create()
+
+        gameService.handleJoin(
+            room.gameState,
+            "Josef",
+            "session-1"
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "Marie",
+            "session-2"
+        )
+
+        val move = Move(
+            player = "Josef",
+            type = UnitType.INFANTRY,
+            fromX = 3,
+            fromY = 2,
+            toX = 3,
+            toY = 3
+        )
+
+        controller.moveRoom(
+            room.roomId,
+            move,
+            headerAccessor
+        )
+
+        verify(messagingTemplate).convertAndSend(
+            "/topic/rooms/${room.roomId}/state",
+            room.gameState
+        )
+    }
+
+    @Test
+    fun `initRoom sends ROOM_NOT_FOUND for invalid room id`() {
+        val headerAccessor = SimpMessageHeaderAccessor.create()
+
+        controller.initRoom(
+            "invalid-room-id",
+            headerAccessor
+        )
+
+        verify(messagingTemplate).convertAndSendToUser(
+            anyString(),
+            eq("/queue/errors"),
+            eq(
+                ErrorMessage(
+                    ErrorCode.ROOM_NOT_FOUND,
+                    "Raum nicht gefunden."
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `joinRoom sends ROOM_NOT_FOUND for invalid room id`() {
+
+        controller.joinRoom(
+            "invalid-room-id",
+            JoinRequest(name = "Josef"),
+            headerAccessor
+        )
+
+        verify(messagingTemplate).convertAndSendToUser(
+            anyString(),
+            eq("/queue/errors"),
+            eq(
+                ErrorMessage(
+                    ErrorCode.ROOM_NOT_FOUND,
+                    "Raum nicht gefunden."
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `moveRoom sends ROOM_NOT_FOUND for invalid room id`() {
+
+        val move = Move(
+            player = "Josef",
+            type = UnitType.INFANTRY,
+            fromX = 0,
+            fromY = 0,
+            toX = 1,
+            toY = 0
+        )
+
+        controller.moveRoom(
+            "invalid-room-id",
+            move,
+            headerAccessor
+        )
+
+        verify(messagingTemplate).convertAndSendToUser(
+            anyString(),
+            eq("/queue/errors"),
+            eq(
+                ErrorMessage(
+                    ErrorCode.ROOM_NOT_FOUND,
+                    "Raum nicht gefunden."
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `joinRoom sends GAME_FULL when room is full`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "Benno",
+            "session-1"
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "Josef",
+            "session-2"
+        )
+
+        val result = controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Marie"),
+            headerAccessor
+        )
+
+        assertNull(result)
+
+        verify(messagingTemplate).convertAndSendToUser(
+            anyString(),
+            eq("/queue/errors"),
+            eq(
+                ErrorMessage(
+                    ErrorCode.GAME_FULL,
+                    "Beitritt verweigert: Spiel ist voll."
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `moveRoom sends NOT_YOUR_TURN`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "Josef",
+            "session-1"
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "Marie",
+            "session-2"
+        )
+
+        val move = Move(
+            player = "Marie",
+            type = UnitType.INFANTRY,
+            fromX = 3,
+            fromY = 2,
+            toX = 3,
+            toY = 3
+        )
+
+        val result = controller.moveRoom(
+            room.roomId,
+            move,
+            headerAccessor
+        )
+
+        assertNull(result)
+
+        verify(messagingTemplate).convertAndSendToUser(
+            anyString(),
+            eq("/queue/errors"),
+            eq(
+                ErrorMessage(
+                    ErrorCode.NOT_YOUR_TURN,
+                    "Es ist nicht dein Zug!"
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `moveRoom sends INVALID_MOVE`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.DUAL_VALLEY
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P1",
+            "session-1"
+        )
+
+        gameService.handleJoin(
+            room.gameState,
+            "P2",
+            "session-2"
+        )
+
+        val move = Move(
+            player = "P1",
+            fromX = 0,
+            fromY = 0,
+            toX = 9,
+            toY = 9
+        )
+
+        val result = controller.moveRoom(
+            room.roomId,
+            move,
+            headerAccessor
+        )
+
+        assertNull(result)
+
+        verify(messagingTemplate).convertAndSendToUser(
+            eq("test-session"),
+            eq("/queue/errors"),
+            argThat {
+                it is ErrorMessage &&
+                        it.errorCode == ErrorCode.INVALID_MOVE
+            }
+        )
+    }
+
+    @Test
+    fun `joining final player broadcasts started game state`() {
+
+        val room = roomRegistry.createRoom(
+            GameMode.TRIAD_OUTPOST
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "P1", color = PlayerColor.RED),
+            headerAccessor
+        )
+
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "P2", color = PlayerColor.BLUE),
+            headerAccessor
+        )
+
+        val state = controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "P3", color = PlayerColor.GREEN),
+            headerAccessor
+        )
+
+        assertEquals(
+            GameStatus.IN_PROGRESS,
+            state?.status
+        )
+
+        verify(messagingTemplate, atLeastOnce())
+            .convertAndSend(
+                eq("/topic/rooms/${room.roomId}/state"),
+                any(GameState::class.java)
+            )
+    }
+
+    // ---- Buy-Farm-Tests (#60, portiert von /buyFarm auf /rooms/{id}/buy-farm) ----
+
+    @Test
+    fun `buyFarmRoom returns updated state when gold is sufficient`() {
+        val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
+
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Alice", color = PlayerColor.RED),
+            headerAccessor
+        )
+        val secondHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
+        `when`(secondHeaderAccessor.sessionId).thenReturn("session-2")
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Bob", color = PlayerColor.BLUE),
+            secondHeaderAccessor
+        )
+
+        val alice = room.gameState.players.first { it.name == "Alice" }
+        alice.gold = 20  // genug Gold
+
+        val result = controller.buyFarmRoom(room.roomId, headerAccessor)
+
+        assertNotNull(result)
+        assertEquals(1, result?.players?.first { it.name == "Alice" }?.farms)
+        // 20 - FARM_BASE_COST(10) = 10
+        assertEquals(10, result?.players?.first { it.name == "Alice" }?.gold)
+    }
+
+    @Test
+    fun `buyFarmRoom sends INSUFFICIENT_GOLD error when poor`() {
+        val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
+
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Alice", color = PlayerColor.RED),
+            headerAccessor
+        )
+        val secondHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
+        `when`(secondHeaderAccessor.sessionId).thenReturn("session-2")
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Bob", color = PlayerColor.BLUE),
+            secondHeaderAccessor
+        )
+
+        val alice = room.gameState.players.first { it.name == "Alice" }
+        alice.gold = 5  // zu wenig fuer Farm (Kosten 10)
+
+        val result = controller.buyFarmRoom(room.roomId, headerAccessor)
+
+        assertNull(result)
+        verify(messagingTemplate).convertAndSendToUser(
+            eq("test-session"),
+            eq("/queue/errors"),
+            argThat { it is ErrorMessage && it.errorCode == ErrorCode.INSUFFICIENT_GOLD }
+        )
+    }
+
+    @Test
+    fun `buyFarmRoom returns null if player session is unknown`() {
+        val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
+        // Niemand beigetreten -> headerAccessor.sessionId ist "test-session", kein Match
+        val result = controller.buyFarmRoom(room.roomId, headerAccessor)
+        assertNull(result)
+    }
+
+    @Test
+    fun `buyFarmRoom handles null sessionId from headerAccessor gracefully`() {
+        val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
+        val localHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
+        `when`(localHeaderAccessor.sessionId).thenReturn(null)
+
+        val result = controller.buyFarmRoom(room.roomId, localHeaderAccessor)
+        assertNull(result)
+    }
+
+    // ---- Color-/Reconnect-Tests fuer Sub-Issue #107 ----
+
+    @Test
+    fun `joinRoom allows reconnecting player even if game is max capacity`() {
+        val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
+
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Alice", color = PlayerColor.RED),
+            headerAccessor
+        )
+        val secondHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
+        `when`(secondHeaderAccessor.sessionId).thenReturn("session-2")
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Bob", color = PlayerColor.BLUE),
+            secondHeaderAccessor
+        )
+
+        // Alice joint neu mit anderer Session
+        val reconnectHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
+        `when`(reconnectHeaderAccessor.sessionId).thenReturn("session-3")
+
+        val state = controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Alice", color = PlayerColor.RED),
+            reconnectHeaderAccessor
+        )
+
+        // Re-Join wird durchgewinkt, kein GAME_FULL
+        assertNotNull(state)
+        assertEquals(2, state?.players?.size)
+    }
+
+    @Test
+    fun `joinRoom applies color from JoinRequest`() {
+        val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
+
+        val state = controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Alice", color = PlayerColor.GREEN),
+            headerAccessor
+        )!!
+
+        assertEquals(PlayerColor.GREEN, state.players[0].color)
+    }
+
+    @Test
+    fun `joinRoom with duplicate color sends COLOR_ALREADY_TAKEN error`() {
+        val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
+
+        controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Alice", color = PlayerColor.RED),
+            headerAccessor
+        )
+
+        val secondHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
+        `when`(secondHeaderAccessor.sessionId).thenReturn("session-2")
+
+        val result = controller.joinRoom(
+            room.roomId,
+            JoinRequest(name = "Bob", color = PlayerColor.RED),
+            secondHeaderAccessor
+        )
+
+        assertNull(result)
+        verify(messagingTemplate).convertAndSendToUser(
+            eq("session-2"),
+            eq("/queue/errors"),
+            argThat { it is ErrorMessage && it.errorCode == ErrorCode.COLOR_ALREADY_TAKEN }
+        )
+    }
+
+    @Test
+    fun `PlayerColor supports all four colors`() {
+        assertEquals(4, PlayerColor.entries.size)
+        assertTrue(
+            PlayerColor.entries.containsAll(
+                listOf(PlayerColor.RED, PlayerColor.BLUE, PlayerColor.GREEN, PlayerColor.YELLOW)
+            )
+        )
     }
 
     // ---- Tests fuer Move-Distanz-Validierung (Sub-Issue #102) -----------
