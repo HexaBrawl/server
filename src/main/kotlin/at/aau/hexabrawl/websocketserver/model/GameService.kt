@@ -118,15 +118,15 @@ class GameService(
         val p2 = state.players[1]
 
         val startPositionsP1 = listOf(
-            Pair(2, 2),  // ARCHER
-            Pair(3, 2),  // INFANTRY
-            Pair(4, 2)   // CAVALRY
+            Pair(1, 2),  // ARCHER  (linker Nachbar der Basis)
+            Pair(2, 3),  // INFANTRY (unterer Nachbar)
+            Pair(3, 2)   // CAVALRY  (rechter Nachbar)
         )
 
         val startPositionsP2 = listOf(
-            Pair(5, 5),
-            Pair(6, 5),
-            Pair(7, 5)
+            Pair(8, 7),  // ARCHER
+            Pair(7, 8),  // INFANTRY
+            Pair(6, 7)   // CAVALRY
         )
 
         UnitType.entries
@@ -492,21 +492,19 @@ class GameService(
     fun resetToStartCondition(state: GameState): GameState = synchronized(state.lock) {
         state.units.clear()
 
+        val dualValleyUnitPos = listOf(
+            listOf(1 to 2, 2 to 3, 3 to 2),  // P1
+            listOf(8 to 7, 7 to 8, 6 to 7)    // P2
+        )
+
         state.players.forEachIndexed { index, player ->
-            val startX = if (index == 0) 2 else 5
-            val startY = if (index == 0) 2 else 5
+            val positions = dualValleyUnitPos.getOrElse(index) { emptyList() }
 
             UnitType.entries
                 .filter { it != UnitType.SKELETON && it != UnitType.BASE }
                 .forEachIndexed { typeIndex, type ->
-                    state.units.add(
-                        GameUnit(
-                            player = player.name,
-                            x = startX + typeIndex,
-                            y = startY,
-                            type = type
-                        )
-                    )
+                    val (x, y) = positions.getOrElse(typeIndex) { index * 4 + typeIndex to 0 }
+                    state.units.add(GameUnit(player = player.name, x = x, y = y, type = type))
                 }
 
             // BASE nur fuer DUAL_VALLEY mit 2 Spielern
