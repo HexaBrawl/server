@@ -146,10 +146,10 @@ class GameModelTest {
         val move = Move(
             "Josef",
             UnitType.INFANTRY,
-            3,
             2,
             3,
-            3
+            2,
+            4
         )
 
         gameService.handleMove(state1, move)
@@ -160,8 +160,8 @@ class GameModelTest {
                         it.type == UnitType.INFANTRY
             }
 
-        assertEquals(3, movedUnit?.x)
-        assertEquals(3, movedUnit?.y)
+        assertEquals(2, movedUnit?.x)
+        assertEquals(4, movedUnit?.y)
 
         assertTrue(state2.units.isEmpty())
     }
@@ -176,10 +176,10 @@ class GameModelTest {
         val move = Move(
             "Josef",
             UnitType.INFANTRY,
-            3,
             2,
             3,
-            3
+            2,
+            4
         )
 
         gameService.handleMove(move)
@@ -190,8 +190,8 @@ class GameModelTest {
                         it.type == UnitType.INFANTRY
             }
 
-        assertEquals(3, movedUnit?.x)
-        assertEquals(3, movedUnit?.y)
+        assertEquals(2, movedUnit?.x)
+        assertEquals(4, movedUnit?.y)
     }
 
     @Test
@@ -479,10 +479,10 @@ class GameModelTest {
         val move = Move(
             player = "P1",
             type = UnitType.INFANTRY,
-            fromX = 5,
-            fromY = 2,
-            toX = 5,
-            toY = 3
+            fromX = 4,
+            fromY = 9,
+            toX = 4,
+            toY = 10
         )
 
         val state = gameService.handleMove(
@@ -519,10 +519,10 @@ class GameModelTest {
         val move = Move(
             player = "P1",
             type = UnitType.INFANTRY,
-            fromX = 5,
-            fromY = 1,
-            toX = 5,
-            toY = 2
+            fromX = 6,
+            fromY = 9,
+            toX = 6,
+            toY = 8
         )
 
         val state = gameService.handleMove(

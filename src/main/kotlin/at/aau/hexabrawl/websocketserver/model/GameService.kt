@@ -23,25 +23,32 @@ class GameService(
         const val FARM_BASE_COST = 10
         const val FARM_COST_INCREMENT = 1
 
-        // Basis-Positionen für DUAL_VALLEY (#104). Sieg-relevant — siehe checkWinCondition.
-        // Bewusst an die Grid-Raender gesetzt, damit haeufige Test-Move-Ziele
-        // wie (6,6) oder (3,1) frei bleiben.
-        val BASE_POSITION_P1: Pair<Int, Int> = Pair(3, 0)
-        val BASE_POSITION_P2: Pair<Int, Int> = Pair(6, 7)
+        // Board-Dimensionen pro Modus.
+        const val DUAL_VALLEY_BOARD_ROWS = 9
+        const val DUAL_VALLEY_BOARD_COLS = 9
+        const val TRIAD_BOARD_ROWS = 11
+        const val TRIAD_BOARD_COLS = 11
+        const val BATTLEFIELD_BOARD_ROWS = 13
+        const val BATTLEFIELD_BOARD_COLS = 13
 
-        // Board-Dimensionen fuer DUAL_VALLEY (Standard-Modus).
-        const val BOARD_ROWS = 10
-        const val BOARD_COLS = 10
+        // Basis-Positionen fuer DUAL_VALLEY (#104).
+        val BASE_POSITION_P1: Pair<Int, Int> = Pair(2, 2)
+        val BASE_POSITION_P2: Pair<Int, Int> = Pair(7, 7)
 
-        // Startgebiete pro Spieler: Felder unter den Start-Einheiten + Basis.
+        // Startgebiete DUAL_VALLEY: Basis + 6 angrenzende Felder.
         val START_TERRITORY_P1: List<Pair<Int, Int>> = listOf(
-            2 to 2, 3 to 2, 4 to 2,  // ARCHER, INFANTRY, CAVALRY
-            3 to 0                    // BASE
+            2 to 2, 1 to 1, 1 to 2, 2 to 1, 2 to 3, 3 to 1, 3 to 2
         )
         val START_TERRITORY_P2: List<Pair<Int, Int>> = listOf(
-            5 to 5, 6 to 5, 7 to 5,
-            6 to 7
+            7 to 7, 6 to 7, 6 to 8, 7 to 6, 7 to 8, 8 to 7, 8 to 8
         )
+
+        // Liefert die 6 Nachbarfelder eines Hex-Feldes in "odd-q offset" Koordinaten.
+        fun hexNeighbors(x: Int, y: Int): List<Pair<Int, Int>> =
+            if (x % 2 == 0)
+                listOf(x - 1 to y - 1, x - 1 to y, x to y - 1, x to y + 1, x + 1 to y - 1, x + 1 to y)
+            else
+                listOf(x - 1 to y, x - 1 to y + 1, x to y - 1, x to y + 1, x + 1 to y, x + 1 to y + 1)
     }
 
     /**
@@ -111,15 +118,15 @@ class GameService(
         val p2 = state.players[1]
 
         val startPositionsP1 = listOf(
-            Pair(2, 2),  // ARCHER
-            Pair(3, 2),  // INFANTRY
-            Pair(4, 2)   // CAVALRY
+            Pair(1, 2),  // ARCHER  (linker Nachbar der Basis)
+            Pair(2, 3),  // INFANTRY (unterer Nachbar)
+            Pair(3, 2)   // CAVALRY  (rechter Nachbar)
         )
 
         val startPositionsP2 = listOf(
-            Pair(5, 5),
-            Pair(6, 5),
-            Pair(7, 5)
+            Pair(8, 7),  // ARCHER
+            Pair(7, 8),  // INFANTRY
+            Pair(6, 7)   // CAVALRY
         )
 
         UnitType.entries
@@ -134,41 +141,29 @@ class GameService(
         state.units.add(GameUnit(p1.name, BASE_POSITION_P1.first, BASE_POSITION_P1.second, UnitType.BASE))
         state.units.add(GameUnit(p2.name, BASE_POSITION_P2.first, BASE_POSITION_P2.second, UnitType.BASE))
 
-        initializeBoard(state)
+        initializeBoard(state, DUAL_VALLEY_BOARD_COLS, DUAL_VALLEY_BOARD_ROWS,
+            mapOf(p1.name to START_TERRITORY_P1, p2.name to START_TERRITORY_P2))
 
         state.currentTurn = p1.name
         state.status = GameStatus.IN_PROGRESS
         println("Service: GAME STARTED")
     }
 
-    /**
-     * Startet ein TRIAD_OUTPOST-Spiel (3 Spieler).
-     *
-     * TODO: BASE-Positionen fuer 3 Spieler designen. Bis dahin ist
-     * [checkWinCondition] in diesem Modus deaktiviert.
-     */
     private fun startTriadOutpostGame(state: GameState) {
         val p1 = state.players[0]
         val p2 = state.players[1]
         val p3 = state.players[2]
 
-        val startPositionsP1 = listOf(
-            Pair(4, 2),  // ARCHER (Sueden)
-            Pair(5, 2),  // INFANTRY
-            Pair(6, 2)   // CAVALRY
+        // Basen: gleichmaessiges Dreieck auf 12x12, je 8 Hex-Schritte voneinander entfernt.
+        val bases = listOf(
+            Pair(5, 9),  // P1 Sueden
+            Pair(1, 3),  // P2 Nordwesten
+            Pair(9, 3)   // P3 Nordosten
         )
 
-        val startPositionsP2 = listOf(
-            Pair(2, 5),  // ARCHER (Nordwesten)
-            Pair(2, 6),  // INFANTRY
-            Pair(3, 6)   // CAVALRY
-        )
-
-        val startPositionsP3 = listOf(
-            Pair(7, 6),  // ARCHER (Nordosten)
-            Pair(8, 6),  // INFANTRY
-            Pair(8, 5)   // CAVALRY
-        )
+        val startPositionsP1 = listOf(Pair(5, 8), Pair(4, 9), Pair(6, 9))   // Einheiten um P1-Basis
+        val startPositionsP2 = listOf(Pair(2, 3), Pair(2, 4), Pair(1, 4))   // Einheiten um P2-Basis
+        val startPositionsP3 = listOf(Pair(8, 3), Pair(8, 4), Pair(9, 4))   // Einheiten um P3-Basis
 
         UnitType.entries
             .filter { it != UnitType.SKELETON && it != UnitType.BASE }
@@ -181,46 +176,40 @@ class GameService(
                 state.units.add(GameUnit(p3.name, x3, y3, type))
             }
 
+        listOf(p1 to bases[0], p2 to bases[1], p3 to bases[2]).forEach { (p, base) ->
+            state.units.add(GameUnit(p.name, base.first, base.second, UnitType.BASE))
+        }
+
+        val territories = mapOf(
+            p1.name to (listOf(bases[0]) + hexNeighbors(bases[0].first, bases[0].second)),
+            p2.name to (listOf(bases[1]) + hexNeighbors(bases[1].first, bases[1].second)),
+            p3.name to (listOf(bases[2]) + hexNeighbors(bases[2].first, bases[2].second))
+        )
+        initializeBoard(state, TRIAD_BOARD_COLS, TRIAD_BOARD_ROWS, territories)
+
         state.currentTurn = p1.name
         state.status = GameStatus.IN_PROGRESS
         println("Service: TRIAD OUTPOST GAME STARTED")
     }
 
-    /**
-     * Startet ein BATTLEFIELD_PEAKS-Spiel (4 Spieler).
-     *
-     * TODO: BASE-Positionen fuer 4 Spieler designen. Bis dahin ist
-     * [checkWinCondition] in diesem Modus deaktiviert.
-     */
     private fun startBattlefieldPeaksGame(state: GameState) {
         val p1 = state.players[0]
         val p2 = state.players[1]
         val p3 = state.players[2]
         val p4 = state.players[3]
 
-        val startPositionsP1 = listOf(
-            Pair(4, 1),  // ARCHER (Sueden)
-            Pair(5, 1),  // INFANTRY
-            Pair(6, 1)   // CAVALRY
+        // Basen: Kreuzformation auf 13x13, 6 Schritte zu Nachbarn, 8 zu Gegenueber.
+        val bases = listOf(
+            Pair(6, 10),  // P1 Sued
+            Pair(2,  6),  // P2 West
+            Pair(10, 6),  // P3 Ost
+            Pair(6,  2)   // P4 Nord
         )
 
-        val startPositionsP2 = listOf(
-            Pair(1, 4),  // ARCHER (Westen)
-            Pair(1, 5),  // INFANTRY
-            Pair(1, 6)   // CAVALRY
-        )
-
-        val startPositionsP3 = listOf(
-            Pair(9, 4),  // ARCHER (Osten)
-            Pair(9, 5),  // INFANTRY
-            Pair(9, 6)   // CAVALRY
-        )
-
-        val startPositionsP4 = listOf(
-            Pair(4, 9),  // ARCHER (Norden)
-            Pair(5, 9),  // INFANTRY
-            Pair(6, 9)   // CAVALRY
-        )
+        val startPositionsP1 = listOf(Pair(5, 9), Pair(6, 9), Pair(7, 9))   // Einheiten um P1-Basis
+        val startPositionsP2 = listOf(Pair(2, 5), Pair(3, 5), Pair(3, 6))   // Einheiten um P2-Basis
+        val startPositionsP3 = listOf(Pair(10, 5), Pair(9, 5), Pair(9, 6))  // Einheiten um P3-Basis
+        val startPositionsP4 = listOf(Pair(5, 2), Pair(6, 3), Pair(7, 2))   // Einheiten um P4-Basis
 
         UnitType.entries
             .filter { it != UnitType.SKELETON && it != UnitType.BASE }
@@ -234,6 +223,18 @@ class GameService(
                 state.units.add(GameUnit(p3.name, x3, y3, type))
                 state.units.add(GameUnit(p4.name, x4, y4, type))
             }
+
+        listOf(p1 to bases[0], p2 to bases[1], p3 to bases[2], p4 to bases[3]).forEach { (p, base) ->
+            state.units.add(GameUnit(p.name, base.first, base.second, UnitType.BASE))
+        }
+
+        val territories = mapOf(
+            p1.name to (listOf(bases[0]) + hexNeighbors(bases[0].first, bases[0].second)),
+            p2.name to (listOf(bases[1]) + hexNeighbors(bases[1].first, bases[1].second)),
+            p3.name to (listOf(bases[2]) + hexNeighbors(bases[2].first, bases[2].second)),
+            p4.name to (listOf(bases[3]) + hexNeighbors(bases[3].first, bases[3].second))
+        )
+        initializeBoard(state, BATTLEFIELD_BOARD_COLS, BATTLEFIELD_BOARD_ROWS, territories)
 
         state.currentTurn = p1.name
         state.status = GameStatus.IN_PROGRESS
@@ -264,13 +265,11 @@ class GameService(
         }
         if (friendlyOnTarget) return state
 
-        // Randfeld-Regel: nur fuer DUAL_VALLEY, wo das Board initialisiert ist.
-        if (state.gameMode == GameMode.DUAL_VALLEY) {
-            val targetField = state.fields.firstOrNull { it.x == move.toX && it.y == move.toY }
-            val isOwnField = targetField?.owner == move.player
-            val isBorderField = isAdjacentToOwnTerritory(state, move.toX, move.toY, move.player)
-            if (!isOwnField && !isBorderField) return state
-        }
+        // Randfeld-Regel: Einheit darf nur auf eigenes oder angrenzendes Feld ziehen.
+        val targetField = state.fields.firstOrNull { it.x == move.toX && it.y == move.toY }
+        val isOwnField = targetField?.owner == move.player
+        val isBorderField = isAdjacentToOwnTerritory(state, move.toX, move.toY, move.player)
+        if (!isOwnField && !isBorderField) return state
 
         // Skelett auf Zielfeld entfernen bevor Combat geprueft wird.
         state.units.removeIf {
@@ -314,13 +313,8 @@ class GameService(
 
     fun handleMove(move: Move): GameState = handleMove(this.gameState, move)
 
-    /**
-     * Win-Condition basiert auf BASE-Existenz und ist aktuell
-     * nur fuer [GameMode.DUAL_VALLEY] aktiv.
-     */
     private fun checkWinCondition(state: GameState) {
         if (state.status != GameStatus.IN_PROGRESS) return
-        if (state.gameMode != GameMode.DUAL_VALLEY) return
 
         val playersWithBase = state.units
             .filter { it.type == UnitType.BASE }
@@ -358,26 +352,27 @@ class GameService(
 
     /**
      * Erzeugt alle Felder des Boards und weist die Startgebiete zu.
-     * Nur fuer DUAL_VALLEY (2 Spieler). Vor dem Aufruf muessen beide
-     * Spieler in state.players existieren.
+     *
+     * @param cols  Anzahl der Spalten
+     * @param rows  Anzahl der Zeilen
+     * @param territories  Mapping von Spielername → Liste der Startfelder
      */
-    private fun initializeBoard(state: GameState) {
+    private fun initializeBoard(
+        state: GameState,
+        cols: Int,
+        rows: Int,
+        territories: Map<String, List<Pair<Int, Int>>>
+    ) {
         state.fields.clear()
-
-        for (x in 0 until BOARD_COLS) {
-            for (y in 0 until BOARD_ROWS) {
+        for (x in 0 until cols) {
+            for (y in 0 until rows) {
                 state.fields.add(Field(x, y))
             }
         }
-
-        val p1 = state.players[0]
-        val p2 = state.players[1]
-
-        START_TERRITORY_P1.forEach { (x, y) ->
-            state.fields.first { it.x == x && it.y == y }.owner = p1.name
-        }
-        START_TERRITORY_P2.forEach { (x, y) ->
-            state.fields.first { it.x == x && it.y == y }.owner = p2.name
+        territories.forEach { (playerName, fields) ->
+            fields.forEach { (x, y) ->
+                state.fields.firstOrNull { it.x == x && it.y == y }?.owner = playerName
+            }
         }
     }
 
@@ -433,11 +428,8 @@ class GameService(
     private fun finishMove(state: GameState, unit: GameUnit, playerName: String) {
         if (unit in state.units) {
             unit.hasMovedThisTurn = true
-            // Felderoberung nur fuer DUAL_VALLEY.
-            if (state.gameMode == GameMode.DUAL_VALLEY) {
-                state.fields.firstOrNull { it.x == unit.x && it.y == unit.y }
-                    ?.let { it.owner = playerName }
-            }
+            state.fields.firstOrNull { it.x == unit.x && it.y == unit.y }
+                ?.let { it.owner = playerName }
         }
         // DUAL_VALLEY: Turn erst wechseln wenn alle Einheiten gezogen haben.
         // TRIAD/BATTLEFIELD: sofort nach jedem Zug wechseln.
@@ -479,44 +471,36 @@ class GameService(
 
     /**
      * SPIELER BEHALTEN — fuer /test/reset.
+     *
+     * Delegiert an startGame, wenn alle Spieler fuer den aktuellen Modus
+     * vorhanden sind. Andernfalls werden nur DUAL_VALLEY-Einheiten als
+     * Fallback gesetzt (Testendpunkt mit unvollstaendiger Spielerzahl).
      */
     fun resetToStartCondition(state: GameState): GameState = synchronized(state.lock) {
         state.units.clear()
+        state.fields.clear()
 
-        state.players.forEachIndexed { index, player ->
-            val startX = if (index == 0) 2 else 5
-            val startY = if (index == 0) 2 else 5
-
-            UnitType.entries
-                .filter { it != UnitType.SKELETON && it != UnitType.BASE }
-                .forEachIndexed { typeIndex, type ->
-                    state.units.add(
-                        GameUnit(
-                            player = player.name,
-                            x = startX + typeIndex,
-                            y = startY,
-                            type = type
-                        )
-                    )
-                }
-
-            // BASE nur fuer DUAL_VALLEY mit 2 Spielern
-            if (state.gameMode == GameMode.DUAL_VALLEY && state.players.size == 2) {
-                val basePos = if (index == 0) BASE_POSITION_P1 else BASE_POSITION_P2
-                state.units.add(GameUnit(player.name, basePos.first, basePos.second, UnitType.BASE))
-            }
-        }
-
-        if (state.gameMode == GameMode.DUAL_VALLEY && state.players.size == 2) {
-            initializeBoard(state)
+        if (state.players.size == state.gameMode.maxPlayers) {
+            startGame(state)
         } else {
-            state.fields.clear()
+            val fallbackPos = listOf(
+                listOf(1 to 2, 2 to 3, 3 to 2),
+                listOf(8 to 7, 7 to 8, 6 to 7)
+            )
+            state.players.forEachIndexed { index, player ->
+                val positions = fallbackPos.getOrElse(index) { emptyList() }
+                UnitType.entries
+                    .filter { it != UnitType.SKELETON && it != UnitType.BASE }
+                    .forEachIndexed { typeIndex, type ->
+                        val (x, y) = positions.getOrElse(typeIndex) { index * 4 + typeIndex to 0 }
+                        state.units.add(GameUnit(player = player.name, x = x, y = y, type = type))
+                    }
+            }
+            state.currentTurn = state.players.firstOrNull()?.name
+            state.status = GameStatus.IN_PROGRESS
         }
 
-        state.currentTurn = state.players.firstOrNull()?.name
-        state.status = GameStatus.IN_PROGRESS
-
-        println("Service: Reset - Units for ${state.players} recreated at start positions.")
+        println("Service: Reset to start condition for ${state.players.size} players.")
         return state
     }
 

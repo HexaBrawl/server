@@ -17,40 +17,40 @@ class FieldConquestTest {
 
     @Test
     fun `moving onto neutral border field conquers it`() {
-        // Alice INFANTRY (3,2) -> (3,3): (3,3) ist neutrales Randfeld.
-        gameService.handleMove(Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3))
+        // Alice INFANTRY (2,3) -> (2,4): (2,4) ist neutrales Randfeld.
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY, 2, 3, 2, 4))
 
-        val field = gameService.getCurrentState().fields.first { it.x == 3 && it.y == 3 }
+        val field = gameService.getCurrentState().fields.first { it.x == 2 && it.y == 4 }
         assertEquals("Alice", field.owner)
     }
 
     @Test
     fun `moving to a non-border field is rejected`() {
-        // (3,4) ist nicht Alice's Feld und nicht adjacent zu Alice's Gebiet.
-        val state = gameService.handleMove(Move("Alice", UnitType.INFANTRY, 3, 2, 3, 4))
+        // (0,4) liegt nicht angrenzend an Alice's Gebiet.
+        val state = gameService.handleMove(Move("Alice", UnitType.INFANTRY, 2, 3, 0, 4))
 
         // Position unveraendert
         val infantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
-        assertEquals(3, infantry.x)
-        assertEquals(2, infantry.y)
+        assertEquals(2, infantry.x)
+        assertEquals(3, infantry.y)
     }
 
     @Test
     fun `own territory fields stay owned after move from them`() {
-        // Alice INFANTRY zieht von (3,2) auf (3,3) - (3,2) gehoert weiterhin Alice
-        gameService.handleMove(Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3))
+        // Alice INFANTRY zieht von (2,3) auf (2,4) - (2,3) gehoert weiterhin Alice
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY, 2, 3, 2, 4))
 
-        val field = gameService.getCurrentState().fields.first { it.x == 3 && it.y == 2 }
+        val field = gameService.getCurrentState().fields.first { it.x == 2 && it.y == 3 }
         assertEquals("Alice", field.owner)
     }
 
     @Test
     fun `skeleton is removed when unit moves onto its tile`() {
         val state = gameService.getCurrentState()
-        // Skelett manuell auf (3,3) platzieren (Randfeld von Alice).
-        state.units.add(GameUnit("Bob", 3, 3, UnitType.SKELETON))
+        // Skelett manuell auf (2,4) platzieren (Randfeld von Alice).
+        state.units.add(GameUnit("Bob", 2, 4, UnitType.SKELETON))
 
-        gameService.handleMove(Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3))
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY, 2, 3, 2, 4))
 
         val skeletonsLeft = state.units.filter { it.type == UnitType.SKELETON }
         assertTrue(skeletonsLeft.isEmpty(), "Skelett haette entfernt werden muessen")
@@ -58,23 +58,23 @@ class FieldConquestTest {
 
     @Test
     fun `conquered field becomes part of player territory`() {
-        gameService.handleMove(Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3))
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY, 2, 3, 2, 4))
 
         val aliceFields = gameService.getCurrentState().fields.count { it.owner == "Alice" }
-        // 4 Startfelder + 1 eroberte = 5
-        assertEquals(5, aliceFields)
+        // 7 Startfelder + 1 erobertes = 8
+        assertEquals(8, aliceFields)
     }
 
     @Test
     fun `enemy field adjacent to own territory can be conquered`() {
         val state = gameService.getCurrentState()
-        // Bob's Feld manuell auf (3,3) setzen (= adjacent zu Alice's (3,2)).
-        state.fields.first { it.x == 3 && it.y == 3 }.owner = "Bob"
+        // Bob's Feld manuell auf (2,4) setzen (= adjacent zu Alice's (2,3)).
+        state.fields.first { it.x == 2 && it.y == 4 }.owner = "Bob"
 
         // Alice INFANTRY zieht hin und erobert.
-        gameService.handleMove(Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3))
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY, 2, 3, 2, 4))
 
-        val updated = state.fields.first { it.x == 3 && it.y == 3 }
+        val updated = state.fields.first { it.x == 2 && it.y == 4 }
         assertEquals("Alice", updated.owner)
     }
 }

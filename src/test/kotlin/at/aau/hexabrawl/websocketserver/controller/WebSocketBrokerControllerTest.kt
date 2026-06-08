@@ -97,16 +97,16 @@ class WebSocketBrokerControllerTest {
 
         // Mit Rundensystem switcht der Turn erst wenn alle bewegbaren Einheiten
         // (ARCHER, INFANTRY, CAVALRY) des Spielers gezogen haben.
-        controller.handleMove(Move("Josef", UnitType.ARCHER, 2, 2, 2, 3))
-        controller.handleMove(Move("Josef", UnitType.INFANTRY, 3, 2, 3, 3))
-        val state = controller.handleMove(Move("Josef", UnitType.CAVALRY, 4, 2, 4, 3))
+        controller.handleMove(Move("Josef", UnitType.ARCHER, 1, 2, 1, 3))
+        controller.handleMove(Move("Josef", UnitType.INFANTRY, 2, 3, 2, 4))
+        val state = controller.handleMove(Move("Josef", UnitType.CAVALRY, 3, 2, 3, 3))
 
         val josefUnit = state.units.find {
             it.player == "Josef" && it.type == UnitType.INFANTRY
         }
 
-        assertEquals(3, josefUnit?.x)
-        assertEquals(3, josefUnit?.y)
+        assertEquals(2, josefUnit?.x)
+        assertEquals(4, josefUnit?.y)
 
         // Turn switched to Sebastian
         assertEquals("Sebastian", state.currentTurn)
@@ -149,14 +149,14 @@ class WebSocketBrokerControllerTest {
         gameService.getCurrentState().players.forEach { it.gold = 100 }
 
         // Alice bewegt alle 3 bewegbaren Einheiten - dann ist Bob dran.
-        controller.handleMove(Move("Alice", UnitType.ARCHER, 2, 2, 2, 3))
-        controller.handleMove(Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3))
-        controller.handleMove(Move("Alice", UnitType.CAVALRY, 4, 2, 4, 3))
+        controller.handleMove(Move("Alice", UnitType.ARCHER, 1, 2, 1, 3))
+        controller.handleMove(Move("Alice", UnitType.INFANTRY, 2, 3, 2, 4))
+        controller.handleMove(Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
 
         // Bob bewegt alle 3 bewegbaren Einheiten
-        controller.handleMove(Move("Bob", UnitType.ARCHER, 5, 5, 5, 6))
-        controller.handleMove(Move("Bob", UnitType.INFANTRY, 6, 5, 6, 6))
-        val result = controller.handleMove(Move("Bob", UnitType.CAVALRY, 7, 5, 7, 6))
+        controller.handleMove(Move("Bob", UnitType.ARCHER, 8, 7, 8, 8))
+        controller.handleMove(Move("Bob", UnitType.INFANTRY, 7, 8, 6, 8))
+        val result = controller.handleMove(Move("Bob", UnitType.CAVALRY, 6, 7, 5, 7))
 
         val aliceUnit = result.units.find {
             it.player == "Alice" && it.type == UnitType.INFANTRY
@@ -166,10 +166,10 @@ class WebSocketBrokerControllerTest {
             it.player == "Bob" && it.type == UnitType.INFANTRY
         }
 
-        assertEquals(3, aliceUnit?.x)
-        assertEquals(3, aliceUnit?.y)
+        assertEquals(2, aliceUnit?.x)
+        assertEquals(4, aliceUnit?.y)
         assertEquals(6, bobUnit?.x)
-        assertEquals(6, bobUnit?.y)
+        assertEquals(8, bobUnit?.y)
     }
 
     @Test
@@ -177,13 +177,13 @@ class WebSocketBrokerControllerTest {
         controller.handleJoin("Alice", "session-1")
         controller.handleJoin("Bob", "session-2")
 
-        val result = controller.handleMove(Move("Bob", UnitType.INFANTRY, 5, 5, 7, 7))
+        val result = controller.handleMove(Move("Bob", UnitType.INFANTRY, 7, 8, 7, 6))
 
-        val bobUnit = result.units.find { it.player == "Bob" }
+        val bobUnit = result.units.find { it.player == "Bob" && it.type == UnitType.INFANTRY }
 
-        // Position should NOT change
-        assertEquals(5, bobUnit?.x)
-        assertEquals(5, bobUnit?.y)
+        // Position should NOT change (not Bob's turn)
+        assertEquals(7, bobUnit?.x)
+        assertEquals(8, bobUnit?.y)
     }
 
     @Test
@@ -236,15 +236,15 @@ class WebSocketBrokerControllerTest {
         gameService.getCurrentState().players.forEach { it.gold = 100 }
 
         // Alice bewegt alle 3 Einheiten - dann switcht zu Bob
-        controller.handleMove(Move("Alice", UnitType.ARCHER, 2, 2, 2, 3))
-        controller.handleMove(Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3))
-        val state1 = controller.handleMove(Move("Alice", UnitType.CAVALRY, 4, 2, 4, 3))
+        controller.handleMove(Move("Alice", UnitType.ARCHER, 1, 2, 1, 3))
+        controller.handleMove(Move("Alice", UnitType.INFANTRY, 2, 3, 2, 4))
+        val state1 = controller.handleMove(Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
         assertEquals("Bob", state1.currentTurn)
 
         // Bob bewegt alle 3 Einheiten - dann switcht zurueck zu Alice
-        controller.handleMove(Move("Bob", UnitType.ARCHER, 5, 5, 5, 6))
-        controller.handleMove(Move("Bob", UnitType.INFANTRY, 6, 5, 6, 6))
-        val state2 = controller.handleMove(Move("Bob", UnitType.CAVALRY, 7, 5, 7, 6))
+        controller.handleMove(Move("Bob", UnitType.ARCHER, 8, 7, 8, 8))
+        controller.handleMove(Move("Bob", UnitType.INFANTRY, 7, 8, 6, 8))
+        val state2 = controller.handleMove(Move("Bob", UnitType.CAVALRY, 6, 7, 5, 7))
         assertEquals("Alice", state2.currentTurn)
     }
 
@@ -533,10 +533,10 @@ class WebSocketBrokerControllerTest {
         val move = Move(
             player = "Alice",
             type = UnitType.INFANTRY,
-            fromX = 3,
-            fromY = 2,
-            toX = 3,
-            toY = 3
+            fromX = 2,
+            fromY = 3,
+            toX = 2,
+            toY = 4
         )
 
         // Join-Broadcasts ignorieren
@@ -577,11 +577,11 @@ class WebSocketBrokerControllerTest {
         )
 
         // Alle 3 bewegbaren Einheiten bewegen damit der Turn switcht.
-        controller.moveRoom(room.roomId, Move("Alice", UnitType.ARCHER, 2, 2, 2, 3), headerAccessor)
-        controller.moveRoom(room.roomId, Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3), headerAccessor)
+        controller.moveRoom(room.roomId, Move("Alice", UnitType.ARCHER, 1, 2, 1, 3), headerAccessor)
+        controller.moveRoom(room.roomId, Move("Alice", UnitType.INFANTRY, 2, 3, 2, 4), headerAccessor)
         val result = controller.moveRoom(
             room.roomId,
-            Move("Alice", UnitType.CAVALRY, 4, 2, 4, 3),
+            Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3),
             headerAccessor
         )
 
@@ -766,10 +766,10 @@ class WebSocketBrokerControllerTest {
         val move = Move(
             player = "Josef",
             type = UnitType.INFANTRY,
-            fromX = 3,
-            fromY = 2,
-            toX = 3,
-            toY = 3
+            fromX = 2,
+            fromY = 3,
+            toX = 2,
+            toY = 4
         )
 
         controller.moveRoom(
@@ -1194,14 +1194,14 @@ class WebSocketBrokerControllerTest {
         controller.handleJoin("Alice", "session-1")
         controller.handleJoin("Bob", "session-2")
 
-        // Alice INFANTRY steht auf (3, 2), Versuch auf (3, 7) - viel zu weit.
-        val move = Move("Alice", UnitType.INFANTRY, 3, 2, 3, 7)
+        // Alice INFANTRY steht auf (2, 3), Versuch auf (2, 8) - viel zu weit.
+        val move = Move("Alice", UnitType.INFANTRY, 2, 3, 2, 8)
         val state = controller.handleMove(move)
 
         // Position unveraendert.
         val infantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
-        assertEquals(3, infantry.x)
-        assertEquals(2, infantry.y)
+        assertEquals(2, infantry.x)
+        assertEquals(3, infantry.y)
 
         // Turn switcht nicht.
         assertEquals("Alice", state.currentTurn)
@@ -1213,12 +1213,12 @@ class WebSocketBrokerControllerTest {
         controller.handleJoin("Bob", "session-2")
 
         // Alice bewegt alle 3 Einheiten - INFANTRY genau 2 Hex weit.
-        controller.handleMove(Move("Alice", UnitType.ARCHER, 2, 2, 2, 3))
-        controller.handleMove(Move("Alice", UnitType.INFANTRY, 3, 2, 5, 2))
-        val state = controller.handleMove(Move("Alice", UnitType.CAVALRY, 4, 2, 4, 3))
+        controller.handleMove(Move("Alice", UnitType.ARCHER, 1, 2, 1, 3))
+        controller.handleMove(Move("Alice", UnitType.INFANTRY, 2, 3, 4, 2))
+        val state = controller.handleMove(Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
 
         val infantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
-        assertEquals(5, infantry.x)
+        assertEquals(4, infantry.x)
         assertEquals(2, infantry.y)
 
         // Turn ist gewechselt.

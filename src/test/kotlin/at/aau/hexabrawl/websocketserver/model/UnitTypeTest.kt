@@ -162,8 +162,8 @@ class UnitTypeTest {
             fromX = archer.x, fromY = archer.y,
             toX = archer.x, toY = archer.y + 1
         ))
-        gameService.handleMove(Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3))
-        val state = gameService.handleMove(Move("Alice", UnitType.CAVALRY, 4, 2, 4, 3))
+        gameService.handleMove(Move("Alice", UnitType.INFANTRY, 2, 3, 2, 4))
+        val state = gameService.handleMove(Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
 
         assertEquals("Bob", state.currentTurn)
     }
@@ -174,7 +174,7 @@ class UnitTypeTest {
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
 
-        val move = Move("Alice", UnitType.CAVALRY, 3, 2, 4, 4) // falscher Typ
+        val move = Move("Alice", UnitType.ARCHER, 2, 3, 2, 4) // kein ARCHER bei (2,3) - nur INFANTRY
 
         val state = gameService.handleMove(move)
 
@@ -182,7 +182,7 @@ class UnitTypeTest {
             it.player == "Alice" && it.type == UnitType.INFANTRY
         }
 
-        assertEquals(3, unit.x)
+        assertEquals(2, unit.x)
     }
 
 
