@@ -1,5 +1,6 @@
 package at.aau.hexabrawl.websocketserver.controller
 
+import at.aau.hexabrawl.websocketserver.model.EndTurnRequest
 import at.aau.hexabrawl.websocketserver.model.ErrorCode
 import at.aau.hexabrawl.websocketserver.model.ErrorMessage
 import at.aau.hexabrawl.websocketserver.model.GameService
@@ -162,7 +163,7 @@ class WebSocketBrokerController(
     @MessageMapping("/rooms/{roomId}/end-turn")
     fun endTurnRoom(
         @DestinationVariable roomId: String,
-        playerName: String,
+        request: EndTurnRequest,
         headerAccessor: SimpMessageHeaderAccessor
     ): GameState? {
         val sessionId = headerAccessor.sessionId ?: ""
@@ -180,12 +181,12 @@ class WebSocketBrokerController(
             return null
         }
 
-        if (stateBefore.currentTurn != playerName) {
+        if (stateBefore.currentTurn != request.playerName) {
             sendError(sessionId, ErrorCode.NOT_YOUR_TURN, "Du kannst nicht die Runde eines anderen Spielers beenden!")
             return null
         }
 
-        val state = gameService.endTurn(room.gameState, playerName)
+        val state = gameService.endTurn(room.gameState, request.playerName)
         sendRoomState(roomId, state)
         return state
     }
