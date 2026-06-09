@@ -424,6 +424,13 @@ class GameService(
      * Wird nach jedem erfolgreichen Move aufgerufen. Markiert die Einheit
      * als bewegt, erobert das Feld und switcht automatisch den Turn wenn
      * alle bewegbaren Einheiten des aktuellen Spielers gezogen haben.
+     *
+     * Verhalten ist fuer alle Modi (DUAL_VALLEY, TRIAD_OUTPOST,
+     * BATTLEFIELD_PEAKS) identisch: der Spieler darf jede seiner
+     * bewegbaren Einheiten maximal einmal pro Zug bewegen. Auto-Switch
+     * passiert erst, wenn alle bewegbaren Einheiten gezogen haben.
+     * Vorzeitig kann der Spieler ueber den /end-turn-Endpoint manuell
+     * wechseln.
      */
     private fun finishMove(state: GameState, unit: GameUnit, playerName: String) {
         if (unit in state.units) {
@@ -431,13 +438,7 @@ class GameService(
             state.fields.firstOrNull { it.x == unit.x && it.y == unit.y }
                 ?.let { it.owner = playerName }
         }
-        // DUAL_VALLEY: Turn erst wechseln wenn alle Einheiten gezogen haben.
-        // TRIAD/BATTLEFIELD: sofort nach jedem Zug wechseln.
-        if (state.gameMode == GameMode.DUAL_VALLEY) {
-            if (allMovableUnitsHaveMoved(state, playerName)) {
-                switchTurn(state)
-            }
-        } else {
+        if (allMovableUnitsHaveMoved(state, playerName)) {
             switchTurn(state)
         }
     }
