@@ -444,96 +444,66 @@ class GameModelTest {
     }
 
     @Test
-    fun `triad outpost switches turn from first to second player`() {
+    fun `triad outpost turn stays after only one move`() {
 
         val roomRegistry = RoomRegistry()
         val gameService = GameService(CombatService())
 
-        val room = roomRegistry.createRoom(
-            GameMode.TRIAD_OUTPOST
-        )
+        val room = roomRegistry.createRoom(GameMode.TRIAD_OUTPOST)
 
-        gameService.handleJoin(
-            room.gameState,
-            "P1",
-            "session-1"
-        )
+        gameService.handleJoin(room.gameState, "P1", "session-1")
+        gameService.handleJoin(room.gameState, "P2", "session-2")
+        gameService.handleJoin(room.gameState, "P3", "session-3")
 
-        gameService.handleJoin(
-            room.gameState,
-            "P2",
-            "session-2"
-        )
+        assertEquals("P1", room.gameState.currentTurn)
 
-        gameService.handleJoin(
-            room.gameState,
-            "P3",
-            "session-3"
-        )
-
-        assertEquals(
-            "P1",
-            room.gameState.currentTurn
-        )
-
-        val move = Move(
-            player = "P1",
-            type = UnitType.INFANTRY,
-            fromX = 4,
-            fromY = 9,
-            toX = 4,
-            toY = 10
-        )
-
+        // P1 bewegt nur INFANTRY -- die anderen 2 Einheiten bleiben unbewegt.
         val state = gameService.handleMove(
             room.gameState,
-            move
+            Move(
+                player = "P1",
+                type = UnitType.INFANTRY,
+                fromX = 4,
+                fromY = 9,
+                toX = 4,
+                toY = 10
+            )
         )
 
-        assertEquals(
-            "P2",
-            state.currentTurn
-        )
+        // Turn bleibt bei P1, weil ARCHER und CAVALRY noch nicht gezogen haben.
+        assertEquals("P1", state.currentTurn)
     }
 
     @Test
-    fun `battlefield peaks switches turn from first to second player`() {
+    fun `battlefield peaks turn stays after only one move`() {
 
         val roomRegistry = RoomRegistry()
         val gameService = GameService(CombatService())
 
-        val room = roomRegistry.createRoom(
-            GameMode.BATTLEFIELD_PEAKS
-        )
+        val room = roomRegistry.createRoom(GameMode.BATTLEFIELD_PEAKS)
 
         gameService.handleJoin(room.gameState, "P1", "session-1")
         gameService.handleJoin(room.gameState, "P2", "session-2")
         gameService.handleJoin(room.gameState, "P3", "session-3")
         gameService.handleJoin(room.gameState, "P4", "session-4")
 
-        assertEquals(
-            "P1",
-            room.gameState.currentTurn
-        )
+        assertEquals("P1", room.gameState.currentTurn)
 
-        val move = Move(
-            player = "P1",
-            type = UnitType.INFANTRY,
-            fromX = 6,
-            fromY = 9,
-            toX = 6,
-            toY = 8
-        )
-
+        // P1-INFANTRY-Start: (6,9), Basis bei (6,10). Move zu (6,8) ist Border.
         val state = gameService.handleMove(
             room.gameState,
-            move
+            Move(
+                player = "P1",
+                type = UnitType.INFANTRY,
+                fromX = 6,
+                fromY = 9,
+                toX = 6,
+                toY = 8
+            )
         )
 
-        assertEquals(
-            "P2",
-            state.currentTurn
-        )
+        // Turn bleibt bei P1, weil ARCHER und CAVALRY noch nicht gezogen haben.
+        assertEquals("P1", state.currentTurn)
     }
 
 }
