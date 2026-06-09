@@ -506,4 +506,100 @@ class GameModelTest {
         assertEquals("P1", state.currentTurn)
     }
 
+    @Test
+    fun `triad outpost switches turn after all three units moved`() {
+
+        val roomRegistry = RoomRegistry()
+        val gameService = GameService(CombatService())
+
+        val room = roomRegistry.createRoom(GameMode.TRIAD_OUTPOST)
+
+        gameService.handleJoin(room.gameState, "P1", "session-1")
+        gameService.handleJoin(room.gameState, "P2", "session-2")
+        gameService.handleJoin(room.gameState, "P3", "session-3")
+
+        // P1-Start-Positionen (siehe GameService.startTriadOutpostGame):
+        //   ARCHER (5,8), INFANTRY (4,9), CAVALRY (6,9), Basis (5,9)
+        gameService.handleMove(
+            room.gameState,
+            Move("P1", UnitType.INFANTRY, 4, 9, 4, 10)
+        )
+        assertEquals("P1", room.gameState.currentTurn)
+
+        gameService.handleMove(
+            room.gameState,
+            Move("P1", UnitType.ARCHER, 5, 8, 5, 7)
+        )
+        assertEquals("P1", room.gameState.currentTurn)
+
+        // Mit dem dritten Move sollte der Auto-Switch greifen.
+        val state = gameService.handleMove(
+            room.gameState,
+            Move("P1", UnitType.CAVALRY, 6, 9, 6, 10)
+        )
+
+        assertEquals("P2", state.currentTurn)
+    }
+
+    @Test
+    fun `triad outpost endTurn forces switch with units remaining`() {
+
+        val roomRegistry = RoomRegistry()
+        val gameService = GameService(CombatService())
+
+        val room = roomRegistry.createRoom(GameMode.TRIAD_OUTPOST)
+
+        gameService.handleJoin(room.gameState, "P1", "session-1")
+        gameService.handleJoin(room.gameState, "P2", "session-2")
+        gameService.handleJoin(room.gameState, "P3", "session-3")
+
+        // P1 bewegt nur INFANTRY, ARCHER und CAVALRY bleiben.
+        gameService.handleMove(
+            room.gameState,
+            Move("P1", UnitType.INFANTRY, 4, 9, 4, 10)
+        )
+        assertEquals("P1", room.gameState.currentTurn)
+
+        // Trotz unbewegter Einheiten beendet P1 manuell seinen Zug.
+        val state = gameService.endTurn(room.gameState, "P1")
+
+        assertEquals("P2", state.currentTurn)
+    }
+
+    @Test
+    fun `battlefield peaks switches turn after all three units moved`() {
+
+        val roomRegistry = RoomRegistry()
+        val gameService = GameService(CombatService())
+
+        val room = roomRegistry.createRoom(GameMode.BATTLEFIELD_PEAKS)
+
+        gameService.handleJoin(room.gameState, "P1", "session-1")
+        gameService.handleJoin(room.gameState, "P2", "session-2")
+        gameService.handleJoin(room.gameState, "P3", "session-3")
+        gameService.handleJoin(room.gameState, "P4", "session-4")
+
+        // P1-Start-Positionen (siehe GameService.startBattlefieldPeaksGame):
+        //   ARCHER (5,9), INFANTRY (6,9), CAVALRY (7,9), Basis (6,10)
+        gameService.handleMove(
+            room.gameState,
+            Move("P1", UnitType.INFANTRY, 6, 9, 6, 8)
+        )
+        assertEquals("P1", room.gameState.currentTurn)
+
+        gameService.handleMove(
+            room.gameState,
+            Move("P1", UnitType.ARCHER, 5, 9, 5, 10)
+        )
+        assertEquals("P1", room.gameState.currentTurn)
+
+        // Mit dem dritten Move sollte der Auto-Switch greifen.
+        val state = gameService.handleMove(
+            room.gameState,
+            Move("P1", UnitType.CAVALRY, 7, 9, 7, 10)
+        )
+
+        assertEquals("P2", state.currentTurn)
+    }
+
 }
