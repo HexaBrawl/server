@@ -514,25 +514,4 @@ class GameService(
 
         checkWinCondition(state)
     }
-
-    /**
-     * Kauft eine Farm fuer den Spieler (#60).
-     * Preis: FARM_BASE_COST + farms * FARM_COST_INCREMENT (10, 11, 12, ...).
-     */
-    fun buyFarm(state: GameState, playerName: String): GameState = synchronized(state.lock) {
-        if (state.status != GameStatus.IN_PROGRESS) return state
-
-        val player = state.players.find { it.name == playerName } ?: return state
-
-        val cost = FARM_BASE_COST + (player.farms * FARM_COST_INCREMENT)
-
-        if (player.gold >= cost) {
-            player.gold -= cost
-            player.farms += 1
-            println("Service: $playerName kaufte Farm für $cost. (Total: ${player.farms})")
-        } else {
-            println("Service: $playerName hat zu wenig Gold ($cost) für Farm.")
-        }
-        return state
-    }
 }
