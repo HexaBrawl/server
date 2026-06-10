@@ -1046,81 +1046,80 @@ class WebSocketBrokerControllerTest {
             )
     }
 
-    // ---- Buy-Farm-Tests (#60, portiert von /buyFarm auf /rooms/{id}/buy-farm) ----
+    // ---- Tests fuer Sub-Issue #131 (Buy-Farm Room-Endpoint) ----
 
     @Test
-    fun `buyFarmRoom returns updated state when gold is sufficient`() {
+    fun `buyFarmRoom happy path increases farms and calculates new price`() {
         val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
+        room.gameState.status = GameStatus.IN_PROGRESS
+        val alice = Player("Alice", "test-session", gold = 25, farms = 0)
+        room.gameState.players.add(alice)
+        room.gameState.currentTurn = "Alice"
 
-        controller.joinRoom(
-            room.roomId,
-            JoinRequest(name = "Alice", color = PlayerColor.RED),
-            headerAccessor
-        )
-        val secondHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
-        `when`(secondHeaderAccessor.sessionId).thenReturn("session-2")
-        controller.joinRoom(
-            room.roomId,
-            JoinRequest(name = "Bob", color = PlayerColor.BLUE),
-            secondHeaderAccessor
-        )
+        val result1 = controller.buyFarmRoom(room.roomId, headerAccessor)!!
+        assertEquals(1, alice.farms)
+        assertEquals(15, alice.gold)
+        assertEquals(3, alice.income)
+        verify(messagingTemplate).convertAndSend(eq("/topic/rooms/${room.roomId}/state"), eq(result1))
 
-        val alice = room.gameState.players.first { it.name == "Alice" }
-        alice.gold = 20  // genug Gold
-
-        val result = controller.buyFarmRoom(room.roomId, headerAccessor)
-
-        assertNotNull(result)
-        assertEquals(1, result?.players?.first { it.name == "Alice" }?.farms)
-        // 20 - FARM_BASE_COST(10) = 10
-        assertEquals(10, result?.players?.first { it.name == "Alice" }?.gold)
+        val result2 = controller.buyFarmRoom(room.roomId, headerAccessor)!!
+        assertEquals(2, alice.farms)
+        assertEquals(4, alice.gold)
+        assertEquals(6, alice.income)
     }
 
     @Test
-    fun `buyFarmRoom sends INSUFFICIENT_GOLD error when poor`() {
-        val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
-
-        controller.joinRoom(
-            room.roomId,
-            JoinRequest(name = "Alice", color = PlayerColor.RED),
-            headerAccessor
-        )
-        val secondHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
-        `when`(secondHeaderAccessor.sessionId).thenReturn("session-2")
-        controller.joinRoom(
-            room.roomId,
-            JoinRequest(name = "Bob", color = PlayerColor.BLUE),
-            secondHeaderAccessor
-        )
-
-        val alice = room.gameState.players.first { it.name == "Alice" }
-        alice.gold = 5  // zu wenig fuer Farm (Kosten 10)
-
-        val result = controller.buyFarmRoom(room.roomId, headerAccessor)
-
+    fun `buyFarmRoom sends ROOM_NOT_FOUND if room does not exist`() {
+        val result = controller.buyFarmRoom("invalid-id", headerAccessor)
         assertNull(result)
         verify(messagingTemplate).convertAndSendToUser(
-            eq("test-session"),
-            eq("/queue/errors"),
-            argThat { it is ErrorMessage && it.errorCode == ErrorCode.INSUFFICIENT_GOLD }
+            eq("test-session"), eq("/queue/errors"),
+            argThat { it is ErrorMessage && it.errorCode == ErrorCode.ROOM_NOT_FOUND }
         )
     }
 
     @Test
-    fun `buyFarmRoom returns null if player session is unknown`() {
+    fun `buyFarmRoom sends GAME_NOT_STARTED if status is WAITING`() {
         val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
-        // Niemand beigetreten -> headerAccessor.sessionId ist "test-session", kein Match
+        room.gameState.players.add(Player("Alice", "test-session"))
         val result = controller.buyFarmRoom(room.roomId, headerAccessor)
         assertNull(result)
     }
 
     @Test
-    fun `buyFarmRoom handles null sessionId from headerAccessor gracefully`() {
+    fun `buyFarmRoom sends NOT_YOUR_TURN if player is not currentTurn`() {
         val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
-        val localHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
-        `when`(localHeaderAccessor.sessionId).thenReturn(null)
+        room.gameState.status = GameStatus.IN_PROGRESS
+        room.gameState.players.add(Player("Alice", "test-session"))
+        room.gameState.currentTurn = "Bob"
+        val result = controller.buyFarmRoom(room.roomId, headerAccessor)
+        assertNull(result)
+    }
 
-        val result = controller.buyFarmRoom(room.roomId, localHeaderAccessor)
+    @Test
+    fun `buyFarmRoom sends INSUFFICIENT_GOLD if player cannot afford farm`() {
+        val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
+        room.gameState.status = GameStatus.IN_PROGRESS
+        room.gameState.currentTurn = "Alice"
+        room.gameState.players.add(Player("Alice", "test-session", gold = 9))
+        val result = controller.buyFarmRoom(room.roomId, headerAccessor)
+        assertNull(result)
+    }
+
+    @Test
+    fun `buyFarmRoom returns null if player is not found in room`() {
+        val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
+        room.gameState.status = GameStatus.IN_PROGRESS
+        val result = controller.buyFarmRoom(room.roomId, headerAccessor)
+        assertNull(result)
+    }
+
+    @Test
+    fun `buyFarmRoom handles missing sessionId gracefully`() {
+        val emptyAccessor = mock(SimpMessageHeaderAccessor::class.java)
+        `when`(emptyAccessor.sessionId).thenReturn(null)
+        val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
+        val result = controller.buyFarmRoom(room.roomId, emptyAccessor)
         assertNull(result)
     }
 

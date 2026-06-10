@@ -200,22 +200,41 @@ class WebSocketBrokerController(
 
         val room = roomRegistry.findById(roomId)
         if (room == null) {
-            sendError(sessionId, ErrorCode.ROOM_NOT_FOUND, ROOM_NOT_FOUND_MESSAGE)
+            sendError(sessionId, ErrorCode.ROOM_NOT_FOUND, "Raum nicht gefunden.")
             return null
         }
 
         val state = room.gameState
-        val player = state.players.find { it.sessionId == sessionId } ?: return null
 
-        val cost = GameService.FARM_BASE_COST + (player.farms * GameService.FARM_COST_INCREMENT)
-        if (player.gold < cost) {
-            sendError(sessionId, ErrorCode.INSUFFICIENT_GOLD, "Nicht genug Gold für eine Farm!")
+        if (state.status != GameStatus.IN_PROGRESS) {
+            sendError(sessionId, ErrorCode.GAME_NOT_STARTED, "Spiel ist nicht gestartet.")
             return null
         }
 
-        val updated = gameService.buyFarm(state, player.name)
-        sendRoomState(roomId, updated)
-        return updated
+        val player = state.players.find { it.sessionId == sessionId }
+        if (player == null) return null
+
+        if (state.currentTurn != player.name) {
+            sendError(sessionId, ErrorCode.NOT_YOUR_TURN, "Du bist nicht am Zug.")
+            return null
+        }
+
+        val cost = GameService.FARM_BASE_COST + (player.farms * GameService.FARM_COST_INCREMENT)
+
+        if (player.gold < cost) {
+            sendError(sessionId, ErrorCode.INSUFFICIENT_GOLD, "Nicht genug Gold.")
+            return null
+        }
+
+        // Werte direkt hier updaten
+        synchronized(state.lock) {
+            player.gold -= cost
+            player.farms += 1
+            player.income = player.farms * GameService.FARM_INCOME_PER_ROUND
+        }
+
+        messagingTemplate.convertAndSend("/topic/rooms/$roomId/state", state)
+        return state
     }
 
     // Bridges fuer Tests, die noch ueber den globalen GameState gehen.
