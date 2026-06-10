@@ -28,6 +28,20 @@ class WebSocketBrokerControllerTest {
         `when`(headerAccessor.sessionId).thenReturn("test-session")
     }
 
+    /**
+     * Helper: platziert ARCHER/INFANTRY/CAVALRY fuer beide DUAL_VALLEY-Spieler
+     * auf den klassischen Test-Positionen. Wird seit dem Entfernen der
+     * Start-Einheiten benoetigt, um Move-/Combat-Tests sauber aufzusetzen.
+     */
+    private fun seedDualValleyCombatUnits(state: GameState, p1: String, p2: String) {
+        state.units.add(GameUnit(p1, 1, 2, UnitType.ARCHER))
+        state.units.add(GameUnit(p1, 2, 3, UnitType.INFANTRY))
+        state.units.add(GameUnit(p1, 3, 2, UnitType.CAVALRY))
+        state.units.add(GameUnit(p2, 8, 7, UnitType.ARCHER))
+        state.units.add(GameUnit(p2, 7, 8, UnitType.INFANTRY))
+        state.units.add(GameUnit(p2, 6, 7, UnitType.CAVALRY))
+    }
+
     @Test
     fun `player can join game`() {
         val state = controller.handleJoin("Josef", "session-1")
@@ -50,12 +64,9 @@ class WebSocketBrokerControllerTest {
 
         assertEquals(2, state.players.size)
         assertNotNull(state.currentTurn)
-        // 3 regulaere Einheiten (ARCHER, INFANTRY, CAVALRY) + 1 BASE pro Spieler = 8 Units total.
-        assertEquals(8, state.units.size)
-        assertTrue(state.units.any { it.type == UnitType.ARCHER })
-        assertTrue(state.units.any { it.type == UnitType.INFANTRY })
-        assertTrue(state.units.any { it.type == UnitType.CAVALRY })
-        assertTrue(state.units.any { it.type == UnitType.BASE })
+        // Spieler starten nur mit Basis -- Kampfeinheiten werden gekauft.
+        assertEquals(2, state.units.size)
+        assertTrue(state.units.all { it.type == UnitType.BASE })
         assertEquals(GameStatus.IN_PROGRESS, state.status)
     }
 
@@ -81,6 +92,7 @@ class WebSocketBrokerControllerTest {
     fun `wrong player cannot move`() {
         controller.handleJoin("Josef", "session-1")
         controller.handleJoin("Sebastian", "session-2")
+        seedDualValleyCombatUnits(gameService.gameState, "Josef", "Sebastian")
 
         val move = Move("Sebastian", UnitType.INFANTRY, 5, 5, 6, 6)
 
@@ -94,6 +106,7 @@ class WebSocketBrokerControllerTest {
     fun `player can move and turn switches`() {
         controller.handleJoin("Josef", "session-1")
         controller.handleJoin("Sebastian", "session-2")
+        seedDualValleyCombatUnits(gameService.gameState, "Josef", "Sebastian")
 
         // Mit Rundensystem switcht der Turn erst wenn alle bewegbaren Einheiten
         // (ARCHER, INFANTRY, CAVALRY) des Spielers gezogen haben.
@@ -144,6 +157,7 @@ class WebSocketBrokerControllerTest {
     fun `multiple moves update unit positions correctly`() {
         controller.handleJoin("Alice", "session-1")
         controller.handleJoin("Bob", "session-2")
+        seedDualValleyCombatUnits(gameService.gameState, "Alice", "Bob")
 
         // Gold geben, damit sie nach der Runde nicht pleitegehen
         gameService.getCurrentState().players.forEach { it.gold = 100 }
@@ -176,6 +190,7 @@ class WebSocketBrokerControllerTest {
     fun `move does nothing when wrong player`() {
         controller.handleJoin("Alice", "session-1")
         controller.handleJoin("Bob", "session-2")
+        seedDualValleyCombatUnits(gameService.gameState, "Alice", "Bob")
 
         val result = controller.handleMove(Move("Bob", UnitType.INFANTRY, 7, 8, 7, 6))
 
@@ -231,6 +246,7 @@ class WebSocketBrokerControllerTest {
     fun `turn switches after valid move`() {
         controller.handleJoin("Alice", "session-1")
         controller.handleJoin("Bob", "session-2")
+        seedDualValleyCombatUnits(gameService.gameState, "Alice", "Bob")
 
         // Gold geben, damit sie nach der Runde nicht pleitegehen
         gameService.getCurrentState().players.forEach { it.gold = 100 }
@@ -530,6 +546,8 @@ class WebSocketBrokerControllerTest {
             headerAccessor
         )
 
+        seedDualValleyCombatUnits(room.gameState, "Alice", "Bob")
+
         val move = Move(
             player = "Alice",
             type = UnitType.INFANTRY,
@@ -575,6 +593,8 @@ class WebSocketBrokerControllerTest {
             JoinRequest(name = "Bob"),
             headerAccessor
         )
+
+        seedDualValleyCombatUnits(room.gameState, "Alice", "Bob")
 
         // Alle 3 bewegbaren Einheiten bewegen damit der Turn switcht.
         controller.moveRoom(room.roomId, Move("Alice", UnitType.ARCHER, 1, 2, 1, 3), headerAccessor)
@@ -762,6 +782,7 @@ class WebSocketBrokerControllerTest {
             "Marie",
             "session-2"
         )
+        seedDualValleyCombatUnits(room.gameState, "Josef", "Marie")
 
         val move = Move(
             player = "Josef",
@@ -1193,6 +1214,7 @@ class WebSocketBrokerControllerTest {
     fun `move further than 2 hex fields is rejected`() {
         controller.handleJoin("Alice", "session-1")
         controller.handleJoin("Bob", "session-2")
+        seedDualValleyCombatUnits(gameService.gameState, "Alice", "Bob")
 
         // Alice INFANTRY steht auf (2, 3), Versuch auf (2, 8) - viel zu weit.
         val move = Move("Alice", UnitType.INFANTRY, 2, 3, 2, 8)
@@ -1211,6 +1233,7 @@ class WebSocketBrokerControllerTest {
     fun `move exactly 2 hex fields is accepted`() {
         controller.handleJoin("Alice", "session-1")
         controller.handleJoin("Bob", "session-2")
+        seedDualValleyCombatUnits(gameService.gameState, "Alice", "Bob")
 
         // Alice bewegt alle 3 Einheiten - INFANTRY genau 2 Hex weit.
         controller.handleMove(Move("Alice", UnitType.ARCHER, 1, 2, 1, 3))

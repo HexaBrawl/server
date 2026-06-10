@@ -12,6 +12,22 @@ class GameServiceTest {
         gameService = GameService(CombatService())
     }
 
+    /**
+     * Helper: platziert die klassischen Kampfeinheiten (ARCHER/INFANTRY/CAVALRY)
+     * fuer beide DUAL_VALLEY-Spieler. Seit Entfernung der automatischen
+     * Start-Einheiten muessen Tests die selber adden, wenn sie Move-/Combat-
+     * Verhalten testen wollen.
+     */
+    private fun seedDualValleyCombatUnits() {
+        val s = gameService.gameState
+        s.units.add(GameUnit("Alice", 1, 2, UnitType.ARCHER))
+        s.units.add(GameUnit("Alice", 2, 3, UnitType.INFANTRY))
+        s.units.add(GameUnit("Alice", 3, 2, UnitType.CAVALRY))
+        s.units.add(GameUnit("Bob", 8, 7, UnitType.ARCHER))
+        s.units.add(GameUnit("Bob", 7, 8, UnitType.INFANTRY))
+        s.units.add(GameUnit("Bob", 6, 7, UnitType.CAVALRY))
+    }
+
     @Test
     fun `test duplicate join and max players`() {
         // 1. Erster Join
@@ -25,6 +41,7 @@ class GameServiceTest {
 
         // 3. Zweiter Spieler
         gameService.handleJoin("Bob")
+        seedDualValleyCombatUnits()
         assertThat(gameService.getCurrentState().status).isEqualTo(GameStatus.IN_PROGRESS)
 
         // 4. Dritter Spieler (Charlie) -> Darf nicht rein (MAX_PLAYERS = 2)
@@ -49,6 +66,7 @@ class GameServiceTest {
 
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
+        seedDualValleyCombatUnits()
 
         val aliceBefore = gameService.getCurrentState().units.first {
             it.player == "Alice" && it.type == UnitType.INFANTRY
@@ -110,6 +128,7 @@ class GameServiceTest {
         // 1. Initialisierung prüfen (Branch: WAITING_FOR_PLAYERS -> IN_PROGRESS)
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
+        seedDualValleyCombatUnits()
         val stateAfterJoin = gameService.getCurrentState()
         assertThat(stateAfterJoin.players).hasSize(2)
 
@@ -148,6 +167,7 @@ class GameServiceTest {
     fun `test combat removes losing unit and winner advances`() {
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
+        seedDualValleyCombatUnits()
 
         val state = gameService.getCurrentState()
         val aliceInfantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
@@ -176,6 +196,7 @@ class GameServiceTest {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
+        seedDualValleyCombatUnits()
 
         // Beide Basen kuenstlich entfernen, danach normaler Move ausfuehren -
         // checkWinCondition muss 0 Basen erkennen und Draw setzen.
@@ -201,6 +222,7 @@ class GameServiceTest {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
+        seedDualValleyCombatUnits()
 
         val state = gameService.getCurrentState()
         val aliceInfantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
@@ -234,6 +256,7 @@ class GameServiceTest {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
+        seedDualValleyCombatUnits()
 
         val state = gameService.getCurrentState()
         val aliceArcher = state.units.first { it.player == "Alice" && it.type == UnitType.ARCHER }
@@ -259,6 +282,7 @@ class GameServiceTest {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
+        seedDualValleyCombatUnits()
 
         val state = gameService.getCurrentState()
         val bases = state.units.filter { it.type == UnitType.BASE }
@@ -279,6 +303,7 @@ class GameServiceTest {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
+        seedDualValleyCombatUnits()
 
         val state = gameService.getCurrentState()
         val aliceBase = state.units.first { it.player == "Alice" && it.type == UnitType.BASE }
@@ -310,6 +335,7 @@ class GameServiceTest {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
+        seedDualValleyCombatUnits()
 
         val state = gameService.getCurrentState()
         val regularTypes = listOf(UnitType.ARCHER, UnitType.INFANTRY, UnitType.CAVALRY)
@@ -327,6 +353,7 @@ class GameServiceTest {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
+        seedDualValleyCombatUnits()
 
         val state = gameService.getCurrentState()
         val aliceInfantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
@@ -366,6 +393,7 @@ class GameServiceTest {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
+        seedDualValleyCombatUnits()
 
         val state = gameService.getCurrentState()
 
@@ -424,6 +452,7 @@ class GameServiceTest {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
+        seedDualValleyCombatUnits()
 
         val state = gameService.getCurrentState()
         state.players.forEach { it.gold = 20 }
@@ -448,6 +477,7 @@ class GameServiceTest {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
+        seedDualValleyCombatUnits()
 
         val state = gameService.getCurrentState()
         state.players.forEach { it.gold = 12 }
@@ -470,6 +500,7 @@ class GameServiceTest {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
+        seedDualValleyCombatUnits()
 
         val state = gameService.getCurrentState()
         state.players.first { it.name == "Alice" }.gold = 11
@@ -501,6 +532,7 @@ class GameServiceTest {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
+        seedDualValleyCombatUnits()
 
         val state = gameService.getCurrentState()
         state.players.first { it.name == "Alice" }.gold = 5
@@ -524,6 +556,7 @@ class GameServiceTest {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
+        seedDualValleyCombatUnits()
 
         val state = gameService.getCurrentState()
         val alice = state.players.first { it.name == "Alice" }
@@ -544,6 +577,7 @@ class GameServiceTest {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
+        seedDualValleyCombatUnits()
 
         val state = gameService.getCurrentState()
         val alice = state.players.first { it.name == "Alice" }
@@ -560,6 +594,7 @@ class GameServiceTest {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
+        seedDualValleyCombatUnits()
         val state = gameService.getCurrentState()
         val alice = state.players.first { it.name == "Alice" }
         val bob = state.players.first { it.name == "Bob" }
