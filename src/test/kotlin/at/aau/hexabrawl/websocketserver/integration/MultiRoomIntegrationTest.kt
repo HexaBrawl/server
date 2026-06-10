@@ -82,6 +82,12 @@ class MultiRoomIntegrationTest {
             roomB.gameState.status
         )
 
+        // Combat-Units in Raum A manuell platzieren (Start-Einheiten werden
+        // seit dem Wirtschaftssystem-Umbau nicht mehr automatisch gesetzt).
+        roomA.gameState.units.add(GameUnit("Josef", 1, 2, UnitType.ARCHER))
+        roomA.gameState.units.add(GameUnit("Josef", 2, 3, UnitType.INFANTRY))
+        roomA.gameState.units.add(GameUnit("Josef", 3, 2, UnitType.CAVALRY))
+
         //State-Leak-Test
         val unitsBefore = roomB.gameState.units.map {
             GameUnit(
