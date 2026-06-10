@@ -552,44 +552,6 @@ class GameServiceTest {
     }
 
     @Test
-    fun `test buyFarm - erfolgreicher Kauf erhoeht die Kosten fuer die naechste Farm`() {
-        gameService.initializeGame()
-        gameService.handleJoin("Alice")
-        gameService.handleJoin("Bob")
-        seedDualValleyCombatUnits()
-
-        val state = gameService.getCurrentState()
-        val alice = state.players.first { it.name == "Alice" }
-
-        alice.gold = 30
-
-        gameService.buyFarm(state, "Alice")
-        assertThat(alice.farms).isEqualTo(1)
-        assertThat(alice.gold).isEqualTo(20)
-
-        gameService.buyFarm(state, "Alice")
-        assertThat(alice.farms).isEqualTo(2)
-        assertThat(alice.gold).isEqualTo(9)
-    }
-
-    @Test
-    fun `test buyFarm - schlaegt bei zu wenig Gold fehl`() {
-        gameService.initializeGame()
-        gameService.handleJoin("Alice")
-        gameService.handleJoin("Bob")
-        seedDualValleyCombatUnits()
-
-        val state = gameService.getCurrentState()
-        val alice = state.players.first { it.name == "Alice" }
-
-        alice.gold = 9
-        gameService.buyFarm(state, "Alice")
-
-        assertThat(alice.farms).isEqualTo(0)
-        assertThat(alice.gold).isEqualTo(9)
-    }
-
-    @Test
     fun `test applyUpkeep - Farm-Einkommen verhindert Insolvenz`() {
         gameService.initializeGame()
         gameService.handleJoin("Alice")

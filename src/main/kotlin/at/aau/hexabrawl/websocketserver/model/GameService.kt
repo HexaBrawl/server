@@ -31,6 +31,10 @@ class GameService(
         const val BATTLEFIELD_BOARD_ROWS = 13
         const val BATTLEFIELD_BOARD_COLS = 13
 
+        // Preis fuer eine gekaufte Einheit (#132).
+        // Synchron mit BottomHudLogic.priceOf in der App halten.
+        const val UNIT_PRICE = 5
+
         // Basis-Positionen fuer DUAL_VALLEY (#104).
         val BASE_POSITION_P1: Pair<Int, Int> = Pair(2, 2)
         val BASE_POSITION_P2: Pair<Int, Int> = Pair(7, 7)
@@ -516,23 +520,52 @@ class GameService(
     }
 
     /**
-     * Kauft eine Farm fuer den Spieler (#60).
-     * Preis: FARM_BASE_COST + farms * FARM_COST_INCREMENT (10, 11, 12, ...).
+     * Kauft eine neue Einheit und platziert sie an (x, y) (#132).
+     *
+     * Diese Methode setzt voraus, dass der Controller bereits alle
+     * Validierungen durchgefuehrt hat (Spieler am Zug, Type gueltig,
+     * Feld gehoert dem Spieler, Feld nicht besetzt, genug Gold).
+     *
+     * Verhalten:
+     *  - Falls ein Skelett auf dem Zielfeld steht, wird es entfernt
+     *    (analog zum Move-Verhalten aus #104). Konsistent mit der
+     *    Annahme, dass ein eigenes Feld zum eigenen Territorium gehoert
+     *    und damit mit der Basis verbunden ist.
+     *  - Gold wird abgezogen.
+     *  - Neue Einheit wird mit hasMovedThisTurn = true hinzugefuegt —
+     *    eine im selben Zug gekaufte Einheit darf nicht zusaetzlich
+     *    noch ziehen.
+     *
+     * Thread-safe ueber state.lock.
      */
-    fun buyFarm(state: GameState, playerName: String): GameState = synchronized(state.lock) {
-        if (state.status != GameStatus.IN_PROGRESS) return state
-
+    fun buyUnit(
+        state: GameState,
+        playerName: String,
+        type: UnitType,
+        x: Int,
+        y: Int
+    ): GameState = synchronized(state.lock) {
         val player = state.players.find { it.name == playerName } ?: return state
 
-        val cost = FARM_BASE_COST + (player.farms * FARM_COST_INCREMENT)
-
-        if (player.gold >= cost) {
-            player.gold -= cost
-            player.farms += 1
-            println("Service: $playerName kaufte Farm für $cost. (Total: ${player.farms})")
-        } else {
-            println("Service: $playerName hat zu wenig Gold ($cost) für Farm.")
+        // Skelett auf dem Zielfeld entfernen, falls vorhanden
+        state.units.removeIf {
+            it.x == x && it.y == y && it.type == UnitType.SKELETON
         }
+
+        // Gold abziehen
+        player.gold -= UNIT_PRICE
+
+        // Neue Einheit mit hasMovedThisTurn = true
+        state.units.add(
+            GameUnit(
+                player = playerName,
+                x = x,
+                y = y,
+                type = type,
+                hasMovedThisTurn = true
+            )
+        )
+
         return state
     }
 }
