@@ -1,5 +1,6 @@
 package at.aau.hexabrawl.websocketserver.controller
 
+import at.aau.hexabrawl.websocketserver.model.BuyUnitRequest
 import at.aau.hexabrawl.websocketserver.model.EndTurnRequest
 import at.aau.hexabrawl.websocketserver.model.ErrorCode
 import at.aau.hexabrawl.websocketserver.model.ErrorMessage
@@ -11,6 +12,7 @@ import at.aau.hexabrawl.websocketserver.model.Move
 import at.aau.hexabrawl.websocketserver.model.PlayerColor
 import at.aau.hexabrawl.websocketserver.model.RoomRegistry
 import at.aau.hexabrawl.websocketserver.model.StompMessage
+import at.aau.hexabrawl.websocketserver.model.UnitType
 import org.springframework.messaging.handler.annotation.DestinationVariable
 import org.springframework.messaging.handler.annotation.MessageMapping
 import org.springframework.messaging.handler.annotation.SendTo
@@ -236,6 +238,112 @@ class WebSocketBrokerController(
         messagingTemplate.convertAndSend("/topic/rooms/$roomId/state", state)
         return state
     }
+
+    /**
+     * Kauft eine Einheit fuer den Spieler im angegebenen Room und
+     * platziert sie an (x, y) (#132).
+     *
+     * Validierungs-Reihenfolge (billig vor teuer):
+     *  1. Room existiert? sonst ROOM_NOT_FOUND
+     *  2. Status IN_PROGRESS? sonst GAME_NOT_STARTED
+     *  3. Spieler am Zug? sonst NOT_YOUR_TURN
+     *  4. Type INFANTRY/ARCHER/CAVALRY? sonst INVALID_PLACEMENT
+     *  5. Zielfeld gehoert dem Spieler? sonst INVALID_PLACEMENT
+     *  6. Zielfeld nicht von eigener Einheit/Basis besetzt? sonst
+     *     INVALID_PLACEMENT
+     *  7. Genug Gold? sonst INSUFFICIENT_GOLD
+     *
+     * Bei Erfolg: delegiert an gameService.buyUnit und broadcastet
+     * den neuen GameState auf /topic/rooms/{roomId}/state.
+     */
+    @MessageMapping("/rooms/{roomId}/buy-unit")
+    fun buyUnitRoom(
+        @DestinationVariable roomId: String,
+        request: BuyUnitRequest,
+        headerAccessor: SimpMessageHeaderAccessor
+    ): GameState? {
+        val sessionId = headerAccessor.sessionId ?: ""
+
+        val room = roomRegistry.findById(roomId)
+        if (room == null) {
+            sendError(sessionId, ErrorCode.ROOM_NOT_FOUND, ROOM_NOT_FOUND_MESSAGE)
+            return null
+        }
+
+        val state = room.gameState
+
+        if (state.status != GameStatus.IN_PROGRESS) {
+            sendError(sessionId, ErrorCode.GAME_NOT_STARTED, "Kauf abgelehnt: Spiel laeuft nicht.")
+            return null
+        }
+
+        if (request.playerName != state.currentTurn) {
+            sendError(sessionId, ErrorCode.NOT_YOUR_TURN, "Es ist nicht dein Zug.")
+            return null
+        }
+
+        if (request.type == UnitType.BASE || request.type == UnitType.SKELETON) {
+            sendError(
+                sessionId,
+                ErrorCode.INVALID_PLACEMENT,
+                "Dieser Einheitstyp kann nicht gekauft werden."
+            )
+            return null
+        }
+
+        // Zielfeld muss dem Spieler gehoeren (#104 Field-Ownership)
+        val field = state.fields.firstOrNull { it.x == request.x && it.y == request.y }
+        if (field?.owner != request.playerName) {
+            sendError(
+                sessionId,
+                ErrorCode.INVALID_PLACEMENT,
+                "Einheit kann nur auf eigenen Feldern platziert werden."
+            )
+            return null
+        }
+
+        // Zielfeld darf nicht von eigener Einheit (inkl. BASE) besetzt sein.
+        // Skelette zaehlen nicht als "besetzt" — werden vom Service entfernt.
+        val occupiedByOwn = state.units.any {
+            it.x == request.x && it.y == request.y &&
+                    it.player == request.playerName &&
+                    it.type != UnitType.SKELETON
+        }
+        if (occupiedByOwn) {
+            sendError(
+                sessionId,
+                ErrorCode.INVALID_PLACEMENT,
+                "Feld ist bereits besetzt."
+            )
+            return null
+        }
+
+        val player = state.players.find { it.name == request.playerName }
+        if (player == null) {
+            sendError(
+                sessionId,
+                ErrorCode.INVALID_PLACEMENT,
+                "Spieler nicht gefunden."
+            )
+            return null
+        }
+
+        if (player.gold < GameService.UNIT_PRICE) {
+            sendError(sessionId, ErrorCode.INSUFFICIENT_GOLD, "Nicht genug Gold.")
+            return null
+        }
+
+        val updated = gameService.buyUnit(
+            state,
+            request.playerName,
+            request.type,
+            request.x,
+            request.y
+        )
+        sendRoomState(roomId, updated)
+        return updated
+    }
+
 
     // Bridges fuer Tests, die noch ueber den globalen GameState gehen.
     fun handleJoin(name: String, sessionId: String, color: PlayerColor? = null) =
