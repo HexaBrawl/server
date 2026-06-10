@@ -13,6 +13,15 @@ class FieldConquestTest {
         gameService = GameService(CombatService())
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
+        // Standard-Combat-Units platzieren (seit Entfernen der Start-Einheiten
+        // werden die nicht mehr automatisch vom Server gesetzt).
+        val state = gameService.gameState
+        state.units.add(GameUnit("Alice", 1, 2, UnitType.ARCHER))
+        state.units.add(GameUnit("Alice", 2, 3, UnitType.INFANTRY))
+        state.units.add(GameUnit("Alice", 3, 2, UnitType.CAVALRY))
+        state.units.add(GameUnit("Bob", 8, 7, UnitType.ARCHER))
+        state.units.add(GameUnit("Bob", 7, 8, UnitType.INFANTRY))
+        state.units.add(GameUnit("Bob", 6, 7, UnitType.CAVALRY))
     }
 
     @Test

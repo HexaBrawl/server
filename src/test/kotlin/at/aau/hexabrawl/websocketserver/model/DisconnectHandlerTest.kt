@@ -67,6 +67,14 @@ class DisconnectHandlerTest {
     fun `disconnect only removes disconnected player units`() {
         gameService.handleJoin("Alice", "session-1")
         gameService.handleJoin("Bob", "session-2")
+        // Combat-Units manuell platzieren (Start-Einheiten werden nicht mehr automatisch gesetzt).
+        val s = gameService.gameState
+        s.units.add(GameUnit("Alice", 1, 2, UnitType.ARCHER))
+        s.units.add(GameUnit("Alice", 2, 3, UnitType.INFANTRY))
+        s.units.add(GameUnit("Alice", 3, 2, UnitType.CAVALRY))
+        s.units.add(GameUnit("Bob", 8, 7, UnitType.ARCHER))
+        s.units.add(GameUnit("Bob", 7, 8, UnitType.INFANTRY))
+        s.units.add(GameUnit("Bob", 6, 7, UnitType.CAVALRY))
 
         gameService.handleDisconnect("session-1")
 

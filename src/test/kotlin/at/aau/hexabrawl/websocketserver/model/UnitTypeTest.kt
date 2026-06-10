@@ -148,6 +148,12 @@ class UnitTypeTest {
 
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
+        // Combat-Units manuell platzieren (werden seit Entfernung der
+        // Start-Einheiten nicht mehr automatisch gesetzt).
+        val s = gameService.gameState
+        s.units.add(GameUnit("Alice", 1, 2, UnitType.ARCHER))
+        s.units.add(GameUnit("Alice", 2, 3, UnitType.INFANTRY))
+        s.units.add(GameUnit("Alice", 3, 2, UnitType.CAVALRY))
 
         val stateBefore = gameService.getCurrentState()
 
@@ -173,6 +179,8 @@ class UnitTypeTest {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
+        // Combat-Units manuell platzieren
+        gameService.gameState.units.add(GameUnit("Alice", 2, 3, UnitType.INFANTRY))
 
         val move = Move("Alice", UnitType.ARCHER, 2, 3, 2, 4) // kein ARCHER bei (2,3) - nur INFANTRY
 
@@ -191,6 +199,10 @@ class UnitTypeTest {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
+        // Combat-Units manuell platzieren
+        val s = gameService.gameState
+        s.units.add(GameUnit("Alice", 3, 2, UnitType.INFANTRY))
+        s.units.add(GameUnit("Bob", 6, 5, UnitType.INFANTRY))
 
         val alice = gameService.getCurrentState().units.first {
             it.player == "Alice" && it.type == UnitType.INFANTRY

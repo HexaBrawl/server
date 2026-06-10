@@ -117,27 +117,8 @@ class GameService(
         val p1 = state.players[0]
         val p2 = state.players[1]
 
-        val startPositionsP1 = listOf(
-            Pair(1, 2),  // ARCHER  (linker Nachbar der Basis)
-            Pair(2, 3),  // INFANTRY (unterer Nachbar)
-            Pair(3, 2)   // CAVALRY  (rechter Nachbar)
-        )
-
-        val startPositionsP2 = listOf(
-            Pair(8, 7),  // ARCHER
-            Pair(7, 8),  // INFANTRY
-            Pair(6, 7)   // CAVALRY
-        )
-
-        UnitType.entries
-            .filter { it != UnitType.SKELETON && it != UnitType.BASE }
-            .forEachIndexed { index, type ->
-                val (x1, y1) = startPositionsP1[index]
-                val (x2, y2) = startPositionsP2[index]
-                state.units.add(GameUnit(p1.name, x1, y1, type))
-                state.units.add(GameUnit(p2.name, x2, y2, type))
-            }
-
+        // Nur Basen platzieren -- Kampfeinheiten kaufen die Spieler ueber
+        // den Buy-Unit-Endpoint, sobald sie genug Gold haben.
         state.units.add(GameUnit(p1.name, BASE_POSITION_P1.first, BASE_POSITION_P1.second, UnitType.BASE))
         state.units.add(GameUnit(p2.name, BASE_POSITION_P2.first, BASE_POSITION_P2.second, UnitType.BASE))
 
@@ -161,21 +142,7 @@ class GameService(
             Pair(9, 3)   // P3 Nordosten
         )
 
-        val startPositionsP1 = listOf(Pair(5, 8), Pair(4, 9), Pair(6, 9))   // Einheiten um P1-Basis
-        val startPositionsP2 = listOf(Pair(2, 3), Pair(2, 4), Pair(1, 4))   // Einheiten um P2-Basis
-        val startPositionsP3 = listOf(Pair(8, 3), Pair(8, 4), Pair(9, 4))   // Einheiten um P3-Basis
-
-        UnitType.entries
-            .filter { it != UnitType.SKELETON && it != UnitType.BASE }
-            .forEachIndexed { index, type ->
-                val (x1, y1) = startPositionsP1[index]
-                val (x2, y2) = startPositionsP2[index]
-                val (x3, y3) = startPositionsP3[index]
-                state.units.add(GameUnit(p1.name, x1, y1, type))
-                state.units.add(GameUnit(p2.name, x2, y2, type))
-                state.units.add(GameUnit(p3.name, x3, y3, type))
-            }
-
+        // Nur Basen platzieren -- Kampfeinheiten werden ueber Buy-Unit gekauft.
         listOf(p1 to bases[0], p2 to bases[1], p3 to bases[2]).forEach { (p, base) ->
             state.units.add(GameUnit(p.name, base.first, base.second, UnitType.BASE))
         }
@@ -206,24 +173,7 @@ class GameService(
             Pair(6,  2)   // P4 Nord
         )
 
-        val startPositionsP1 = listOf(Pair(5, 9), Pair(6, 9), Pair(7, 9))   // Einheiten um P1-Basis
-        val startPositionsP2 = listOf(Pair(2, 5), Pair(3, 5), Pair(3, 6))   // Einheiten um P2-Basis
-        val startPositionsP3 = listOf(Pair(10, 5), Pair(9, 5), Pair(9, 6))  // Einheiten um P3-Basis
-        val startPositionsP4 = listOf(Pair(5, 2), Pair(6, 3), Pair(7, 2))   // Einheiten um P4-Basis
-
-        UnitType.entries
-            .filter { it != UnitType.SKELETON && it != UnitType.BASE }
-            .forEachIndexed { index, type ->
-                val (x1, y1) = startPositionsP1[index]
-                val (x2, y2) = startPositionsP2[index]
-                val (x3, y3) = startPositionsP3[index]
-                val (x4, y4) = startPositionsP4[index]
-                state.units.add(GameUnit(p1.name, x1, y1, type))
-                state.units.add(GameUnit(p2.name, x2, y2, type))
-                state.units.add(GameUnit(p3.name, x3, y3, type))
-                state.units.add(GameUnit(p4.name, x4, y4, type))
-            }
-
+        // Nur Basen platzieren -- Kampfeinheiten werden ueber Buy-Unit gekauft.
         listOf(p1 to bases[0], p2 to bases[1], p3 to bases[2], p4 to bases[3]).forEach { (p, base) ->
             state.units.add(GameUnit(p.name, base.first, base.second, UnitType.BASE))
         }

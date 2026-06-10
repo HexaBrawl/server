@@ -142,6 +142,8 @@ class GameModelTest {
 
         gameService.handleJoin(state1, "Josef", "s1")
         gameService.handleJoin(state1, "Marie", "s2")
+        // Combat-Units manuell platzieren (Start-Einheiten werden nicht mehr automatisch gesetzt).
+        state1.units.add(GameUnit("Josef", 2, 3, UnitType.INFANTRY))
 
         val move = Move(
             "Josef",
@@ -172,6 +174,8 @@ class GameModelTest {
 
         gameService.handleJoin("Josef", "s1")
         gameService.handleJoin("Marie", "s2")
+        // Combat-Units manuell platzieren
+        gameService.gameState.units.add(GameUnit("Josef", 2, 3, UnitType.INFANTRY))
 
         val move = Move(
             "Josef",
@@ -517,6 +521,10 @@ class GameModelTest {
         gameService.handleJoin(room.gameState, "P1", "session-1")
         gameService.handleJoin(room.gameState, "P2", "session-2")
         gameService.handleJoin(room.gameState, "P3", "session-3")
+        // Combat-Units manuell platzieren (werden nicht mehr automatisch gesetzt).
+        room.gameState.units.add(GameUnit("P1", 5, 8, UnitType.ARCHER))
+        room.gameState.units.add(GameUnit("P1", 4, 9, UnitType.INFANTRY))
+        room.gameState.units.add(GameUnit("P1", 6, 9, UnitType.CAVALRY))
 
         // P1-Start-Positionen (siehe GameService.startTriadOutpostGame):
         //   ARCHER (5,8), INFANTRY (4,9), CAVALRY (6,9), Basis (5,9)
@@ -578,6 +586,10 @@ class GameModelTest {
         gameService.handleJoin(room.gameState, "P2", "session-2")
         gameService.handleJoin(room.gameState, "P3", "session-3")
         gameService.handleJoin(room.gameState, "P4", "session-4")
+        // Combat-Units manuell platzieren
+        room.gameState.units.add(GameUnit("P1", 5, 9, UnitType.ARCHER))
+        room.gameState.units.add(GameUnit("P1", 6, 9, UnitType.INFANTRY))
+        room.gameState.units.add(GameUnit("P1", 7, 9, UnitType.CAVALRY))
 
         // P1-Start-Positionen (siehe GameService.startBattlefieldPeaksGame):
         //   ARCHER (5,9), INFANTRY (6,9), CAVALRY (7,9), Basis (6,10)
