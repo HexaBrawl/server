@@ -20,6 +20,7 @@ class GameService(
         // Wirtschaftssystem (#60)
         const val STARTING_GOLD = 6
         const val FARM_INCOME_PER_ROUND = 3
+        const val FIELD_INCOME_PER_ROUND = 1
         const val FARM_BASE_COST = 10
         const val FARM_COST_INCREMENT = 1
 
@@ -498,9 +499,11 @@ class GameService(
      * Farm-Einkommen gutschreiben, Unterhalt abziehen (1. Einheit 3 Gold, jede weitere +1).
      * Bei Insolvenz: Gold auf 0, alle lebenden Truppen → SKELETON.
      */
-    private fun applyUpkeep(state: GameState) {
+    internal fun applyUpkeep(state: GameState) {
         state.players.forEach { player ->
-            player.gold += player.farms * FARM_INCOME_PER_ROUND
+            val ownedFields = state.fields.count { it.owner == player.name }
+            val income = ownedFields * FIELD_INCOME_PER_ROUND + player.farms * FARM_INCOME_PER_ROUND
+            player.gold += income
 
             val playerUnits = state.units.filter {
                 it.player == player.name && it.type != UnitType.SKELETON && it.type != UnitType.BASE
@@ -515,9 +518,9 @@ class GameService(
                 playerUnits.forEach { it.type = UnitType.SKELETON }
             }
         }
-
         checkWinCondition(state)
     }
+
 
     /**
      * Kauft eine neue Einheit und platziert sie an (x, y) (#132).

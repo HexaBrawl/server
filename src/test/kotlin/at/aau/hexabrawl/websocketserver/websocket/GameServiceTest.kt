@@ -1,5 +1,6 @@
 package at.aau.hexabrawl.websocketserver.model
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
@@ -467,9 +468,10 @@ class GameServiceTest {
         gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, bobInf.x, bobInf.y + 1))
         gameService.endTurn("Bob")
 
-        // Bei 3 Start-Einheiten kostet der Unterhalt 12 Gold (3+4+5). 20 - 12 = 8.
-        assertThat(state.players.first { it.name == "Alice" }.gold).isEqualTo(8)
-        assertThat(state.players.first { it.name == "Bob" }.gold).isEqualTo(8)
+        // Alice erobert ein Feld (8 Felder) -> 20 + 8 - 12 = 16
+        assertThat(state.players.first { it.name == "Alice" }.gold).isEqualTo(16)
+        // Bob tritt vom Spielfeld (bleibt bei 7 Feldern) -> 20 + 7 - 12 = 15
+        assertThat(state.players.first { it.name == "Bob" }.gold).isEqualTo(15)
     }
 
     @Test
@@ -480,7 +482,8 @@ class GameServiceTest {
         seedDualValleyCombatUnits()
 
         val state = gameService.getCurrentState()
-        state.players.forEach { it.gold = 12 }
+        // 4 Startgold + 8 Feld-Gold = 12 Gold (genau der Unterhalt)
+        state.players.forEach { it.gold = 4 }
 
         val aliceInf = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
         gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, aliceInf.x, aliceInf.y + 1))
@@ -503,7 +506,8 @@ class GameServiceTest {
         seedDualValleyCombatUnits()
 
         val state = gameService.getCurrentState()
-        state.players.first { it.name == "Alice" }.gold = 11
+        // 3 Startgold + 8 Feld-Gold = 11 Gold. Upkeep kostet 12 -> Insolvenz
+        state.players.first { it.name == "Alice" }.gold = 3
         state.players.first { it.name == "Bob" }.gold = 20
 
         val aliceInf = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
@@ -562,7 +566,7 @@ class GameServiceTest {
         val bob = state.players.first { it.name == "Bob" }
 
         alice.farms = 1
-        alice.gold = 10
+        alice.gold = 2
         bob.gold = 10
 
         val aliceInf = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
@@ -575,5 +579,47 @@ class GameServiceTest {
         assertThat(alice.gold).isEqualTo(1)
         assertThat(alice.farms).isEqualTo(1)
         assertThat(state.units.filter { it.player == "Alice" }.all { it.type != UnitType.SKELETON }).isTrue()
+    }
+
+    @Test
+    fun `field income added on top of farm income`() {
+        val service = GameService(CombatService())
+        val state = GameState().apply {
+            players.add(Player(name = "Alice", gold = 0, farms = 1))
+            fields.addAll(listOf(
+                Field(0, 0, owner = "Alice"),
+                Field(0, 1, owner = "Alice"),
+                Field(0, 2, owner = "Alice")
+            ))
+        }
+        service.applyUpkeep(state)
+
+        // 3 Felder × 1 + 1 Farm × 3 = 6 Gold, keine Units → kein Upkeep
+        assertEquals(6, state.players[0].gold)
+    }
+
+    @Test
+    fun `field income works with zero farms`() {
+        val service = GameService(CombatService())
+        val state = GameState().apply {
+            players.add(Player(name = "Alice", gold = 0, farms = 0))
+            fields.addAll(List(5) { Field(0, it, owner = "Alice") })
+        }
+        service.applyUpkeep(state)
+
+        assertEquals(5, state.players[0].gold)
+    }
+
+    @Test
+    fun `field income works with zero fields and zero farms`() {
+        val service = GameService(CombatService())
+        val state = GameState().apply {
+            players.add(Player(name = "Alice", gold = 0, farms = 0))
+            // Keine Felder hinzufuegen
+        }
+
+        service.applyUpkeep(state)
+
+        assertEquals(0, state.players[0].gold)
     }
 }
