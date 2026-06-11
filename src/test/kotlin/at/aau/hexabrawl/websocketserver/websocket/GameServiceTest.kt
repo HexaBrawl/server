@@ -622,4 +622,99 @@ class GameServiceTest {
 
         assertEquals(0, state.players[0].gold)
     }
+
+    @Test
+    fun `recomputePlayerStats sets income from fields and farms`() {
+        val service = GameService(CombatService())
+        val state = GameState().apply {
+            players.add(Player(name = "Alice", farms = 2))
+            fields.addAll(List(4) { Field(0, it, owner = "Alice") })
+        }
+        service.recomputePlayerStats(state)
+
+        assertEquals(4 + 2 * 3, state.players[0].income)
+        assertEquals(0, state.players[0].upkeep)
+    }
+
+    @Test
+    fun `recomputePlayerStats sets upkeep based on living non-base units`() {
+        val service = GameService(CombatService())
+        val state = GameState().apply {
+            players.add(Player(name = "Alice"))
+            units.addAll(listOf(
+                GameUnit(player = "Alice", type = UnitType.INFANTRY, x = 0, y = 0),
+                GameUnit(player = "Alice", type = UnitType.CAVALRY, x = 0, y = 1),
+                GameUnit(player = "Alice", type = UnitType.BASE, x = 0, y = 2),       // zählt NICHT
+                GameUnit(player = "Alice", type = UnitType.SKELETON, x = 0, y = 3)    // zählt NICHT
+            ))
+        }
+        service.recomputePlayerStats(state)
+
+        // 2 Einheiten: 3 + 4 = 7
+        assertEquals(7, state.players[0].upkeep)
+    }
+
+    @Test
+    fun `after buyFarm the broadcasted state contains updated income`() {
+        val service = GameService(CombatService())
+        val state = GameState().apply {
+            players.add(Player(name = "Alice", gold = 10, farms = 0))
+        }
+
+        state.players[0].farms += 1
+        state.players[0].gold -= 10
+
+        // Das passiert im Controller kurz vorm Broadcast:
+        service.recomputePlayerStats(state)
+
+        // Alice sollte jetzt 1 Farm haben. Farm-Income = 3
+        assertEquals(3, state.players[0].income)
+    }
+
+    @Test
+    fun `after field conquest income shifts from old to new owner`() {
+        val service = GameService(CombatService())
+        val state = GameState().apply {
+            players.add(Player(name = "Alice"))
+            players.add(Player(name = "Bob"))
+            fields.add(Field(0, 0, owner = "Bob")) // Bob gehört das Feld anfangs
+        }
+
+        // Aktion: Alice erobert das Feld von Bob
+        state.fields[0].owner = "Alice"
+
+        // Broadcast-Vorbereitung
+        service.recomputePlayerStats(state)
+
+        // Alice bekommt +1 Income, Bob verliert 1 Income
+        assertEquals(1, state.players.find { it.name == "Alice" }?.income)
+        assertEquals(0, state.players.find { it.name == "Bob" }?.income)
+    }
+
+    @Test
+    fun `after endTurn with insolvency upkeep drops to zero`() {
+        val service = GameService(CombatService())
+        val state = GameState().apply {
+            status = GameStatus.IN_PROGRESS
+
+            players.add(Player(name = "Alice", gold = 0)) // Index 0 (Spieler 1)
+            players.add(Player(name = "Bob", gold = 10))  // Index 1 (Spieler 2)
+
+            // Es ist aktuell Bobs Zug (der letzte Spieler in der Runde)
+            currentTurn = "Bob"
+
+            units.add(GameUnit(player = "Alice", type = UnitType.INFANTRY, x = 0, y = 0)) // Upkeep = 3
+        }
+
+        // Aktion: Bob beendet seinen Zug.
+        // Runden-Wrap-Around feuert -> es ist wieder Alice dran -> applyUpkeep() wird aufgerufen!
+        service.endTurn(state, "Bob")
+
+        // Broadcast-Vorbereitung
+        service.recomputePlayerStats(state)
+
+        // Truppe wurde zum Skeleton, daher kostet sie keinen Unterhalt mehr
+        assertEquals(0, state.players[0].upkeep)
+        assertEquals(UnitType.SKELETON, state.units[0].type)
+    }
 }
