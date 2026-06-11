@@ -10,9 +10,14 @@ package at.aau.hexabrawl.websocketserver.model
  *
  * `owner` ist mutable damit Felder durch Eroberung den Besitzer
  * wechseln koennen (siehe Folge-Sub-Issue #104).
+ *
+ * `isSkeleton` markiert Felder, die vom Hauptgebiet abgeschnitten
+ * wurden. Owner bleibt erhalten fuer Rueckeroberung. Default false;
+ * wird durch recomputeConnectivity gesetzt.
  */
 data class Field(
     val x: Int,
     val y: Int,
-    var owner: String? = null
+    var owner: String? = null,
+    var isSkeleton: Boolean = false
 )
