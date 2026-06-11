@@ -102,4 +102,19 @@ class FieldTest {
             }
         }
     }
+
+    @Test
+    fun `new field has isSkeleton false by default`() {
+        val field = Field(x = 0, y = 0)
+        assertFalse(field.isSkeleton)
+    }
+
+    @Test
+    fun `isSkeleton can be toggled at runtime`() {
+        val field = Field(x = 0, y = 0)
+        field.isSkeleton = true
+        assertTrue(field.isSkeleton)
+        field.isSkeleton = false
+        assertFalse(field.isSkeleton)
+    }
 }
