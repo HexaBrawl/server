@@ -390,8 +390,12 @@ class GameService(
         if (unit in state.units) {
             unit.hasMovedThisTurn = true
             state.fields.firstOrNull { it.x == unit.x && it.y == unit.y }
-                ?.let { it.owner = playerName }
+                ?.let {
+                    it.owner = playerName
+                    it.isSkeleton = false
+                }
         }
+        recomputeConnectivity(state)
         if (allMovableUnitsHaveMoved(state, playerName)) {
             switchTurn(state)
         }
