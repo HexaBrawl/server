@@ -43,10 +43,9 @@ class WebSocketBrokerController(
     }
 
     private fun sendRoomState(roomId: String, state: GameState) {
-        messagingTemplate.convertAndSend(
-            "/topic/rooms/$roomId/state",
-            state
-        )
+        gameService.recomputePlayerStats(state)
+        messagingTemplate.convertAndSend("/topic/rooms/${roomId}/state", state)
+
     }
 
     @MessageMapping("/rooms/{roomId}/join")
@@ -235,7 +234,7 @@ class WebSocketBrokerController(
             player.income = player.farms * GameService.FARM_INCOME_PER_ROUND
         }
 
-        messagingTemplate.convertAndSend("/topic/rooms/$roomId/state", state)
+        sendRoomState(roomId, state)
         return state
     }
 

@@ -501,15 +501,11 @@ class GameService(
      */
     internal fun applyUpkeep(state: GameState) {
         state.players.forEach { player ->
-            val ownedFields = state.fields.count { it.owner == player.name }
-            val income = ownedFields * FIELD_INCOME_PER_ROUND + player.farms * FARM_INCOME_PER_ROUND
-            player.gold += income
-
+            player.gold += computeIncome(player, state)
+            val upkeep = computeUpkeep(player, state)
             val playerUnits = state.units.filter {
                 it.player == player.name && it.type != UnitType.SKELETON && it.type != UnitType.BASE
             }
-            val unitCount = playerUnits.size
-            val upkeep = (0 until unitCount).sumOf { 3 + it }
 
             if (player.gold >= upkeep) {
                 player.gold -= upkeep
@@ -518,8 +514,8 @@ class GameService(
                 playerUnits.forEach { it.type = UnitType.SKELETON }
             }
         }
-        checkWinCondition(state)
     }
+
 
 
     /**
@@ -570,5 +566,23 @@ class GameService(
         )
 
         return state
+    }
+    private fun computeIncome(player: Player, state: GameState): Int {
+        val ownedFields = state.fields.count { it.owner == player.name }
+        return ownedFields * FIELD_INCOME_PER_ROUND + player.farms * FARM_INCOME_PER_ROUND
+    }
+
+    private fun computeUpkeep(player: Player, state: GameState): Int {
+        val unitCount = state.units.count {
+            it.player == player.name && it.type != UnitType.SKELETON && it.type != UnitType.BASE
+        }
+        return (0 until unitCount).sumOf { 3 + it }
+    }
+
+    fun recomputePlayerStats(state: GameState) {
+        state.players.forEach { player ->
+            player.income = computeIncome(player, state)
+            player.upkeep = computeUpkeep(player, state)
+        }
     }
 }
