@@ -7,5 +7,6 @@ data class Player (
     val color: PlayerColor = PlayerColor.RED,
     var gold: Int = 0,
     var farms: Int = 0,
-    var income: Int = 0
+    var income: Int = 0,
+    var upkeep: Int = 0
 ){}

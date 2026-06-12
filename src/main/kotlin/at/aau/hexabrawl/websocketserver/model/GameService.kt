@@ -20,6 +20,7 @@ class GameService(
         // Wirtschaftssystem (#60)
         const val STARTING_GOLD = 6
         const val FARM_INCOME_PER_ROUND = 3
+        const val FIELD_INCOME_PER_ROUND = 1
         const val FARM_BASE_COST = 10
         const val FARM_COST_INCREMENT = 1
 
@@ -341,7 +342,10 @@ class GameService(
     private fun switchTurn(state: GameState) {
         if (state.players.isEmpty()) return
 
-        val wasFirstBefore = state.currentTurn == state.players[0].name
+        // Wirtschaft des Spielers, dessen Zug gerade endet
+        state.players.firstOrNull { it.name == state.currentTurn }?.let {
+            applyEconomy(state, it)
+        }
 
         if (state.players.size == 2) {
             val p1 = state.players[0]
@@ -356,13 +360,8 @@ class GameService(
             }
         }
 
-        // Neue Runde: alle Einheiten duerfen wieder ziehen.
+        // Neue Runde: alle Einheiten dürfen wieder ziehen
         state.units.forEach { it.hasMovedThisTurn = false }
-
-        // Runden-Wrap-Around: Upkeep wenn wieder Spieler 1 dran ist.
-        if (!wasFirstBefore && state.currentTurn == state.players[0].name) {
-            applyUpkeep(state)
-        }
     }
 
     private fun allMovableUnitsHaveMoved(state: GameState, playerName: String): Boolean {
@@ -556,25 +555,19 @@ class GameService(
      * Farm-Einkommen gutschreiben, Unterhalt abziehen (1. Einheit 3 Gold, jede weitere +1).
      * Bei Insolvenz: Gold auf 0, alle lebenden Truppen → SKELETON.
      */
-    private fun applyUpkeep(state: GameState) {
-        state.players.forEach { player ->
-            player.gold += player.farms * FARM_INCOME_PER_ROUND
-
-            val playerUnits = state.units.filter {
-                it.player == player.name && it.type != UnitType.SKELETON && it.type != UnitType.BASE
-            }
-            val unitCount = playerUnits.size
-            val upkeep = (0 until unitCount).sumOf { 3 + it }
-
-            if (player.gold >= upkeep) {
-                player.gold -= upkeep
-            } else {
-                player.gold = 0
-                playerUnits.forEach { it.type = UnitType.SKELETON }
-            }
+    private fun applyEconomy(state: GameState, player: Player) {
+        player.gold += computeIncome(player, state)
+        val upkeep = computeUpkeep(player, state)
+        val playerUnits = state.units.filter {
+            it.player == player.name && it.type != UnitType.SKELETON && it.type != UnitType.BASE
         }
 
-        checkWinCondition(state)
+        if (player.gold >= upkeep) {
+            player.gold -= upkeep
+        } else {
+            player.gold = 0
+            playerUnits.forEach { it.type = UnitType.SKELETON }
+        }
     }
 
     /**
@@ -625,5 +618,23 @@ class GameService(
         )
 
         return state
+    }
+    private fun computeIncome(player: Player, state: GameState): Int {
+        val ownedFields = state.fields.count { it.owner == player.name }
+        return ownedFields * FIELD_INCOME_PER_ROUND + player.farms * FARM_INCOME_PER_ROUND
+    }
+
+    private fun computeUpkeep(player: Player, state: GameState): Int {
+        val unitCount = state.units.count {
+            it.player == player.name && it.type != UnitType.SKELETON && it.type != UnitType.BASE
+        }
+        return (0 until unitCount).sumOf { 3 + it }
+    }
+
+    fun recomputePlayerStats(state: GameState) {
+        state.players.forEach { player ->
+            player.income = computeIncome(player, state)
+            player.upkeep = computeUpkeep(player, state)
+        }
     }
 }
