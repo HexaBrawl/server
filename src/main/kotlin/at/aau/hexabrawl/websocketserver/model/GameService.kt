@@ -528,6 +528,22 @@ class GameService(
         val player = state.players.find { it.sessionId == sessionId }
             ?: return state
 
+        // Aktives Cheat-Geschenk aufraeumen, falls der disconnectete Spieler beteiligt war
+        state.pendingGift?.let { gift ->
+            if (gift.ownerName == player.name) {
+                // Owner ist weg — Geschenk abbrechen
+                state.pendingGift = null
+            } else {
+                // Stealer-Kandidat weg — eine Entscheidung weniger
+                val remaining = gift.pendingDecisions - 1
+                state.pendingGift = if (remaining > 0) {
+                    gift.copy(pendingDecisions = remaining)
+                } else {
+                    null
+                }
+            }
+        }
+
         state.players.remove(player)
         state.units.removeIf { it.player == player.name }
 
@@ -636,5 +652,85 @@ class GameService(
             player.income = computeIncome(player, state)
             player.upkeep = computeUpkeep(player, state)
         }
+    }
+
+    /**
+     * Schummel-Geschenk oeffnen (Cheat-Gift).
+     *
+     * Diese Methode setzt voraus, dass der Controller bereits alle
+     * Validierungen durchgefuehrt hat (Status IN_PROGRESS, delta in
+     * -10..10, pendingGift == null, Spieler existiert, hasUsedGift
+     * == false).
+     *
+     * Verhalten:
+     *  - delta wird auf player.gold gebucht. Bei Resultat < 0 wird
+     *    auf 0 gecappt (User-Entscheidung: kein negatives Gold).
+     *  - player.hasUsedGift wird auf true gesetzt (sticky bis Spielende).
+     *  - state.pendingGift wird mit pendingDecisions = players.size - 1
+     *    angelegt, sodass alle anderen Spieler die Steal-Entscheidung
+     *    treffen koennen.
+     *
+     * Thread-safe ueber state.lock.
+     */
+    fun claimCheatGift(
+        state: GameState,
+        playerName: String,
+        delta: Int
+    ): GameState = synchronized(state.lock) {
+        val player = state.players.find { it.name == playerName } ?: return state
+
+        player.gold += delta
+        if (player.gold < 0) player.gold = 0
+        player.hasUsedGift = true
+
+        state.pendingGift = PendingGift(
+            ownerName = player.name,
+            delta = delta,
+            pendingDecisions = state.players.size - 1
+        )
+        return state
+    }
+
+    /**
+     * Antwort auf das Schummel-Geschenk (Steal-Versuch).
+     *
+     * Diese Methode setzt voraus, dass der Controller bereits validiert
+     * hat (pendingGift != null, playerName != ownerName, Spieler existiert).
+     *
+     * Bei accept=true (atomarer Steal-Switch):
+     *  - owner.gold -= delta, bei Resultat < 0 wird auf 0 gecappt
+     *  - stealer.gold += delta, bei Resultat < 0 wird auf 0 gecappt
+     *  - pendingGift = null
+     *
+     * Bei accept=false:
+     *  - pendingDecisions -= 1
+     *  - bei 0 → pendingGift = null (keiner wollte stehlen)
+     *
+     * Thread-safe ueber state.lock.
+     */
+    fun respondCheatSteal(
+        state: GameState,
+        playerName: String,
+        accept: Boolean
+    ): GameState = synchronized(state.lock) {
+        val gift = state.pendingGift ?: return state
+        val player = state.players.find { it.name == playerName } ?: return state
+
+        if (accept) {
+            val owner = state.players.first { it.name == gift.ownerName }
+            owner.gold -= gift.delta
+            if (owner.gold < 0) owner.gold = 0
+            player.gold += gift.delta
+            if (player.gold < 0) player.gold = 0
+            state.pendingGift = null
+        } else {
+            val remaining = gift.pendingDecisions - 1
+            state.pendingGift = if (remaining > 0) {
+                gift.copy(pendingDecisions = remaining)
+            } else {
+                null
+            }
+        }
+        return state
     }
 }
