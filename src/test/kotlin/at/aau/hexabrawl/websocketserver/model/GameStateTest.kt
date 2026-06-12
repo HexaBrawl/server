@@ -95,5 +95,19 @@ class GameStateTest {
         Assertions.assertEquals(GameStatus.WAITING_FOR_PLAYERS, gameState.status)
     }
 
+    @Test
+    fun `game state starts with pendingGift null`() {
+        Assertions.assertNull(gameState.pendingGift)
+    }
 
+    @Test
+    fun `pendingGift can be assigned and cleared`() {
+        gameState.pendingGift = PendingGift(ownerName = "Alice", delta = 5, pendingDecisions = 2)
+        Assertions.assertEquals("Alice", gameState.pendingGift?.ownerName)
+        Assertions.assertEquals(5, gameState.pendingGift?.delta)
+        Assertions.assertEquals(2, gameState.pendingGift?.pendingDecisions)
+
+        gameState.pendingGift = null
+        Assertions.assertNull(gameState.pendingGift)
+    }
 }
