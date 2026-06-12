@@ -12,6 +12,7 @@ import at.aau.hexabrawl.websocketserver.model.JoinRequest
 import at.aau.hexabrawl.websocketserver.model.Move
 import at.aau.hexabrawl.websocketserver.model.PlayerColor
 import at.aau.hexabrawl.websocketserver.model.RoomRegistry
+import at.aau.hexabrawl.websocketserver.model.StealResponseRequest
 import at.aau.hexabrawl.websocketserver.model.StompMessage
 import at.aau.hexabrawl.websocketserver.model.UnitType
 import org.springframework.messaging.handler.annotation.DestinationVariable
@@ -398,6 +399,52 @@ class WebSocketBrokerController(
         }
 
         val updated = gameService.claimCheatGift(state, request.playerName, request.delta)
+        sendRoomState(roomId, updated)
+        return updated
+    }
+
+
+    /**
+     * Antwort auf das Schummel-Geschenk: "Ja klauen" oder "Nein".
+     *
+     * Validierungs-Reihenfolge (billig vor teuer):
+     *  1. Room existiert? sonst ROOM_NOT_FOUND
+     *  2. pendingGift aktiv? sonst NO_PENDING_GIFT
+     *  3. playerName != owner? sonst OWNER_CANNOT_STEAL
+     *  4. Spieler existiert? sonst no-op
+     *
+     * Bei Erfolg: delegiert an gameService.respondCheatSteal und broadcastet.
+     */
+    @MessageMapping("/rooms/{roomId}/cheat/respond-steal")
+    fun respondCheatStealRoom(
+        @DestinationVariable roomId: String,
+        request: StealResponseRequest,
+        headerAccessor: SimpMessageHeaderAccessor
+    ): GameState? {
+        val sessionId = headerAccessor.sessionId ?: ""
+
+        val room = roomRegistry.findById(roomId)
+        if (room == null) {
+            sendError(sessionId, ErrorCode.ROOM_NOT_FOUND, ROOM_NOT_FOUND_MESSAGE)
+            return null
+        }
+
+        val state = room.gameState
+        val gift = state.pendingGift
+        if (gift == null) {
+            sendError(sessionId, ErrorCode.NO_PENDING_GIFT, "Es laeuft kein Geschenk.")
+            return null
+        }
+
+        if (request.playerName == gift.ownerName) {
+            sendError(sessionId, ErrorCode.OWNER_CANNOT_STEAL, "Du kannst dein eigenes Geschenk nicht stehlen.")
+            return null
+        }
+
+        val player = state.players.find { it.name == request.playerName }
+        if (player == null) return null
+
+        val updated = gameService.respondCheatSteal(state, request.playerName, request.accept)
         sendRoomState(roomId, updated)
         return updated
     }
