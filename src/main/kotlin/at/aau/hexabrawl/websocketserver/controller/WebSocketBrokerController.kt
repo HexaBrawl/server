@@ -1,6 +1,7 @@
 package at.aau.hexabrawl.websocketserver.controller
 
 import at.aau.hexabrawl.websocketserver.model.BuyUnitRequest
+import at.aau.hexabrawl.websocketserver.model.ClaimGiftRequest
 import at.aau.hexabrawl.websocketserver.model.EndTurnRequest
 import at.aau.hexabrawl.websocketserver.model.ErrorCode
 import at.aau.hexabrawl.websocketserver.model.ErrorMessage
@@ -11,6 +12,7 @@ import at.aau.hexabrawl.websocketserver.model.JoinRequest
 import at.aau.hexabrawl.websocketserver.model.Move
 import at.aau.hexabrawl.websocketserver.model.PlayerColor
 import at.aau.hexabrawl.websocketserver.model.RoomRegistry
+import at.aau.hexabrawl.websocketserver.model.StealResponseRequest
 import at.aau.hexabrawl.websocketserver.model.StompMessage
 import at.aau.hexabrawl.websocketserver.model.UnitType
 import org.springframework.messaging.handler.annotation.DestinationVariable
@@ -134,6 +136,8 @@ class WebSocketBrokerController(
             return null
         }
 
+        if (!assertNoPendingGift(stateBefore, sessionId)) return null
+
         if (move.player != stateBefore.currentTurn) {
             sendError(sessionId, ErrorCode.NOT_YOUR_TURN, "Es ist nicht dein Zug!")
             return null
@@ -182,6 +186,8 @@ class WebSocketBrokerController(
             return null
         }
 
+        if (!assertNoPendingGift(stateBefore, sessionId)) return null
+
         if (stateBefore.currentTurn != request.playerName) {
             sendError(sessionId, ErrorCode.NOT_YOUR_TURN, "Du kannst nicht die Runde eines anderen Spielers beenden!")
             return null
@@ -211,6 +217,8 @@ class WebSocketBrokerController(
             sendError(sessionId, ErrorCode.GAME_NOT_STARTED, "Spiel ist nicht gestartet.")
             return null
         }
+
+        if (!assertNoPendingGift(state, sessionId)) return null
 
         val player = state.players.find { it.sessionId == sessionId }
         if (player == null) return null
@@ -275,6 +283,8 @@ class WebSocketBrokerController(
             sendError(sessionId, ErrorCode.GAME_NOT_STARTED, "Kauf abgelehnt: Spiel laeuft nicht.")
             return null
         }
+
+        if (!assertNoPendingGift(state, sessionId)) return null
 
         if (request.playerName != state.currentTurn) {
             sendError(sessionId, ErrorCode.NOT_YOUR_TURN, "Es ist nicht dein Zug.")
@@ -344,6 +354,110 @@ class WebSocketBrokerController(
     }
 
 
+    /**
+     * Oeffnet ein Schummel-Geschenk fuer den Spieler.
+     *
+     * Validierungs-Reihenfolge (billig vor teuer):
+     *  1. Room existiert? sonst ROOM_NOT_FOUND
+     *  2. Status IN_PROGRESS? sonst GAME_NOT_STARTED
+     *  3. delta in -10..10? sonst INVALID_CHEAT_DELTA
+     *  4. Kein pendingGift aktiv? sonst CHEAT_ALREADY_PENDING
+     *  5. Spieler existiert? sonst no-op
+     *  6. hasUsedGift false? sonst CHEAT_ALREADY_USED
+     *
+     * Bei Erfolg: delegiert an gameService.claimCheatGift und broadcastet.
+     */
+    @MessageMapping("/rooms/{roomId}/cheat/claim-gift")
+    fun claimCheatGiftRoom(
+        @DestinationVariable roomId: String,
+        request: ClaimGiftRequest,
+        headerAccessor: SimpMessageHeaderAccessor
+    ): GameState? {
+        val sessionId = headerAccessor.sessionId ?: ""
+
+        val room = roomRegistry.findById(roomId)
+        if (room == null) {
+            sendError(sessionId, ErrorCode.ROOM_NOT_FOUND, ROOM_NOT_FOUND_MESSAGE)
+            return null
+        }
+
+        val state = room.gameState
+
+        if (state.status != GameStatus.IN_PROGRESS) {
+            sendError(sessionId, ErrorCode.GAME_NOT_STARTED, "Spiel ist nicht gestartet.")
+            return null
+        }
+
+        if (request.delta !in -10..10) {
+            sendError(sessionId, ErrorCode.INVALID_CHEAT_DELTA, "Delta muss zwischen -10 und +10 liegen.")
+            return null
+        }
+
+        if (state.pendingGift != null) {
+            sendError(sessionId, ErrorCode.CHEAT_ALREADY_PENDING, "Es laeuft bereits ein Geschenk.")
+            return null
+        }
+
+        val player = state.players.find { it.name == request.playerName }
+        if (player == null) return null
+
+        if (player.hasUsedGift) {
+            sendError(sessionId, ErrorCode.CHEAT_ALREADY_USED, "Du hast dein Geschenk schon benutzt.")
+            return null
+        }
+
+        val updated = gameService.claimCheatGift(state, request.playerName, request.delta)
+        sendRoomState(roomId, updated)
+        return updated
+    }
+
+
+    /**
+     * Antwort auf das Schummel-Geschenk: "Ja klauen" oder "Nein".
+     *
+     * Validierungs-Reihenfolge (billig vor teuer):
+     *  1. Room existiert? sonst ROOM_NOT_FOUND
+     *  2. pendingGift aktiv? sonst NO_PENDING_GIFT
+     *  3. playerName != owner? sonst OWNER_CANNOT_STEAL
+     *  4. Spieler existiert? sonst no-op
+     *
+     * Bei Erfolg: delegiert an gameService.respondCheatSteal und broadcastet.
+     */
+    @MessageMapping("/rooms/{roomId}/cheat/respond-steal")
+    fun respondCheatStealRoom(
+        @DestinationVariable roomId: String,
+        request: StealResponseRequest,
+        headerAccessor: SimpMessageHeaderAccessor
+    ): GameState? {
+        val sessionId = headerAccessor.sessionId ?: ""
+
+        val room = roomRegistry.findById(roomId)
+        if (room == null) {
+            sendError(sessionId, ErrorCode.ROOM_NOT_FOUND, ROOM_NOT_FOUND_MESSAGE)
+            return null
+        }
+
+        val state = room.gameState
+        val gift = state.pendingGift
+        if (gift == null) {
+            sendError(sessionId, ErrorCode.NO_PENDING_GIFT, "Es laeuft kein Geschenk.")
+            return null
+        }
+
+        if (request.playerName == gift.ownerName) {
+            sendError(sessionId, ErrorCode.OWNER_CANNOT_STEAL, "Du kannst dein eigenes Geschenk nicht stehlen.")
+            return null
+        }
+
+        val player = state.players.find { it.name == request.playerName }
+        if (player == null) return null
+
+        val updated = gameService.respondCheatSteal(state, request.playerName, request.accept)
+        sendRoomState(roomId, updated)
+        return updated
+    }
+
+
     // Bridges fuer Tests, die noch ueber den globalen GameState gehen.
     fun handleJoin(name: String, sessionId: String, color: PlayerColor? = null) =
         gameService.handleJoin(name, sessionId, color)
@@ -365,5 +479,21 @@ class WebSocketBrokerController(
     private fun sendError(user: String, code: ErrorCode, msg: String) {
         val errorResponse = ErrorMessage(code, msg)
         messagingTemplate.convertAndSendToUser(user, "/queue/errors", errorResponse)
+    }
+
+    /**
+     * Prueft, ob aktuell ein Cheat-Geschenk auf Antwort wartet. Falls ja,
+     * wird GIFT_PENDING an den anfragenden Spieler zurueckgemeldet und
+     * der aufrufende Endpoint soll abbrechen.
+     *
+     * @return true wenn kein pendingGift aktiv (Endpoint darf weitermachen),
+     *         false wenn pendingGift aktiv (Error bereits gesendet).
+     */
+    private fun assertNoPendingGift(state: GameState, sessionId: String): Boolean {
+        if (state.pendingGift != null) {
+            sendError(sessionId, ErrorCode.GIFT_PENDING, "Warte auf Cheat-Entscheidung der Gegner.")
+            return false
+        }
+        return true
     }
 }
