@@ -754,9 +754,10 @@ class GameServiceTest {
     }
 
     @Test
-    fun `each player gets exactly one income per full round`() {
+    fun `each player gets exactly one income per full round in TRIAD_OUTPOST`() {
         val service = GameService(CombatService())
         val state = GameState().apply {
+            gameMode = GameMode.TRIAD_OUTPOST
             players.addAll(listOf(
                 Player(name = "Alice", gold = 0, farms = 1),
                 Player(name = "Bob",   gold = 0, farms = 1),
@@ -795,5 +796,59 @@ class GameServiceTest {
         assertEquals(UnitType.SKELETON, state.units[0].type)   // Alice insolvent
         assertEquals(100, state.players[1].gold)
         assertEquals(UnitType.INFANTRY, state.units[1].type)   // Bob unangetastet
+    }
+
+    @Test
+    fun `each player gets exactly one income per full round in BATTLEFIELD_PEAKS`() {
+        val service = GameService(CombatService())
+        val state = GameState().apply {
+            gameMode = GameMode.BATTLEFIELD_PEAKS
+            players.addAll(listOf(
+                Player(name = "Alice", gold = 0, farms = 1),
+                Player(name = "Bob",   gold = 0, farms = 1),
+                Player(name = "Carol", gold = 0, farms = 1),
+                Player(name = "Dave",  gold = 0, farms = 1)
+            ))
+            currentTurn = "Alice"
+            status = GameStatus.IN_PROGRESS
+        }
+        service.endTurn(state, "Alice")
+        service.endTurn(state, "Bob")
+        service.endTurn(state, "Carol")
+        service.endTurn(state, "Dave")
+
+        assertEquals(3, state.players[0].gold)
+        assertEquals(3, state.players[1].gold)
+        assertEquals(3, state.players[2].gold)
+        assertEquals(3, state.players[3].gold)
+    }
+
+    @Test
+    fun `disconnect ends game cleanly without triggering further economy ticks`() {
+        val service = GameService(CombatService())
+        val state = GameState().apply {
+            gameMode = GameMode.TRIAD_OUTPOST
+            players.addAll(listOf(
+                Player(name = "Alice", sessionId = "sess-alice", gold = 0, farms = 1),
+                Player(name = "Bob",   sessionId = "sess-bob",   gold = 0, farms = 1),
+                Player(name = "Carol", sessionId = "sess-carol", gold = 0, farms = 1)
+            ))
+            units.addAll(listOf(
+                GameUnit(player = "Alice", type = UnitType.BASE, x = 0, y = 0),
+                GameUnit(player = "Bob",   type = UnitType.BASE, x = 5, y = 5),
+                GameUnit(player = "Carol", type = UnitType.BASE, x = 10, y = 10)
+            ))
+            currentTurn = "Bob"
+            status = GameStatus.IN_PROGRESS
+        }
+
+        service.handleDisconnect(state, "sess-alice")
+
+        // Spiel ist beendet (TRIAD-Fallback bei Disconnect)
+        assertEquals(GameStatus.FINISHED, state.status)
+
+        // Verbleibende Spieler haben keinen ungewollten Income-Tick bekommen
+        assertEquals(0, state.players.first { it.name == "Bob" }.gold)
+        assertEquals(0, state.players.first { it.name == "Carol" }.gold)
     }
 }
