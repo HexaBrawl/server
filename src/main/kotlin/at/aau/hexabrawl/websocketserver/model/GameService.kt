@@ -271,12 +271,21 @@ class GameService(
     private fun checkWinCondition(state: GameState) {
         if (state.status != GameStatus.IN_PROGRESS) return
 
+        // Welche aktiven Spieler haben noch eine Basis?
         val playersWithBase = state.units
             .filter { it.type == UnitType.BASE }
             .map { it.player }
-            .distinct()
+            .toSet()
 
-        when (playersWithBase.size) {
+        // Wer ist in state.players, hat aber keine Basis mehr?
+        val playersToEliminate = state.players
+            .map { it.name }
+            .filter { it !in playersWithBase }
+
+        // Verlierer eliminieren (Felder freigeben, Einheiten löschen)
+        playersToEliminate.forEach { eliminatePlayer(state, it) }
+
+        when (state.players.size) {
             0 -> {
                 state.status = GameStatus.FINISHED
                 state.winner = null
@@ -284,7 +293,7 @@ class GameService(
             }
             1 -> {
                 state.status = GameStatus.FINISHED
-                state.winner = playersWithBase[0]
+                state.winner = state.players.first().name
                 state.currentTurn = null
             }
             else -> {
@@ -528,21 +537,16 @@ class GameService(
         val player = state.players.find { it.sessionId == sessionId }
             ?: return state
 
-        state.players.remove(player)
-        state.units.removeIf { it.player == player.name }
+        println("Service: PLAYER LEFT - ${player.name} disconnected")
 
+        // Den Spieler sauber eliminieren (Felder neutralisieren, Zugweitergabe, etc.)
+        eliminatePlayer(state, player.name)
+
+        // Prüfen, ob durch den Disconnect jetzt ein Sieger feststeht (z.B. nur noch 1 Spieler übrig)
         checkWinCondition(state)
 
-        // Fallback fuer Modi ohne BASE-Win
-        if (state.status == GameStatus.IN_PROGRESS && state.gameMode != GameMode.DUAL_VALLEY) {
-            state.status = GameStatus.FINISHED
-            state.currentTurn = null
-        }
-
         if (state.status == GameStatus.FINISHED) {
-            println("Service: GAME FINISHED - ${player.name} disconnected, winner: ${state.winner}")
-        } else {
-            println("Service: PLAYER LEFT - ${player.name} disconnected")
+            println("Service: GAME FINISHED - winner: ${state.winner}")
         }
 
         return state
@@ -635,6 +639,30 @@ class GameService(
         state.players.forEach { player ->
             player.income = computeIncome(player, state)
             player.upkeep = computeUpkeep(player, state)
+        }
+    }
+
+    /**
+     * Entfernt einen Spieler restlos aus dem Spiel (bei Disconnect oder Basis-Verlust).
+     * Räumt Felder auf, löscht Einheiten und übergibt den Zug, falls nötig.
+     */
+    private fun eliminatePlayer(state: GameState, playerName: String) {
+        // 1. Zug sauber weitergeben, falls der ausscheidende Spieler gerade am Zug ist.
+        // WICHTIG: Das muss passieren, BEVOR der Spieler aus state.players gelöscht wird!
+        if (state.currentTurn == playerName) {
+            switchTurn(state)
+        }
+
+        // 2. Spieler aus der Liste entfernen
+        state.players.removeIf { it.name == playerName }
+
+        // 3. Alle Einheiten des Spielers entfernen
+        state.units.removeIf { it.player == playerName }
+
+        // 4. Felder des Spielers neutralisieren (gehören niemandem mehr)
+        state.fields.filter { it.owner == playerName }.forEach { field ->
+            field.owner = null
+            field.isSkeleton = false
         }
     }
 }

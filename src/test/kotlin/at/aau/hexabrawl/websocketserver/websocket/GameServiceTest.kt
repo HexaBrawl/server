@@ -1,6 +1,8 @@
 package at.aau.hexabrawl.websocketserver.model
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
@@ -883,7 +885,7 @@ class GameServiceTest {
     }
 
     @Test
-    fun `disconnect ends game cleanly without triggering further economy ticks`() {
+    fun `disconnect removes player but game continues cleanly`() {
         val service = GameService(CombatService())
         val state = GameState().apply {
             gameMode = GameMode.TRIAD_OUTPOST
@@ -903,11 +905,91 @@ class GameServiceTest {
 
         service.handleDisconnect(state, "sess-alice")
 
-        // Spiel ist beendet (TRIAD-Fallback bei Disconnect)
-        assertEquals(GameStatus.FINISHED, state.status)
+        // Spiel geht für Bob und Carol normal weiter
+        assertEquals(GameStatus.IN_PROGRESS, state.status)
 
         // Verbleibende Spieler haben keinen ungewollten Income-Tick bekommen
         assertEquals(0, state.players.first { it.name == "Bob" }.gold)
         assertEquals(0, state.players.first { it.name == "Carol" }.gold)
+    }
+
+    @Test
+    fun `base loss in multiplayer eliminates player and frees fields`() {
+        val service = GameService(CombatService())
+        val state = GameState().apply {
+            status = GameStatus.IN_PROGRESS
+            gameMode = GameMode.TRIAD_OUTPOST
+            players.addAll(listOf(Player("Alice", "s1"), Player("Bob", "s2"), Player("Carol", "s3")))
+            currentTurn = "Alice"
+
+            // Alice hat eine Basis und eine angreifende Infanterie
+            units.add(GameUnit("Alice", 0, 0, UnitType.BASE))
+            units.add(GameUnit("Alice", 1, 0, UnitType.INFANTRY))
+
+            // Bob hat eine Basis (das Ziel) und einen wehrlosen Archer woanders
+            units.add(GameUnit("Bob", 2, 0, UnitType.BASE))
+            units.add(GameUnit("Bob", 3, 0, UnitType.ARCHER))
+
+            // Carol hat ihre Basis
+            units.add(GameUnit("Carol", 5, 5, UnitType.BASE))
+
+            // Felder zuweisen
+            fields.add(Field(1, 0).apply { owner = "Alice" })
+            fields.add(Field(2, 0).apply { owner = "Bob" })
+            fields.add(Field(3, 0).apply { owner = "Bob" })
+        }
+
+        // Aktion: Alice greift Bobs Basis an (Distanz 1) und zerstört sie sofort
+        service.handleMove(state, Move("Alice", UnitType.INFANTRY, 1, 0, 2, 0))
+
+        // Assertions: Bob muss restlos eliminiert sein
+        assertEquals(2, state.players.size)
+        assertTrue(state.players.none { it.name == "Bob" })
+
+        // Bobs restliche Truppen (der Archer) müssen weg sein
+        assertTrue(state.units.none { it.player == "Bob" })
+
+        // Bobs drittes Feld muss jetzt neutral sein
+        assertNull(state.fields.first { it.x == 3 && it.y == 0 }.owner)
+
+        // Spiel muss für Alice und Carol weitergehen
+        assertEquals(GameStatus.IN_PROGRESS, state.status)
+    }
+
+    @Test
+    fun `disconnect of active player passes turn and eliminates player`() {
+        val service = GameService(CombatService())
+        val state = GameState().apply {
+            status = GameStatus.IN_PROGRESS
+            gameMode = GameMode.TRIAD_OUTPOST
+            players.addAll(listOf(Player("Alice", "s1"), Player("Bob", "s2"), Player("Carol", "s3")))
+
+            // WICHTIG: Bob ist gerade am Zug!
+            currentTurn = "Bob"
+
+            units.add(GameUnit("Alice", 0, 0, UnitType.BASE))
+            units.add(GameUnit("Bob", 1, 1, UnitType.BASE))
+            units.add(GameUnit("Carol", 2, 2, UnitType.BASE))
+
+            fields.add(Field(1, 1).apply { owner = "Bob" })
+        }
+
+        // Aktion: Bob hat einen Disconnect
+        service.handleDisconnect(state, "s2")
+
+        // Assertions
+        assertEquals(2, state.players.size)
+
+        // Der Zug muss sauber an Carol weitergegeben worden sein
+        assertEquals("Carol", state.currentTurn)
+
+        // Bobs Basis muss weg sein
+        assertTrue(state.units.none { it.player == "Bob" })
+
+        // Bobs Feld muss neutral sein
+        assertNull(state.fields.first { it.x == 1 && it.y == 1 }.owner)
+
+        // Spiel geht weiter
+        assertEquals(GameStatus.IN_PROGRESS, state.status)
     }
 }

@@ -67,6 +67,12 @@ class UnitTypeTest {
 
     @Test
     fun `move should update correct unit by type`() {
+        // Basis direkt neben das Ziel setzen und die Felder Alice geben.
+        // Verhindert, dass der Archer auf (3,3) wegen recomputeConnectivity zum Skelett wird.
+        gameService.gameState.units.add(GameUnit(player = "Alice", type = UnitType.BASE, x = 3, y = 2))
+        gameService.gameState.fields.add(Field(3, 2).apply { owner = "Alice" })
+        gameService.gameState.fields.add(Field(3, 3).apply { owner = "Alice" })
+
         val move = Move(
             player = "Alice",
             type = UnitType.ARCHER,

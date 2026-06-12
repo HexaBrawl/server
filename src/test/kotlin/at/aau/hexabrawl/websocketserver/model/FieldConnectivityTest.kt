@@ -132,6 +132,10 @@ class FieldConnectivityTest {
             units.add(GameUnit(player = "Bob", x = 3, y = 0, type = UnitType.INFANTRY))
             // Zweite Bob-Einheit, damit allMovableUnitsHaveMoved nicht gleich switchTurn triggert
             units.add(GameUnit(player = "Bob", x = 4, y = 1, type = UnitType.CAVALRY))
+            // Damit Bob nicht eliminiert wird
+            // Bobs Basis direkt auf sein Startfeld (3,0) setzen.
+            // So bleibt das eroberte Nachbarfeld (2,0) mit der Basis verbunden
+            units.add(GameUnit(player = "Bob", x = 3, y = 0, type = UnitType.BASE))
             fields.add(Field(0, 0, owner = "Alice"))
             fields.add(Field(2, 0, owner = "Alice", isSkeleton = true))
             fields.add(Field(3, 0, owner = "Bob"))
