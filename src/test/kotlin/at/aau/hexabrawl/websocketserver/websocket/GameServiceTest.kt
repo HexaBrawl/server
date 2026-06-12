@@ -1054,4 +1054,75 @@ class GameServiceTest {
         assertNull(state.pendingGift)
         assertEquals(10, state.players.first { it.name == "Alice" }.gold)
     }
+
+    @Test
+    fun `handleDisconnect clears pendingGift when owner disconnects`() {
+        val service = GameService(CombatService())
+        val state = GameState().apply {
+            gameMode = GameMode.TRIAD_OUTPOST
+            status = GameStatus.IN_PROGRESS
+            players.addAll(listOf(
+                Player(name = "Alice", sessionId = "sess-alice", gold = 10, hasUsedGift = true),
+                Player(name = "Bob", sessionId = "sess-bob", gold = 5),
+                Player(name = "Carol", sessionId = "sess-carol", gold = 5)
+            ))
+            units.addAll(listOf(
+                GameUnit(player = "Alice", type = UnitType.BASE, x = 0, y = 0),
+                GameUnit(player = "Bob", type = UnitType.BASE, x = 5, y = 5),
+                GameUnit(player = "Carol", type = UnitType.BASE, x = 10, y = 10)
+            ))
+            pendingGift = PendingGift(ownerName = "Alice", delta = 5, pendingDecisions = 2)
+        }
+
+        service.handleDisconnect(state, "sess-alice")
+
+        assertNull(state.pendingGift)
+    }
+
+    @Test
+    fun `handleDisconnect decrements pendingDecisions when stealer disconnects`() {
+        val service = GameService(CombatService())
+        val state = GameState().apply {
+            gameMode = GameMode.TRIAD_OUTPOST
+            status = GameStatus.IN_PROGRESS
+            players.addAll(listOf(
+                Player(name = "Alice", sessionId = "sess-alice", gold = 10, hasUsedGift = true),
+                Player(name = "Bob", sessionId = "sess-bob", gold = 5),
+                Player(name = "Carol", sessionId = "sess-carol", gold = 5)
+            ))
+            units.addAll(listOf(
+                GameUnit(player = "Alice", type = UnitType.BASE, x = 0, y = 0),
+                GameUnit(player = "Bob", type = UnitType.BASE, x = 5, y = 5),
+                GameUnit(player = "Carol", type = UnitType.BASE, x = 10, y = 10)
+            ))
+            pendingGift = PendingGift(ownerName = "Alice", delta = 5, pendingDecisions = 2)
+        }
+
+        service.handleDisconnect(state, "sess-bob")
+
+        assertNotNull(state.pendingGift)
+        assertEquals(1, state.pendingGift?.pendingDecisions)
+    }
+
+    @Test
+    fun `handleDisconnect clears pendingGift when last stealer disconnects`() {
+        val service = GameService(CombatService())
+        val state = GameState().apply {
+            gameMode = GameMode.TRIAD_OUTPOST
+            status = GameStatus.IN_PROGRESS
+            players.addAll(listOf(
+                Player(name = "Alice", sessionId = "sess-alice", gold = 10, hasUsedGift = true),
+                Player(name = "Bob", sessionId = "sess-bob", gold = 5)
+            ))
+            units.addAll(listOf(
+                GameUnit(player = "Alice", type = UnitType.BASE, x = 0, y = 0),
+                GameUnit(player = "Bob", type = UnitType.BASE, x = 5, y = 5)
+            ))
+            pendingGift = PendingGift(ownerName = "Alice", delta = 5, pendingDecisions = 1)
+        }
+
+        service.handleDisconnect(state, "sess-bob")
+
+        assertNull(state.pendingGift)
+    }
 }
