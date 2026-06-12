@@ -449,7 +449,7 @@ class GameServiceTest {
     }
 
     @Test
-    fun `test applyUpkeep - normaler Abzug`() {
+    fun `test applyEconomy - normaler Abzug`() {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
@@ -461,21 +461,24 @@ class GameServiceTest {
         // Alice bewegt eine Einheit zu einem gueltigen Randfeld und beendet Runde
         val aliceInf = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
         gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, aliceInf.x, aliceInf.y + 1))
+
+        // Aktion: Alice beendet den Zug -> applyEconomy triggert SOFORT für Alice
         gameService.endTurn("Alice")
 
-        // Bob bewegt eine Einheit und beendet Runde -> Runden-Wrap-Around -> applyUpkeep
+        // Check direkt nach Alice' Zug: Alice erobert ein Feld (8 Felder) -> 20 + 8 - 12 = 16
+        assertThat(state.players.first { it.name == "Alice" }.gold).isEqualTo(16)
+
+        // Bob bewegt eine Einheit und beendet Runde -> applyEconomy triggert für Bob
         val bobInf = state.units.first { it.player == "Bob" && it.type == UnitType.INFANTRY }
         gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, bobInf.x, bobInf.y + 1))
         gameService.endTurn("Bob")
 
-        // Alice erobert ein Feld (8 Felder) -> 20 + 8 - 12 = 16
-        assertThat(state.players.first { it.name == "Alice" }.gold).isEqualTo(16)
-        // Bob tritt vom Spielfeld (bleibt bei 7 Feldern) -> 20 + 7 - 12 = 15
+        // Check nach Bobs Zug: Bob tritt vom Spielfeld (bleibt bei 7 Feldern) -> 20 + 7 - 12 = 15
         assertThat(state.players.first { it.name == "Bob" }.gold).isEqualTo(15)
     }
 
     @Test
-    fun `test applyUpkeep - Grenzfall exakt 0`() {
+    fun `test applyEconomy - Grenzfall exakt 0`() {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
@@ -487,19 +490,18 @@ class GameServiceTest {
 
         val aliceInf = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
         gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, aliceInf.x, aliceInf.y + 1))
+
+        // Alice beendet den Zug
         gameService.endTurn("Alice")
 
-        val bobInf = state.units.first { it.player == "Bob" && it.type == UnitType.INFANTRY }
-        gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, bobInf.x, bobInf.y + 1))
-        gameService.endTurn("Bob")
-
+        // Prüfen: Alice ist bei exakt 0, behält aber ihre Einheiten
         val alice = state.players.first { it.name == "Alice" }
         assertThat(alice.gold).isEqualTo(0)
         assertThat(state.units.count { it.player == "Alice" }).isEqualTo(4)
     }
 
     @Test
-    fun `test applyUpkeep - Insolvenz mit Unit-Verlust`() {
+    fun `test applyEconomy - Insolvenz mit Unit-Verlust`() {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
@@ -512,11 +514,9 @@ class GameServiceTest {
 
         val aliceInf = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
         gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, aliceInf.x, aliceInf.y + 1))
-        gameService.endTurn("Alice")
 
-        val bobInf = state.units.first { it.player == "Bob" && it.type == UnitType.INFANTRY }
-        gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, bobInf.x, bobInf.y + 1))
-        gameService.endTurn("Bob")
+        // Alice beendet den Zug und geht SOFORT insolvent
+        gameService.endTurn("Alice")
 
         val alice = state.players.first { it.name == "Alice" }
 
@@ -526,13 +526,13 @@ class GameServiceTest {
         // Die Einheiten sind noch da (3 Truppen und die Basis)
         val aliceUnits = state.units.filter { it.player == "Alice" }
         assertThat(aliceUnits.size).isEqualTo(4)
-        // Aber alle Truppen sind zu Skeletten geworden
+        // Aber alle Truppen sind sofort zu Skeletten geworden
         val aliceArmy = aliceUnits.filter { it.type != UnitType.BASE }
         assertThat(aliceArmy.all { it.type == UnitType.SKELETON }).isTrue()
     }
 
     @Test
-    fun `test applyUpkeep - Insolvenz loest keine Win-Condition aus`() {
+    fun `test applyEconomy - Insolvenz loest keine Win-Condition aus`() {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
@@ -544,11 +544,9 @@ class GameServiceTest {
 
         val aliceInf = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
         gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, aliceInf.x, aliceInf.y + 1))
-        gameService.endTurn("Alice")
 
-        val bobInf = state.units.first { it.player == "Bob" && it.type == UnitType.INFANTRY }
-        gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, bobInf.x, bobInf.y + 1))
-        gameService.endTurn("Bob")
+        // Alice beendet Zug -> wird insolvent
+        gameService.endTurn("Alice")
 
         // Da Alice durch Insolvenz zwar ihre Armee verliert, aber die Basis noch steht, geht das Spiel weiter.
         assertThat(state.status).isEqualTo(GameStatus.IN_PROGRESS)
@@ -556,11 +554,12 @@ class GameServiceTest {
     }
 
     @Test
-    fun `test applyUpkeep - Farm-Einkommen verhindert Insolvenz`() {
+    fun `test applyEconomy - Farm-Einkommen verhindert Insolvenz`() {
         gameService.initializeGame()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
         seedDualValleyCombatUnits()
+
         val state = gameService.getCurrentState()
         val alice = state.players.first { it.name == "Alice" }
         val bob = state.players.first { it.name == "Bob" }
@@ -571,11 +570,11 @@ class GameServiceTest {
 
         val aliceInf = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
         gameService.handleMove(Move("Alice", UnitType.INFANTRY, aliceInf.x, aliceInf.y, aliceInf.x, aliceInf.y + 1))
-        gameService.endTurn("Alice")
-        val bobInf = state.units.first { it.player == "Bob" && it.type == UnitType.INFANTRY }
-        gameService.handleMove(Move("Bob", UnitType.INFANTRY, bobInf.x, bobInf.y, bobInf.x, bobInf.y + 1))
-        gameService.endTurn("Bob")
 
+        // Alice beendet den Zug
+        gameService.endTurn("Alice")
+
+        // Prüfen: 2 Startgold + 8 Feld-Gold + 3 Farm-Gold = 13 Gold. - 12 Upkeep = 1 Gold.
         assertThat(alice.gold).isEqualTo(1)
         assertThat(alice.farms).isEqualTo(1)
         assertThat(state.units.filter { it.player == "Alice" }.all { it.type != UnitType.SKELETON }).isTrue()
@@ -585,6 +584,10 @@ class GameServiceTest {
     fun `field income added on top of farm income`() {
         val service = GameService(CombatService())
         val state = GameState().apply {
+            // Spiel starten und Alice an die Reihe setzen
+            status = GameStatus.IN_PROGRESS
+            currentTurn = "Alice"
+
             players.add(Player(name = "Alice", gold = 0, farms = 1))
             fields.addAll(listOf(
                 Field(0, 0, owner = "Alice"),
@@ -592,7 +595,10 @@ class GameServiceTest {
                 Field(0, 2, owner = "Alice")
             ))
         }
-        service.applyUpkeep(state)
+
+        // Statt applyUpkeep beendet Alice jetzt offiziell ihren Zug.
+        // Weil sie laut currentTurn dran war, wird ihre Wirtschaft jetzt berechnet
+        service.endTurn(state, "Alice")
 
         // 3 Felder × 1 + 1 Farm × 3 = 6 Gold, keine Units → kein Upkeep
         assertEquals(6, state.players[0].gold)
@@ -602,10 +608,16 @@ class GameServiceTest {
     fun `field income works with zero farms`() {
         val service = GameService(CombatService())
         val state = GameState().apply {
+            // Spiel starten und Alice an die Reihe setzen
+            status = GameStatus.IN_PROGRESS
+            currentTurn = "Alice"
+
             players.add(Player(name = "Alice", gold = 0, farms = 0))
             fields.addAll(List(5) { Field(0, it, owner = "Alice") })
         }
-        service.applyUpkeep(state)
+
+        // Zug beenden
+        service.endTurn(state, "Alice")
 
         assertEquals(5, state.players[0].gold)
     }
@@ -614,11 +626,14 @@ class GameServiceTest {
     fun `field income works with zero fields and zero farms`() {
         val service = GameService(CombatService())
         val state = GameState().apply {
+            status = GameStatus.IN_PROGRESS
+            currentTurn = "Alice"
+
             players.add(Player(name = "Alice", gold = 0, farms = 0))
             // Keine Felder hinzufuegen
         }
 
-        service.applyUpkeep(state)
+        service.endTurn(state, "Alice")
 
         assertEquals(0, state.players[0].gold)
     }
@@ -697,24 +712,88 @@ class GameServiceTest {
         val state = GameState().apply {
             status = GameStatus.IN_PROGRESS
 
-            players.add(Player(name = "Alice", gold = 0)) // Index 0 (Spieler 1)
-            players.add(Player(name = "Bob", gold = 10))  // Index 1 (Spieler 2)
+            players.add(Player(name = "Alice", gold = 0)) // Index 0
+            players.add(Player(name = "Bob", gold = 10))  // Index 1
 
-            // Es ist aktuell Bobs Zug (der letzte Spieler in der Runde)
-            currentTurn = "Bob"
+            // Alice ist am Zug
+            currentTurn = "Alice"
 
             units.add(GameUnit(player = "Alice", type = UnitType.INFANTRY, x = 0, y = 0)) // Upkeep = 3
         }
 
-        // Aktion: Bob beendet seinen Zug.
-        // Runden-Wrap-Around feuert -> es ist wieder Alice dran -> applyUpkeep() wird aufgerufen!
-        service.endTurn(state, "Bob")
+        // Aktion: Alice beendet ihren Zug. applyEconomy() wird für sie aufgerufen.
+        service.endTurn(state, "Alice")
 
-        // Broadcast-Vorbereitung
+        // Broadcast-Vorbereitung (simuliert den Controller)
         service.recomputePlayerStats(state)
 
-        // Truppe wurde zum Skeleton, daher kostet sie keinen Unterhalt mehr
+        // Alices Truppe wurde zum Skeleton, daher kostet sie keinen Unterhalt mehr
         assertEquals(0, state.players[0].upkeep)
         assertEquals(UnitType.SKELETON, state.units[0].type)
+
+        // Beweis, dass der Turn sauber an Bob weitergegeben wurde
+        assertEquals("Bob", state.currentTurn)
+    }
+
+    @Test
+    fun `endTurn applies economy only to the ending player`() {
+        val service = GameService(CombatService())
+        val state = GameState().apply {
+            players.addAll(listOf(
+                Player(name = "Alice", gold = 0, farms = 1),
+                Player(name = "Bob", gold = 0, farms = 1)
+            ))
+            currentTurn = "Alice"
+            status = GameStatus.IN_PROGRESS
+        }
+        service.endTurn(state, "Alice")
+
+        assertEquals(3, state.players[0].gold)  // Alice: 1 Farm × 3
+        assertEquals(0, state.players[1].gold)  // Bob unverändert
+        assertEquals("Bob", state.currentTurn)
+    }
+
+    @Test
+    fun `each player gets exactly one income per full round`() {
+        val service = GameService(CombatService())
+        val state = GameState().apply {
+            players.addAll(listOf(
+                Player(name = "Alice", gold = 0, farms = 1),
+                Player(name = "Bob",   gold = 0, farms = 1),
+                Player(name = "Carol", gold = 0, farms = 1)
+            ))
+            currentTurn = "Alice"
+            status = GameStatus.IN_PROGRESS
+        }
+        service.endTurn(state, "Alice")
+        service.endTurn(state, "Bob")
+        service.endTurn(state, "Carol")
+
+        assertEquals(3, state.players[0].gold)
+        assertEquals(3, state.players[1].gold)
+        assertEquals(3, state.players[2].gold)
+    }
+
+    @Test
+    fun `insolvency only affects the ending player`() {
+        val service = GameService(CombatService())
+        val state = GameState().apply {
+            players.addAll(listOf(
+                Player(name = "Alice", gold = 0, farms = 0),
+                Player(name = "Bob",   gold = 100, farms = 0)
+            ))
+            units.addAll(listOf(
+                GameUnit(player = "Alice", type = UnitType.INFANTRY, x = 0, y = 0),
+                GameUnit(player = "Bob",   type = UnitType.INFANTRY, x = 1, y = 1)
+            ))
+            currentTurn = "Alice"
+            status = GameStatus.IN_PROGRESS
+        }
+        service.endTurn(state, "Alice")
+
+        assertEquals(0, state.players[0].gold)
+        assertEquals(UnitType.SKELETON, state.units[0].type)   // Alice insolvent
+        assertEquals(100, state.players[1].gold)
+        assertEquals(UnitType.INFANTRY, state.units[1].type)   // Bob unangetastet
     }
 }

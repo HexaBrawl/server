@@ -342,7 +342,10 @@ class GameService(
     private fun switchTurn(state: GameState) {
         if (state.players.isEmpty()) return
 
-        val wasFirstBefore = state.currentTurn == state.players[0].name
+        // Wirtschaft des Spielers, dessen Zug gerade endet
+        state.players.firstOrNull { it.name == state.currentTurn }?.let {
+            applyEconomy(state, it)
+        }
 
         if (state.players.size == 2) {
             val p1 = state.players[0]
@@ -357,13 +360,8 @@ class GameService(
             }
         }
 
-        // Neue Runde: alle Einheiten duerfen wieder ziehen.
+        // Neue Runde: alle Einheiten dürfen wieder ziehen
         state.units.forEach { it.hasMovedThisTurn = false }
-
-        // Runden-Wrap-Around: Upkeep wenn wieder Spieler 1 dran ist.
-        if (!wasFirstBefore && state.currentTurn == state.players[0].name) {
-            applyUpkeep(state)
-        }
     }
 
     private fun allMovableUnitsHaveMoved(state: GameState, playerName: String): Boolean {
@@ -499,24 +497,20 @@ class GameService(
      * Farm-Einkommen gutschreiben, Unterhalt abziehen (1. Einheit 3 Gold, jede weitere +1).
      * Bei Insolvenz: Gold auf 0, alle lebenden Truppen → SKELETON.
      */
-    internal fun applyUpkeep(state: GameState) {
-        state.players.forEach { player ->
-            player.gold += computeIncome(player, state)
-            val upkeep = computeUpkeep(player, state)
-            val playerUnits = state.units.filter {
-                it.player == player.name && it.type != UnitType.SKELETON && it.type != UnitType.BASE
-            }
+    private fun applyEconomy(state: GameState, player: Player) {
+        player.gold += computeIncome(player, state)
+        val upkeep = computeUpkeep(player, state)
+        val playerUnits = state.units.filter {
+            it.player == player.name && it.type != UnitType.SKELETON && it.type != UnitType.BASE
+        }
 
-            if (player.gold >= upkeep) {
-                player.gold -= upkeep
-            } else {
-                player.gold = 0
-                playerUnits.forEach { it.type = UnitType.SKELETON }
-            }
+        if (player.gold >= upkeep) {
+            player.gold -= upkeep
+        } else {
+            player.gold = 0
+            playerUnits.forEach { it.type = UnitType.SKELETON }
         }
     }
-
-
 
     /**
      * Kauft eine neue Einheit und platziert sie an (x, y) (#132).
