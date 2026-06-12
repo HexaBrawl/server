@@ -528,6 +528,22 @@ class GameService(
         val player = state.players.find { it.sessionId == sessionId }
             ?: return state
 
+        // Aktives Cheat-Geschenk aufraeumen, falls der disconnectete Spieler beteiligt war
+        state.pendingGift?.let { gift ->
+            if (gift.ownerName == player.name) {
+                // Owner ist weg — Geschenk abbrechen
+                state.pendingGift = null
+            } else {
+                // Stealer-Kandidat weg — eine Entscheidung weniger
+                val remaining = gift.pendingDecisions - 1
+                state.pendingGift = if (remaining > 0) {
+                    gift.copy(pendingDecisions = remaining)
+                } else {
+                    null
+                }
+            }
+        }
+
         state.players.remove(player)
         state.units.removeIf { it.player == player.name }
 
