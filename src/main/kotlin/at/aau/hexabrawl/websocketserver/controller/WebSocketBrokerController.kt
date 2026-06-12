@@ -311,6 +311,16 @@ class WebSocketBrokerController(
             return null
         }
 
+        // Zielfeld darf kein Skelett-Feld (abgeschnitten) sein
+        if (field.isSkeleton) {
+            sendError(
+                sessionId,
+                ErrorCode.INVALID_PLACEMENT,
+                "Einheit kann nicht auf abgeschnittenen Feldern platziert werden."
+            )
+            return null
+        }
+
         // Zielfeld darf nicht von eigener Einheit (inkl. BASE) besetzt sein.
         // Skelette zaehlen nicht als "besetzt" — werden vom Service entfernt.
         val occupiedByOwn = state.units.any {

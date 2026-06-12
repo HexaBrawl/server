@@ -1315,4 +1315,46 @@ class WebSocketBrokerControllerTest {
         assertTrue(state.units.none { it.hasMovedThisTurn })
         assertEquals("Bob", state.currentTurn)
     }
+
+    @Test
+    fun `buyUnitRoom sends INVALID_PLACEMENT if target field is a skeleton`() {
+        val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
+        room.gameState.status = GameStatus.IN_PROGRESS
+        room.gameState.currentTurn = "Alice"
+
+        val alice = Player("Alice", "test-session", gold = 50)
+        room.gameState.players.add(alice)
+
+        // Setup: Das Zielfeld gehört Alice, ist aber eine tote Zone (isSkeleton = true)
+        room.gameState.fields.add(Field(x = 2, y = 2, owner = "Alice", isSkeleton = true))
+
+        val request = BuyUnitRequest(
+            playerName = "Alice",
+            type = UnitType.INFANTRY,
+            x = 2,
+            y = 2
+        )
+
+        // Ausführung
+        val result = controller.buyUnitRoom(room.roomId, request, headerAccessor)
+
+        // Assertions
+        assertNull(result) // Kauf muss abgebrochen werden
+
+        // Prüfen, dass das Gold NICHT abgezogen wurde
+        assertEquals(50, alice.gold)
+
+        // Prüfen, dass KEINE Einheit platziert wurde
+        assertTrue(room.gameState.units.none { it.x == 2 && it.y == 2 && it.type == UnitType.INFANTRY })
+
+        // Prüfen, dass die korrekte INVALID_PLACEMENT Fehlermeldung an den Client gesendet wurde
+        verify(messagingTemplate).convertAndSendToUser(
+            eq("test-session"),
+            eq("/queue/errors"),
+            argThat {
+                it is ErrorMessage &&
+                        it.errorCode == ErrorCode.INVALID_PLACEMENT
+            }
+        )
+    }
 }
