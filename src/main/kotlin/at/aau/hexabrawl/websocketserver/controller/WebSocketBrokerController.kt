@@ -136,6 +136,8 @@ class WebSocketBrokerController(
             return null
         }
 
+        if (!assertNoPendingGift(stateBefore, sessionId)) return null
+
         if (move.player != stateBefore.currentTurn) {
             sendError(sessionId, ErrorCode.NOT_YOUR_TURN, "Es ist nicht dein Zug!")
             return null
@@ -184,6 +186,8 @@ class WebSocketBrokerController(
             return null
         }
 
+        if (!assertNoPendingGift(stateBefore, sessionId)) return null
+
         if (stateBefore.currentTurn != request.playerName) {
             sendError(sessionId, ErrorCode.NOT_YOUR_TURN, "Du kannst nicht die Runde eines anderen Spielers beenden!")
             return null
@@ -213,6 +217,8 @@ class WebSocketBrokerController(
             sendError(sessionId, ErrorCode.GAME_NOT_STARTED, "Spiel ist nicht gestartet.")
             return null
         }
+
+        if (!assertNoPendingGift(state, sessionId)) return null
 
         val player = state.players.find { it.sessionId == sessionId }
         if (player == null) return null
@@ -277,6 +283,8 @@ class WebSocketBrokerController(
             sendError(sessionId, ErrorCode.GAME_NOT_STARTED, "Kauf abgelehnt: Spiel laeuft nicht.")
             return null
         }
+
+        if (!assertNoPendingGift(state, sessionId)) return null
 
         if (request.playerName != state.currentTurn) {
             sendError(sessionId, ErrorCode.NOT_YOUR_TURN, "Es ist nicht dein Zug.")
@@ -471,5 +479,21 @@ class WebSocketBrokerController(
     private fun sendError(user: String, code: ErrorCode, msg: String) {
         val errorResponse = ErrorMessage(code, msg)
         messagingTemplate.convertAndSendToUser(user, "/queue/errors", errorResponse)
+    }
+
+    /**
+     * Prueft, ob aktuell ein Cheat-Geschenk auf Antwort wartet. Falls ja,
+     * wird GIFT_PENDING an den anfragenden Spieler zurueckgemeldet und
+     * der aufrufende Endpoint soll abbrechen.
+     *
+     * @return true wenn kein pendingGift aktiv (Endpoint darf weitermachen),
+     *         false wenn pendingGift aktiv (Error bereits gesendet).
+     */
+    private fun assertNoPendingGift(state: GameState, sessionId: String): Boolean {
+        if (state.pendingGift != null) {
+            sendError(sessionId, ErrorCode.GIFT_PENDING, "Warte auf Cheat-Entscheidung der Gegner.")
+            return false
+        }
+        return true
     }
 }
