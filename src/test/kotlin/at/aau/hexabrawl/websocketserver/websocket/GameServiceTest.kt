@@ -2,6 +2,7 @@ package at.aau.hexabrawl.websocketserver.model
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -980,5 +981,77 @@ class GameServiceTest {
         service.claimCheatGift(state, "Alice", 5)
 
         assertEquals(3, state.pendingGift?.pendingDecisions)
+    }
+
+    @Test
+    fun `respondCheatSteal accept transfers delta and clears pendingGift`() {
+        val service = GameService(CombatService())
+        val state = GameState().apply {
+            players.addAll(listOf(
+                Player(name = "Alice", gold = 12, hasUsedGift = true),
+                Player(name = "Bob", gold = 5)
+            ))
+            pendingGift = PendingGift(ownerName = "Alice", delta = 7, pendingDecisions = 1)
+        }
+
+        service.respondCheatSteal(state, "Bob", true)
+
+        assertEquals(5, state.players.first { it.name == "Alice" }.gold)
+        assertEquals(12, state.players.first { it.name == "Bob" }.gold)
+        assertNull(state.pendingGift)
+    }
+
+    @Test
+    fun `respondCheatSteal accept caps stealer gold at zero on negative delta`() {
+        val service = GameService(CombatService())
+        val state = GameState().apply {
+            players.addAll(listOf(
+                Player(name = "Alice", gold = 0, hasUsedGift = true),
+                Player(name = "Bob", gold = 2)
+            ))
+            pendingGift = PendingGift(ownerName = "Alice", delta = -5, pendingDecisions = 1)
+        }
+
+        service.respondCheatSteal(state, "Bob", true)
+
+        assertEquals(5, state.players.first { it.name == "Alice" }.gold)
+        assertEquals(0, state.players.first { it.name == "Bob" }.gold)
+        assertNull(state.pendingGift)
+    }
+
+    @Test
+    fun `respondCheatSteal decline decrements pendingDecisions when others remain`() {
+        val service = GameService(CombatService())
+        val state = GameState().apply {
+            players.addAll(listOf(
+                Player(name = "Alice", gold = 10, hasUsedGift = true),
+                Player(name = "Bob", gold = 5),
+                Player(name = "Carol", gold = 5)
+            ))
+            pendingGift = PendingGift(ownerName = "Alice", delta = 5, pendingDecisions = 2)
+        }
+
+        service.respondCheatSteal(state, "Bob", false)
+
+        assertNotNull(state.pendingGift)
+        assertEquals(1, state.pendingGift?.pendingDecisions)
+        assertEquals(10, state.players.first { it.name == "Alice" }.gold)
+    }
+
+    @Test
+    fun `respondCheatSteal decline clears pendingGift when last decision`() {
+        val service = GameService(CombatService())
+        val state = GameState().apply {
+            players.addAll(listOf(
+                Player(name = "Alice", gold = 10, hasUsedGift = true),
+                Player(name = "Bob", gold = 5)
+            ))
+            pendingGift = PendingGift(ownerName = "Alice", delta = 5, pendingDecisions = 1)
+        }
+
+        service.respondCheatSteal(state, "Bob", false)
+
+        assertNull(state.pendingGift)
+        assertEquals(10, state.players.first { it.name == "Alice" }.gold)
     }
 }
