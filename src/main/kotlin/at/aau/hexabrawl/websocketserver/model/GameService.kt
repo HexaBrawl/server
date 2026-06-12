@@ -637,4 +637,41 @@ class GameService(
             player.upkeep = computeUpkeep(player, state)
         }
     }
+
+    /**
+     * Schummel-Geschenk oeffnen (Cheat-Gift).
+     *
+     * Diese Methode setzt voraus, dass der Controller bereits alle
+     * Validierungen durchgefuehrt hat (Status IN_PROGRESS, delta in
+     * -10..10, pendingGift == null, Spieler existiert, hasUsedGift
+     * == false).
+     *
+     * Verhalten:
+     *  - delta wird auf player.gold gebucht. Bei Resultat < 0 wird
+     *    auf 0 gecappt (User-Entscheidung: kein negatives Gold).
+     *  - player.hasUsedGift wird auf true gesetzt (sticky bis Spielende).
+     *  - state.pendingGift wird mit pendingDecisions = players.size - 1
+     *    angelegt, sodass alle anderen Spieler die Steal-Entscheidung
+     *    treffen koennen.
+     *
+     * Thread-safe ueber state.lock.
+     */
+    fun claimCheatGift(
+        state: GameState,
+        playerName: String,
+        delta: Int
+    ): GameState = synchronized(state.lock) {
+        val player = state.players.find { it.name == playerName } ?: return state
+
+        player.gold += delta
+        if (player.gold < 0) player.gold = 0
+        player.hasUsedGift = true
+
+        state.pendingGift = PendingGift(
+            ownerName = player.name,
+            delta = delta,
+            pendingDecisions = state.players.size - 1
+        )
+        return state
+    }
 }

@@ -1,6 +1,7 @@
 package at.aau.hexabrawl.websocketserver.controller
 
 import at.aau.hexabrawl.websocketserver.model.BuyUnitRequest
+import at.aau.hexabrawl.websocketserver.model.ClaimGiftRequest
 import at.aau.hexabrawl.websocketserver.model.EndTurnRequest
 import at.aau.hexabrawl.websocketserver.model.ErrorCode
 import at.aau.hexabrawl.websocketserver.model.ErrorMessage
@@ -339,6 +340,64 @@ class WebSocketBrokerController(
             request.x,
             request.y
         )
+        sendRoomState(roomId, updated)
+        return updated
+    }
+
+
+    /**
+     * Oeffnet ein Schummel-Geschenk fuer den Spieler.
+     *
+     * Validierungs-Reihenfolge (billig vor teuer):
+     *  1. Room existiert? sonst ROOM_NOT_FOUND
+     *  2. Status IN_PROGRESS? sonst GAME_NOT_STARTED
+     *  3. delta in -10..10? sonst INVALID_CHEAT_DELTA
+     *  4. Kein pendingGift aktiv? sonst CHEAT_ALREADY_PENDING
+     *  5. Spieler existiert? sonst no-op
+     *  6. hasUsedGift false? sonst CHEAT_ALREADY_USED
+     *
+     * Bei Erfolg: delegiert an gameService.claimCheatGift und broadcastet.
+     */
+    @MessageMapping("/rooms/{roomId}/cheat/claim-gift")
+    fun claimCheatGiftRoom(
+        @DestinationVariable roomId: String,
+        request: ClaimGiftRequest,
+        headerAccessor: SimpMessageHeaderAccessor
+    ): GameState? {
+        val sessionId = headerAccessor.sessionId ?: ""
+
+        val room = roomRegistry.findById(roomId)
+        if (room == null) {
+            sendError(sessionId, ErrorCode.ROOM_NOT_FOUND, ROOM_NOT_FOUND_MESSAGE)
+            return null
+        }
+
+        val state = room.gameState
+
+        if (state.status != GameStatus.IN_PROGRESS) {
+            sendError(sessionId, ErrorCode.GAME_NOT_STARTED, "Spiel ist nicht gestartet.")
+            return null
+        }
+
+        if (request.delta !in -10..10) {
+            sendError(sessionId, ErrorCode.INVALID_CHEAT_DELTA, "Delta muss zwischen -10 und +10 liegen.")
+            return null
+        }
+
+        if (state.pendingGift != null) {
+            sendError(sessionId, ErrorCode.CHEAT_ALREADY_PENDING, "Es laeuft bereits ein Geschenk.")
+            return null
+        }
+
+        val player = state.players.find { it.name == request.playerName }
+        if (player == null) return null
+
+        if (player.hasUsedGift) {
+            sendError(sessionId, ErrorCode.CHEAT_ALREADY_USED, "Du hast dein Geschenk schon benutzt.")
+            return null
+        }
+
+        val updated = gameService.claimCheatGift(state, request.playerName, request.delta)
         sendRoomState(roomId, updated)
         return updated
     }
