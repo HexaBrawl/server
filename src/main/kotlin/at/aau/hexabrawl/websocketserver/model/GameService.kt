@@ -620,7 +620,7 @@ class GameService(
         return state
     }
     private fun computeIncome(player: Player, state: GameState): Int {
-        val ownedFields = state.fields.count { it.owner == player.name }
+        val ownedFields = state.fields.count { it.owner == player.name && !it.isSkeleton }
         return ownedFields * FIELD_INCOME_PER_ROUND + player.farms * FARM_INCOME_PER_ROUND
     }
 

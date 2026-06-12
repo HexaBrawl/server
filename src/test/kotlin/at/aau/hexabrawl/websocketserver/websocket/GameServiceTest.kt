@@ -639,6 +639,65 @@ class GameServiceTest {
     }
 
     @Test
+    fun `field income excludes skeleton fields`() {
+        val service = GameService(CombatService())
+        val state = GameState().apply {
+            status = GameStatus.IN_PROGRESS
+            currentTurn = "Alice"
+
+            players.add(Player(name = "Alice", gold = 0, farms = 0))
+            // 3 Felder, davon 1 SKELETON
+            fields.add(Field(0, 0, owner = "Alice"))
+            fields.add(Field(0, 1, owner = "Alice"))
+            fields.add(Field(0, 2, owner = "Alice", isSkeleton = true))
+        }
+
+        service.endTurn(state, "Alice")
+
+        // Nur 2 von 3 Feldern zaehlen
+        assertEquals(2, state.players[0].gold)
+    }
+
+    @Test
+    fun `field income is zero when all fields are skeleton`() {
+        val service = GameService(CombatService())
+        val state = GameState().apply {
+            status = GameStatus.IN_PROGRESS
+            currentTurn = "Alice"
+
+            players.add(Player(name = "Alice", gold = 0, farms = 1))
+            fields.addAll(List(3) { Field(0, it, owner = "Alice", isSkeleton = true) })
+        }
+
+        service.endTurn(state, "Alice")
+
+        // Nur Farm-Income (1 × 3 = 3), kein Feld-Income
+        assertEquals(3, state.players[0].gold)
+    }
+
+    @Test
+    fun `recomputePlayerStats income drops when a field becomes skeleton`() {
+        val service = GameService(CombatService())
+        val state = GameState().apply {
+            players.add(Player(name = "Alice", farms = 0))
+            fields.add(Field(0, 0, owner = "Alice"))
+            fields.add(Field(0, 1, owner = "Alice"))
+            fields.add(Field(0, 2, owner = "Alice"))
+        }
+
+        service.recomputePlayerStats(state)
+        val incomeBefore = state.players[0].income
+
+        // Eines der Felder wird abgeschnitten
+        state.fields[1].isSkeleton = true
+        service.recomputePlayerStats(state)
+        val incomeAfter = state.players[0].income
+
+        assertEquals(3, incomeBefore)
+        assertEquals(2, incomeAfter)
+    }
+
+    @Test
     fun `recomputePlayerStats sets income from fields and farms`() {
         val service = GameService(CombatService())
         val state = GameState().apply {
