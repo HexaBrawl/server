@@ -13,10 +13,46 @@ class DisconnectHandlerTest {
         gameService = GameService(CombatService())
     }
 
+    /**
+     * Test-Helper: simuliert die kombinierte Soft+Hard-Disconnect-Sequenz
+     * (handleDisconnect markiert, hardDelete macht endgueltig). Im echten
+     * Code passiert das durch den Scheduled Cleanup nach 30s Grace.
+     */
+    private fun forceDisconnect(sessionId: String) {
+        val state = gameService.gameState
+        val player = state.players.find { it.sessionId == sessionId } ?: return
+        gameService.handleDisconnect(sessionId)
+        gameService.hardDelete(state, player)
+    }
+
+    @Test
+    fun `handleDisconnect alone only marks player as not connected`() {
+        gameService.handleJoin("Alice", "session-1")
+        gameService.handleJoin("Bob", "session-2")
+
+        gameService.handleDisconnect("session-1")
+
+        val alice = gameService.gameState.players.first { it.name == "Alice" }
+        assertFalse(alice.connected)
+        assertNotNull(alice.disconnectedAt)
+        // Player bleibt im State waehrend Grace Period
+        assertEquals(2, gameService.gameState.players.size)
+    }
+
+    @Test
+    fun `handleDisconnect with unknown sessionId is no-op for soft disconnect`() {
+        gameService.handleJoin("Alice", "session-1")
+        gameService.handleDisconnect("unknown-session")
+
+        assertEquals(1, gameService.gameState.players.size)
+        val alice = gameService.gameState.players.first { it.name == "Alice" }
+        assertTrue(alice.connected)
+    }
+
     @Test
     fun `disconnect during WAITING_FOR_PLAYERS removes player`() {
         gameService.handleJoin("Alice", "session-1")
-        gameService.handleDisconnect("session-1")
+        forceDisconnect("session-1")
 
         assertEquals(0, gameService.gameState.players.size)
         assertEquals(GameStatus.WAITING_FOR_PLAYERS, gameService.gameState.status)
@@ -29,7 +65,7 @@ class DisconnectHandlerTest {
 
         assertEquals(GameStatus.IN_PROGRESS, gameService.gameState.status)
 
-        gameService.handleDisconnect("session-1")
+        forceDisconnect("session-1")
 
         assertEquals(GameStatus.FINISHED, gameService.gameState.status)
     }
@@ -39,7 +75,7 @@ class DisconnectHandlerTest {
         gameService.handleJoin("Alice", "session-1")
         gameService.handleJoin("Bob", "session-2")
 
-        gameService.handleDisconnect("session-1")
+        forceDisconnect("session-1")
 
         val aliceUnits = gameService.gameState.units.filter { it.player == "Alice" }
         assertEquals(0, aliceUnits.size)
@@ -58,7 +94,7 @@ class DisconnectHandlerTest {
         gameService.handleJoin("Alice", "session-1")
         gameService.handleJoin("Bob", "session-2")
 
-        gameService.handleDisconnect("session-1")
+        forceDisconnect("session-1")
 
         assertNull(gameService.gameState.currentTurn)
     }
@@ -76,7 +112,7 @@ class DisconnectHandlerTest {
         s.units.add(GameUnit("Bob", 7, 8, UnitType.INFANTRY))
         s.units.add(GameUnit("Bob", 6, 7, UnitType.CAVALRY))
 
-        gameService.handleDisconnect("session-1")
+        forceDisconnect("session-1")
 
         // 3 regulaere Einheiten (ARCHER, INFANTRY, CAVALRY) + 1 BASE pro Spieler.
         val bobUnits = gameService.gameState.units.filter { it.player == "Bob" }
@@ -88,7 +124,7 @@ class DisconnectHandlerTest {
         gameService.handleJoin("Alice", "session-1")
         gameService.handleJoin("Bob", "session-2")
 
-        gameService.handleDisconnect("session-1")
+        forceDisconnect("session-1")
 
         val state = gameService.gameState
         assertEquals(GameStatus.FINISHED, state.status)
@@ -105,7 +141,7 @@ class DisconnectHandlerTest {
         // Einheiten auf dem Brett hat -> Unentschieden
         gameService.gameState.units.removeIf { it.player == "Bob" }
 
-        gameService.handleDisconnect("session-1")
+        forceDisconnect("session-1")
 
         val state = gameService.gameState
         assertEquals(GameStatus.FINISHED, state.status)

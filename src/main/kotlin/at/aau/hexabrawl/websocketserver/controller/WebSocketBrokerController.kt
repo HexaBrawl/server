@@ -9,8 +9,10 @@ import at.aau.hexabrawl.websocketserver.model.GameService
 import at.aau.hexabrawl.websocketserver.model.GameState
 import at.aau.hexabrawl.websocketserver.model.GameStatus
 import at.aau.hexabrawl.websocketserver.model.JoinRequest
+import at.aau.hexabrawl.websocketserver.model.LeaveRequest
 import at.aau.hexabrawl.websocketserver.model.Move
 import at.aau.hexabrawl.websocketserver.model.PlayerColor
+import at.aau.hexabrawl.websocketserver.model.ReconnectRequest
 import at.aau.hexabrawl.websocketserver.model.RoomRegistry
 import at.aau.hexabrawl.websocketserver.model.StealResponseRequest
 import at.aau.hexabrawl.websocketserver.model.StompMessage
@@ -465,6 +467,94 @@ class WebSocketBrokerController(
         val updated = gameService.respondCheatSteal(state, request.playerName, request.accept)
         sendRoomState(roomId, updated)
         return updated
+    }
+
+
+    /**
+     * Reconnect: wartender Spieler kommt nach Grace Period zurueck.
+     *
+     * Identifikation via playerName + joinCode (Memory-Persistenz im Client).
+     * Bei Erfolg wird connected = true, disconnectedAt = null und die neue
+     * sessionId an den Player gebunden, sodass weitere Messages korrekt
+     * ankommen.
+     *
+     * Validierungs-Reihenfolge:
+     *  1. Room existiert? sonst ROOM_NOT_FOUND
+     *  2. JoinCode passt? sonst RECONNECT_REJECTED
+     *  3. Player im Room UND nicht-verbunden? sonst RECONNECT_REJECTED
+     *
+     * Bei Erfolg: Broadcast des aktuellen GameState.
+     */
+    @MessageMapping("/rooms/{roomId}/reconnect")
+    fun reconnectRoom(
+        @DestinationVariable roomId: String,
+        request: ReconnectRequest,
+        headerAccessor: SimpMessageHeaderAccessor
+    ): GameState? {
+        val sessionId = headerAccessor.sessionId ?: ""
+
+        val room = roomRegistry.findById(roomId)
+        if (room == null) {
+            sendError(sessionId, ErrorCode.ROOM_NOT_FOUND, ROOM_NOT_FOUND_MESSAGE)
+            return null
+        }
+        if (room.joinCode != request.joinCode) {
+            sendError(sessionId, ErrorCode.RECONNECT_REJECTED, "JoinCode passt nicht.")
+            return null
+        }
+
+        val state = room.gameState
+        val player = state.players.find { it.name == request.playerName }
+        if (player == null || player.connected) {
+            sendError(sessionId, ErrorCode.RECONNECT_REJECTED, "Kein wartender Spieler mit diesem Namen.")
+            return null
+        }
+
+        synchronized(state.lock) {
+            player.connected = true
+            player.disconnectedAt = null
+            player.sessionId = sessionId
+        }
+        sendRoomState(roomId, state)
+        return state
+    }
+
+
+    /**
+     * Explizites Spiel-Verlassen — umgeht die 30s Grace Period.
+     *
+     * Wird vom Client aufgerufen wenn der User bewusst rausgeht
+     * ("Spiel verlassen"-Button oder Activity.onDestroy mit isFinishing).
+     *
+     * Validierungs-Reihenfolge:
+     *  1. Room existiert? sonst ROOM_NOT_FOUND
+     *  2. Player mit Name UND sessionId in Room? sonst no-op
+     *     (Schutz vor manipuliertem Request — fremde koennen keinen Player rauswerfen)
+     *
+     * Bei Erfolg: sofortiger Hard-Delete + Broadcast.
+     */
+    @MessageMapping("/rooms/{roomId}/leave")
+    fun leaveRoom(
+        @DestinationVariable roomId: String,
+        request: LeaveRequest,
+        headerAccessor: SimpMessageHeaderAccessor
+    ): GameState? {
+        val sessionId = headerAccessor.sessionId ?: ""
+
+        val room = roomRegistry.findById(roomId)
+        if (room == null) {
+            sendError(sessionId, ErrorCode.ROOM_NOT_FOUND, ROOM_NOT_FOUND_MESSAGE)
+            return null
+        }
+
+        val state = room.gameState
+        val player = state.players.find {
+            it.name == request.playerName && it.sessionId == sessionId
+        } ?: return null
+
+        gameService.hardDelete(state, player)
+        sendRoomState(roomId, state)
+        return state
     }
 
 
