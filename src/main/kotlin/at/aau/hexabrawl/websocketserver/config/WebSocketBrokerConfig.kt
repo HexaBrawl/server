@@ -30,8 +30,8 @@ class WebSocketBrokerConfig : WebSocketMessageBrokerConfigurer {
     @Bean
     fun taskScheduler(): ThreadPoolTaskScheduler =
         ThreadPoolTaskScheduler().apply {
-            poolSize = 1
-            threadNamePrefix = "ws-heartbeat-"
+            setPoolSize(1)
+            setThreadNamePrefix("ws-heartbeat-")
             initialize()
         }
 }
