@@ -528,22 +528,40 @@ class GameService(
     fun resetToStartCondition(): GameState = resetToStartCondition(this.gameState)
 
     /**
-     * Entfernt einen disconnecteten Spieler und seine Einheiten.
-     *
-     *  - DUAL_VALLEY: checkWinCondition (BASE-basiert)
-     *  - TRIAD/BATTLEFIELD: Fallback — Disconnect beendet das Spiel sofort
+     * Soft-Disconnect: markiert den Spieler als nicht-verbunden und merkt
+     * sich den Zeitpunkt. Spieler, Units und Felder bleiben unverändert,
+     * sodass ein /reconnect binnen Grace Period nahtlos wieder einsteigen
+     * kann. Der eigentliche Hard-Delete passiert via [hardDelete] —
+     * aufgerufen vom Scheduled Cleanup (nach Grace) oder vom /leave-Endpoint
+     * (sofort).
      */
     fun handleDisconnect(state: GameState, sessionId: String): GameState = synchronized(state.lock) {
-        val player = state.players.find { it.sessionId == sessionId }
-            ?: return state
+        val player = state.players.find { it.sessionId == sessionId } ?: return state
+        player.connected = false
+        player.disconnectedAt = System.currentTimeMillis()
+        println("Service: SOFT DISCONNECT - ${player.name}")
+        return state
+    }
 
+    /**
+     * Hard-Delete eines Spielers (Variante B2).
+     *
+     * Wird aufgerufen, wenn die Grace Period abgelaufen ist (Scheduled Cleanup)
+     * oder ein Spieler explizit /leave drueckt.
+     *
+     * Verhalten:
+     *  - Aktives pendingGift aufraeumen (war frueher in handleDisconnect)
+     *  - Felder werden neutral (owner = null), Units komplett geloescht,
+     *    currentTurn weitergereicht — alles via [eliminatePlayer]
+     *  - checkWinCondition laeuft (1 Player mit BASE uebrig → Win)
+     *  - KEIN FINISHED-Fallback fuer TRIAD/BATTLEFIELD (wurde schon entfernt)
+     */
+    internal fun hardDelete(state: GameState, player: Player): Unit = synchronized(state.lock) {
         // Aktives Cheat-Geschenk aufraeumen, falls der disconnectete Spieler beteiligt war
         state.pendingGift?.let { gift ->
             if (gift.ownerName == player.name) {
-                // Owner ist weg — Geschenk abbrechen
                 state.pendingGift = null
             } else {
-                // Stealer-Kandidat weg — eine Entscheidung weniger
                 val remaining = gift.pendingDecisions - 1
                 state.pendingGift = if (remaining > 0) {
                     gift.copy(pendingDecisions = remaining)
@@ -553,19 +571,14 @@ class GameService(
             }
         }
 
-        println("Service: PLAYER LEFT - ${player.name} disconnected")
+        println("Service: HARD DELETE - ${player.name}")
 
-        // Den Spieler sauber eliminieren (Felder neutralisieren, Zugweitergabe, etc.)
         eliminatePlayer(state, player.name)
-
-        // Prüfen, ob durch den Disconnect jetzt ein Sieger feststeht (z.B. nur noch 1 Spieler übrig)
         checkWinCondition(state)
 
         if (state.status == GameStatus.FINISHED) {
             println("Service: GAME FINISHED - winner: ${state.winner}")
         }
-
-        return state
     }
 
     fun handleDisconnect(sessionId: String): GameState = handleDisconnect(this.gameState, sessionId)
