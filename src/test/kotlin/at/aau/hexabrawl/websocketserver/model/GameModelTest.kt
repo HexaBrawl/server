@@ -200,47 +200,31 @@ class GameModelTest {
 
     @Test
     fun `handleDisconnect only modifies provided state`() {
-
         val gameService = GameService(CombatService())
-
         val state1 = GameState()
         val state2 = GameState()
 
-        gameService.handleJoin(
-            state1,
-            "Josef",
-            "s1"
-        )
+        gameService.handleJoin(state1, "Josef", "s1")
+        gameService.handleDisconnect(state1, "s1")
 
-        gameService.handleDisconnect(
-            state1,
-            "s1"
-        )
-
-        assertTrue(state1.players.isEmpty())
+        // Soft-Disconnect: Josef bleibt im state1, aber connected = false
+        assertEquals(1, state1.players.size)
+        assertFalse(state1.players.first().connected)
+        // state2 ist komplett unbeeinflusst
         assertTrue(state2.players.isEmpty())
-
-        assertEquals(
-            GameStatus.WAITING_FOR_PLAYERS,
-            state2.status
-        )
+        assertEquals(GameStatus.WAITING_FOR_PLAYERS, state2.status)
     }
 
     @Test
     fun `legacy handleDisconnect bridge still uses gameState`() {
-
         val gameService = GameService(CombatService())
 
-        gameService.handleJoin(
-            "Josef",
-            "s1"
-        )
-
+        gameService.handleJoin("Josef", "s1")
         gameService.handleDisconnect("s1")
 
-        assertTrue(
-            gameService.gameState.players.isEmpty()
-        )
+        // Soft-Disconnect: Josef bleibt, ist nur als nicht-verbunden markiert
+        assertEquals(1, gameService.gameState.players.size)
+        assertFalse(gameService.gameState.players.first().connected)
     }
 
     @Test

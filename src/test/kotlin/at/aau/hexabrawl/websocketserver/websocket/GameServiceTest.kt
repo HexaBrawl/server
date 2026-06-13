@@ -1058,7 +1058,7 @@ class GameServiceTest {
     }
 
     @Test
-    fun `handleDisconnect clears pendingGift when owner disconnects`() {
+    fun `hardDelete clears pendingGift when owner disconnects`() {
         val service = GameService(CombatService())
         val state = GameState().apply {
             gameMode = GameMode.TRIAD_OUTPOST
@@ -1076,13 +1076,15 @@ class GameServiceTest {
             pendingGift = PendingGift(ownerName = "Alice", delta = 5, pendingDecisions = 2)
         }
 
+        val alice = state.players.first { it.name == "Alice" }
         service.handleDisconnect(state, "sess-alice")
+        service.hardDelete(state, alice)
 
         assertNull(state.pendingGift)
     }
 
     @Test
-    fun `handleDisconnect decrements pendingDecisions when stealer disconnects`() {
+    fun `hardDelete decrements pendingDecisions when stealer disconnects`() {
         val service = GameService(CombatService())
         val state = GameState().apply {
             gameMode = GameMode.TRIAD_OUTPOST
@@ -1100,14 +1102,16 @@ class GameServiceTest {
             pendingGift = PendingGift(ownerName = "Alice", delta = 5, pendingDecisions = 2)
         }
 
+        val bob = state.players.first { it.name == "Bob" }
         service.handleDisconnect(state, "sess-bob")
+        service.hardDelete(state, bob)
 
         assertNotNull(state.pendingGift)
         assertEquals(1, state.pendingGift?.pendingDecisions)
     }
 
     @Test
-    fun `handleDisconnect clears pendingGift when last stealer disconnects`() {
+    fun `hardDelete clears pendingGift when last stealer disconnects`() {
         val service = GameService(CombatService())
         val state = GameState().apply {
             gameMode = GameMode.TRIAD_OUTPOST
@@ -1123,7 +1127,9 @@ class GameServiceTest {
             pendingGift = PendingGift(ownerName = "Alice", delta = 5, pendingDecisions = 1)
         }
 
+        val bob = state.players.first { it.name == "Bob" }
         service.handleDisconnect(state, "sess-bob")
+        service.hardDelete(state, bob)
 
         assertNull(state.pendingGift)
     }
@@ -1189,8 +1195,11 @@ class GameServiceTest {
             fields.add(Field(1, 1).apply { owner = "Bob" })
         }
 
-        // Aktion: Bob hat einen Disconnect
+        // Aktion: Bob hat einen Disconnect — wir simulieren die volle Sequenz
+        // (Soft-Disconnect markiert, dann Hard-Delete nach Grace).
+        val bob = state.players.first { it.sessionId == "s2" }
         service.handleDisconnect(state, "s2")
+        service.hardDelete(state, bob)
 
         // Assertions
         assertEquals(2, state.players.size)
