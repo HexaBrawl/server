@@ -9,6 +9,7 @@ import at.aau.hexabrawl.websocketserver.model.GameService
 import at.aau.hexabrawl.websocketserver.model.GameState
 import at.aau.hexabrawl.websocketserver.model.GameStatus
 import at.aau.hexabrawl.websocketserver.model.JoinRequest
+import at.aau.hexabrawl.websocketserver.model.LeaveRequest
 import at.aau.hexabrawl.websocketserver.model.Move
 import at.aau.hexabrawl.websocketserver.model.PlayerColor
 import at.aau.hexabrawl.websocketserver.model.ReconnectRequest
@@ -514,6 +515,44 @@ class WebSocketBrokerController(
             player.disconnectedAt = null
             player.sessionId = sessionId
         }
+        sendRoomState(roomId, state)
+        return state
+    }
+
+
+    /**
+     * Explizites Spiel-Verlassen — umgeht die 30s Grace Period.
+     *
+     * Wird vom Client aufgerufen wenn der User bewusst rausgeht
+     * ("Spiel verlassen"-Button oder Activity.onDestroy mit isFinishing).
+     *
+     * Validierungs-Reihenfolge:
+     *  1. Room existiert? sonst ROOM_NOT_FOUND
+     *  2. Player mit Name UND sessionId in Room? sonst no-op
+     *     (Schutz vor manipuliertem Request — fremde koennen keinen Player rauswerfen)
+     *
+     * Bei Erfolg: sofortiger Hard-Delete + Broadcast.
+     */
+    @MessageMapping("/rooms/{roomId}/leave")
+    fun leaveRoom(
+        @DestinationVariable roomId: String,
+        request: LeaveRequest,
+        headerAccessor: SimpMessageHeaderAccessor
+    ): GameState? {
+        val sessionId = headerAccessor.sessionId ?: ""
+
+        val room = roomRegistry.findById(roomId)
+        if (room == null) {
+            sendError(sessionId, ErrorCode.ROOM_NOT_FOUND, ROOM_NOT_FOUND_MESSAGE)
+            return null
+        }
+
+        val state = room.gameState
+        val player = state.players.find {
+            it.name == request.playerName && it.sessionId == sessionId
+        } ?: return null
+
+        gameService.hardDelete(state, player)
         sendRoomState(roomId, state)
         return state
     }
