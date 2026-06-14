@@ -1,6 +1,5 @@
 package at.aau.hexabrawl.websocketserver.service
 
-import at.aau.hexabrawl.websocketserver.model.EconomyService
 import at.aau.hexabrawl.websocketserver.model.Field
 import at.aau.hexabrawl.websocketserver.model.GameMode
 import at.aau.hexabrawl.websocketserver.model.GameState
@@ -16,7 +15,7 @@ import org.springframework.stereotype.Service
 
 @Service
 class GameService(
-    private val combatService: CombatService, private val connectivityService: ConnectivityService, private val economyService: EconomyService
+    private val combatService: CombatService, private val connectivityService: ConnectivityService, private val economyService: EconomyService, private val cheatGiftService: CheatGiftService
 ) {
 
     val gameState = GameState()
@@ -559,85 +558,11 @@ class GameService(
     /** Bridge zu EconomyService — Controller + Tests rufen das auf. */
     fun recomputePlayerStats(state: GameState) = economyService.recomputePlayerStats(state)
 
-    /**
-     * Schummel-Geschenk oeffnen (Cheat-Gift).
-     *
-     * Diese Methode setzt voraus, dass der Controller bereits alle
-     * Validierungen durchgefuehrt hat (Status IN_PROGRESS, delta in
-     * -10..10, pendingGift == null, Spieler existiert, hasUsedGift
-     * == false).
-     *
-     * Verhalten:
-     *  - delta wird auf player.gold gebucht. Bei Resultat < 0 wird
-     *    auf 0 gecappt (User-Entscheidung: kein negatives Gold).
-     *  - player.hasUsedGift wird auf true gesetzt (sticky bis Spielende).
-     *  - state.pendingGift wird mit pendingDecisions = players.size - 1
-     *    angelegt, sodass alle anderen Spieler die Steal-Entscheidung
-     *    treffen koennen.
-     *
-     * Thread-safe ueber state.lock.
-     */
-    fun claimCheatGift(
-        state: GameState,
-        playerName: String,
-        delta: Int
-    ): GameState = synchronized(state.lock) {
-        val player = state.players.find { it.name == playerName } ?: return state
+    /** Bridge zu CheatGiftService.claimCheatGift. */
+    fun claimCheatGift(state: GameState, playerName: String, delta: Int): GameState = cheatGiftService.claimCheatGift(state, playerName, delta)
 
-        player.gold += delta
-        if (player.gold < 0) player.gold = 0
-        player.hasUsedGift = true
-
-        state.pendingGift = PendingGift(
-            ownerName = player.name,
-            delta = delta,
-            pendingDecisions = state.players.size - 1
-        )
-        return state
-    }
-
-    /**
-     * Antwort auf das Schummel-Geschenk (Steal-Versuch).
-     *
-     * Diese Methode setzt voraus, dass der Controller bereits validiert
-     * hat (pendingGift != null, playerName != ownerName, Spieler existiert).
-     *
-     * Bei accept=true (atomarer Steal-Switch):
-     *  - owner.gold -= delta, bei Resultat < 0 wird auf 0 gecappt
-     *  - stealer.gold += delta, bei Resultat < 0 wird auf 0 gecappt
-     *  - pendingGift = null
-     *
-     * Bei accept=false:
-     *  - pendingDecisions -= 1
-     *  - bei 0 → pendingGift = null (keiner wollte stehlen)
-     *
-     * Thread-safe ueber state.lock.
-     */
-    fun respondCheatSteal(
-        state: GameState,
-        playerName: String,
-        accept: Boolean
-    ): GameState = synchronized(state.lock) {
-        val gift = state.pendingGift ?: return state
-        val player = state.players.find { it.name == playerName } ?: return state
-
-        if (accept) {
-            val owner = state.players.first { it.name == gift.ownerName }
-            owner.gold -= gift.delta
-            if (owner.gold < 0) owner.gold = 0
-            player.gold += gift.delta
-            if (player.gold < 0) player.gold = 0
-            state.pendingGift = null
-        } else {
-            val remaining = gift.pendingDecisions - 1
-            state.pendingGift = if (remaining > 0) {
-                gift.copy(pendingDecisions = remaining)
-            } else {
-                null
-            }
-        }
-        return state
-    }
+    /** Bridge zu CheatGiftService.respondCheatSteal. */
+    fun respondCheatSteal(state: GameState, playerName: String, accept: Boolean): GameState = cheatGiftService.respondCheatSteal(state, playerName, accept)
 
     /**
      * Entfernt einen Spieler restlos aus dem Spiel (bei Disconnect oder Basis-Verlust).
