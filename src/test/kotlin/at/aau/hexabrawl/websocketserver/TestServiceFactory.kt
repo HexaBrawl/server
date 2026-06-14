@@ -1,5 +1,6 @@
 package at.aau.hexabrawl.websocketserver
 
+import at.aau.hexabrawl.websocketserver.model.EconomyService
 import at.aau.hexabrawl.websocketserver.service.CombatService
 import at.aau.hexabrawl.websocketserver.service.GameService
 import at.aau.hexabrawl.websocketserver.service.ConnectivityService
@@ -17,7 +18,8 @@ object TestServiceFactory {
     fun createGameService(): GameService {
         val combatService = CombatService()
         val connectivityService = ConnectivityService()
-        return GameService(combatService, connectivityService)
+        val economyService = EconomyService()
+        return GameService(combatService, connectivityService, economyService)
 
     }
 }
