@@ -15,7 +15,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate
  */
 class LeaveRoomTest {
 
-    private lateinit var controller: WebSocketBrokerController
+    private lateinit var controller: LobbyController
     private lateinit var gameService: GameService
     private lateinit var roomRegistry: RoomRegistry
     private lateinit var messagingTemplate: SimpMessagingTemplate
@@ -28,7 +28,7 @@ class LeaveRoomTest {
         roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java)
         val contextResolver = GameContextResolver(roomRegistry, messagingTemplate)
-        controller = WebSocketBrokerController(gameService, contextResolver, messagingTemplate)
+        controller = LobbyController(gameService, contextResolver, messagingTemplate)
         aliceHeader = mock(SimpMessageHeaderAccessor::class.java)
         `when`(aliceHeader.sessionId).thenReturn("session-alice")
         bobHeader = mock(SimpMessageHeaderAccessor::class.java)
