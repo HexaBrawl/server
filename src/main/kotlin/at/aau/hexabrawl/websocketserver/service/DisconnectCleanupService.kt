@@ -1,5 +1,7 @@
-package at.aau.hexabrawl.websocketserver.model
+package at.aau.hexabrawl.websocketserver.service
 
+import at.aau.hexabrawl.websocketserver.model.GameService
+import at.aau.hexabrawl.websocketserver.model.RoomRegistry
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -7,7 +9,7 @@ import org.springframework.stereotype.Component
 /**
  * Scheduled Cleanup-Task fuer den Reconnect-Flow.
  *
- * Laeuft alle 5 Sekunden ueber alle Rooms und ruft [GameService.hardDelete]
+ * Laeuft alle 5 Sekunden ueber alle Rooms und ruft [at.aau.hexabrawl.websocketserver.model.GameService.hardDelete]
  * fuer Spieler auf, deren Soft-Disconnect laenger als [GRACE_PERIOD_MS] zurueckliegt.
  *
  * Nach dem Cleanup wird der aktuelle GameState an die Room-Subscriber gebroadcastet.
