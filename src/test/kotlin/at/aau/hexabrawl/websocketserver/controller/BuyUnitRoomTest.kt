@@ -26,7 +26,8 @@ class BuyUnitRoomTest {
         gameService = GameService(CombatService())
         roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java)
-        controller = WebSocketBrokerController(gameService, roomRegistry, messagingTemplate)
+        val contextResolver = GameContextResolver(roomRegistry, messagingTemplate)
+        controller = WebSocketBrokerController(gameService, contextResolver, messagingTemplate)
         headerAccessor = mock(SimpMessageHeaderAccessor::class.java)
         `when`(headerAccessor.sessionId).thenReturn("session-alice")
     }
