@@ -1,7 +1,5 @@
 package at.aau.hexabrawl.websocketserver.service
 
-import at.aau.hexabrawl.websocketserver.model.Field
-import at.aau.hexabrawl.websocketserver.model.GameMode
 import at.aau.hexabrawl.websocketserver.model.GameState
 import at.aau.hexabrawl.websocketserver.model.GameStatus
 import at.aau.hexabrawl.websocketserver.model.GameUnit
@@ -18,7 +16,8 @@ class GameService(
     private val connectivityService: ConnectivityService,
     private val economyService: EconomyService,
     private val cheatGiftService: CheatGiftService,
-    private val boardService: BoardService
+    private val boardService: BoardService,
+    private val playerService: PlayerService
 ) {
 
     val gameState = GameState()
@@ -63,43 +62,13 @@ class GameService(
         fun hexNeighbors(x: Int, y: Int): List<Pair<Int, Int>> = ConnectivityService.hexNeighbors(x, y)
     }
 
-    /**
-     * Fuegt einen Spieler dem Spiel hinzu.
-     *
-     * Konsolidiert drei Issue-Stroeme:
-     *  - Multi-Mode (#51): Maximale Spielerzahl kommt aus state.gameMode.maxPlayers
-     *  - Color-Auswahl (#107): Farbe kann vom Client mitgegeben werden,
-     *    Fallback ist dynamisch je nach Position in der Spielerliste
-     *  - Wirtschaft (#60): Neue Spieler bekommen STARTING_GOLD
-     *
-     * Thread-safe ueber state.lock.
-     */
+    /** Bridge zu PlayerService.handleJoin. */
     fun handleJoin(
         state: GameState,
         playerName: String,
         sessionId: String = "",
         color: PlayerColor? = null
-    ): GameState = synchronized(state.lock) {
-        if (!state.players.any { it.name == playerName } && state.players.size < state.gameMode.maxPlayers) {
-
-            val colors = listOf(PlayerColor.RED, PlayerColor.BLUE, PlayerColor.GREEN, PlayerColor.YELLOW)
-            val assignedColor = color ?: colors.getOrElse(state.players.size) { PlayerColor.RED }
-
-            if (state.players.any { it.color == assignedColor }) {
-                return@synchronized state
-            }
-
-            state.players.add(Player(playerName, sessionId, assignedColor, STARTING_GOLD))
-            println("JOIN: $playerName (color: $assignedColor)")
-        }
-
-        // Auto-Start bei Erreichen der Mode-Spielerzahl
-        if (state.players.size == state.gameMode.maxPlayers && state.units.isEmpty()) {
-            println("players=${state.players.size}, max=${state.gameMode.maxPlayers}")
-            startGame(state)
-        }
-        return state
-    }
+    ): GameState = playerService.handleJoin(state, playerName, sessionId, color)
 
     // Bridge fuer den globalen Single-Game-Pfad (Tests + Backward-Compat).
     fun handleJoin(
@@ -108,10 +77,8 @@ class GameService(
         color: PlayerColor? = null
     ): GameState = handleJoin(this.gameState, playerName, sessionId, color)
 
-    fun isColorTaken(state: GameState, color: PlayerColor): Boolean = synchronized(state.lock) {
-        return state.players.any { it.color == color }
-    }
-
+    /** Bridge zu PlayerService.isColorTaken. */
+    fun isColorTaken(state: GameState, color: PlayerColor): Boolean = playerService.isColorTaken(state, color)
     fun isColorTaken(color: PlayerColor): Boolean = isColorTaken(this.gameState, color)
 
     /** Bridge zu BoardService.startGame. */
@@ -189,39 +156,8 @@ class GameService(
 
     fun handleMove(move: Move): GameState = handleMove(this.gameState, move)
 
-    private fun checkWinCondition(state: GameState) {
-        if (state.status != GameStatus.IN_PROGRESS) return
-
-        // Welche aktiven Spieler haben noch eine Basis?
-        val playersWithBase = state.units
-            .filter { it.type == UnitType.BASE }
-            .map { it.player }
-            .toSet()
-
-        // Wer ist in state.players, hat aber keine Basis mehr?
-        val playersToEliminate = state.players
-            .map { it.name }
-            .filter { it !in playersWithBase }
-
-        // Verlierer eliminieren (Felder freigeben, Einheiten löschen)
-        playersToEliminate.forEach { eliminatePlayer(state, it) }
-
-        when (state.players.size) {
-            0 -> {
-                state.status = GameStatus.FINISHED
-                state.winner = null
-                state.currentTurn = null
-            }
-            1 -> {
-                state.status = GameStatus.FINISHED
-                state.winner = state.players.first().name
-                state.currentTurn = null
-            }
-            else -> {
-                // >= 2: Spiel laeuft weiter.
-            }
-        }
-    }
+    /** Bridge zu PlayerService.checkWinCondition. */
+    internal fun checkWinCondition(state: GameState) = playerService.checkWinCondition(state)
 
     /**
      * Beendet die Runde des angegebenen Spielers freiwillig.
@@ -311,14 +247,7 @@ class GameService(
         }
     }
 
-    /**
-     * Prueft fuer alle Spieler, ob ihre Felder noch ueber Hex-Nachbarn mit ihrer
-     * BASE verbunden sind. Felder ohne Pfad zur BASE werden zu SKELETON-Feldern,
-     * Einheiten darauf (ausser BASE/SKELETON) werden zu UnitType.SKELETON.
-     *
-     * Spieler ohne BASE-Unit werden uebersprungen — checkWinCondition kuemmert
-     * sich um deren Ausscheiden.
-     */
+    /** Bridge zu ConnectivityService — bleibt fuer Backwards-Compat von Tests. */
     fun recomputeConnectivity(state: GameState) = connectivityService.recomputeConnectivity(state)
 
     // WICHTIG FÜR TEST — nur den aktuellen Stand lesen
@@ -336,61 +265,12 @@ class GameService(
     fun resetToStartCondition(state: GameState): GameState = boardService.resetToStartCondition(state)
     fun resetToStartCondition(): GameState = resetToStartCondition(this.gameState)
 
-    /**
-     * Soft-Disconnect: markiert den Spieler als nicht-verbunden und merkt
-     * sich den Zeitpunkt. Spieler, Units und Felder bleiben unverändert,
-     * sodass ein /reconnect binnen Grace Period nahtlos wieder einsteigen
-     * kann. Der eigentliche Hard-Delete passiert via [hardDelete] —
-     * aufgerufen vom Scheduled Cleanup (nach Grace) oder vom /leave-Endpoint
-     * (sofort).
-     */
-    fun handleDisconnect(state: GameState, sessionId: String): GameState = synchronized(state.lock) {
-        val player = state.players.find { it.sessionId == sessionId } ?: return state
-        player.connected = false
-        player.disconnectedAt = System.currentTimeMillis()
-        println("Service: SOFT DISCONNECT - ${player.name}")
-        return state
-    }
-
-    /**
-     * Hard-Delete eines Spielers (Variante B2).
-     *
-     * Wird aufgerufen, wenn die Grace Period abgelaufen ist (Scheduled Cleanup)
-     * oder ein Spieler explizit /leave drueckt.
-     *
-     * Verhalten:
-     *  - Aktives pendingGift aufraeumen (war frueher in handleDisconnect)
-     *  - Felder werden neutral (owner = null), Units komplett geloescht,
-     *    currentTurn weitergereicht — alles via [eliminatePlayer]
-     *  - checkWinCondition laeuft (1 Player mit BASE uebrig → Win)
-     *  - KEIN FINISHED-Fallback fuer TRIAD/BATTLEFIELD (wurde schon entfernt)
-     */
-    internal fun hardDelete(state: GameState, player: Player): Unit = synchronized(state.lock) {
-        // Aktives Cheat-Geschenk aufraeumen, falls der disconnectete Spieler beteiligt war
-        state.pendingGift?.let { gift ->
-            if (gift.ownerName == player.name) {
-                state.pendingGift = null
-            } else {
-                val remaining = gift.pendingDecisions - 1
-                state.pendingGift = if (remaining > 0) {
-                    gift.copy(pendingDecisions = remaining)
-                } else {
-                    null
-                }
-            }
-        }
-
-        println("Service: HARD DELETE - ${player.name}")
-
-        eliminatePlayer(state, player.name)
-        checkWinCondition(state)
-
-        if (state.status == GameStatus.FINISHED) {
-            println("Service: GAME FINISHED - winner: ${state.winner}")
-        }
-    }
-
+    /** Bridge zu PlayerService.handleDisconnect. */
+    fun handleDisconnect(state: GameState, sessionId: String): GameState = playerService.handleDisconnect(state, sessionId)
     fun handleDisconnect(sessionId: String): GameState = handleDisconnect(this.gameState, sessionId)
+
+    /** Bridge zu PlayerService.hardDelete. */
+    internal fun hardDelete(state: GameState, player: Player) = playerService.hardDelete(state, player)
 
     /** Bridge zu EconomyService.buyUnit. */
     fun buyUnit(
@@ -409,28 +289,4 @@ class GameService(
 
     /** Bridge zu CheatGiftService.respondCheatSteal. */
     fun respondCheatSteal(state: GameState, playerName: String, accept: Boolean): GameState = cheatGiftService.respondCheatSteal(state, playerName, accept)
-
-    /**
-     * Entfernt einen Spieler restlos aus dem Spiel (bei Disconnect oder Basis-Verlust).
-     * Räumt Felder auf, löscht Einheiten und übergibt den Zug, falls nötig.
-     */
-    private fun eliminatePlayer(state: GameState, playerName: String) {
-        // 1. Zug sauber weitergeben, falls der ausscheidende Spieler gerade am Zug ist.
-        // WICHTIG: Das muss passieren, BEVOR der Spieler aus state.players gelöscht wird!
-        if (state.currentTurn == playerName) {
-            switchTurn(state)
-        }
-
-        // 2. Spieler aus der Liste entfernen
-        state.players.removeIf { it.name == playerName }
-
-        // 3. Alle Einheiten des Spielers entfernen
-        state.units.removeIf { it.player == playerName }
-
-        // 4. Felder des Spielers neutralisieren (gehören niemandem mehr)
-        state.fields.filter { it.owner == playerName }.forEach { field ->
-            field.owner = null
-            field.isSkeleton = false
-        }
-    }
 }

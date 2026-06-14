@@ -6,6 +6,7 @@ import at.aau.hexabrawl.websocketserver.service.EconomyService
 import at.aau.hexabrawl.websocketserver.service.CombatService
 import at.aau.hexabrawl.websocketserver.service.GameService
 import at.aau.hexabrawl.websocketserver.service.ConnectivityService
+import at.aau.hexabrawl.websocketserver.service.PlayerService
 
 
 /**
@@ -23,7 +24,8 @@ object TestServiceFactory {
         val economyService = EconomyService()
         val cheatGiftService = CheatGiftService()
         val boardService = BoardService()
-        return GameService(combatService, connectivityService, economyService, cheatGiftService, boardService)
+        val playerService = PlayerService(boardService)
+        return GameService(combatService, connectivityService, economyService, cheatGiftService, boardService, playerService)
 
     }
 }
