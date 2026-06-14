@@ -1,10 +1,22 @@
-package at.aau.hexabrawl.websocketserver.model
+package at.aau.hexabrawl.websocketserver.service
 
+import at.aau.hexabrawl.websocketserver.model.EconomyService
+import at.aau.hexabrawl.websocketserver.model.Field
+import at.aau.hexabrawl.websocketserver.model.GameMode
+import at.aau.hexabrawl.websocketserver.model.GameState
+import at.aau.hexabrawl.websocketserver.model.GameStatus
+import at.aau.hexabrawl.websocketserver.model.GameUnit
+import at.aau.hexabrawl.websocketserver.model.HexDistance
+import at.aau.hexabrawl.websocketserver.model.Move
+import at.aau.hexabrawl.websocketserver.model.PendingGift
+import at.aau.hexabrawl.websocketserver.model.Player
+import at.aau.hexabrawl.websocketserver.model.PlayerColor
+import at.aau.hexabrawl.websocketserver.model.UnitType
 import org.springframework.stereotype.Service
 
 @Service
 class GameService(
-    private val combatService: CombatService, private val connectivityService: ConnectivityService
+    private val combatService: CombatService, private val connectivityService: ConnectivityService, private val economyService: EconomyService
 ) {
 
     val gameState = GameState()
@@ -17,12 +29,13 @@ class GameService(
         // Maximale Hex-Distanz, die eine Einheit pro Zug zuruecklegen darf.
         const val MAX_MOVE_DISTANCE = 2
 
-        // Wirtschaftssystem (#60)
-        const val STARTING_GOLD = 6
-        const val FARM_INCOME_PER_ROUND = 3
-        const val FIELD_INCOME_PER_ROUND = 1
-        const val FARM_BASE_COST = 10
-        const val FARM_COST_INCREMENT = 1
+        // Wirtschaftssystem (#60) — Bridges zu EconomyService fuer Controller + Tests
+        const val STARTING_GOLD = EconomyService.STARTING_GOLD
+        const val FARM_INCOME_PER_ROUND = EconomyService.FARM_INCOME_PER_ROUND
+        const val FIELD_INCOME_PER_ROUND = EconomyService.FIELD_INCOME_PER_ROUND
+        const val FARM_BASE_COST = EconomyService.FARM_BASE_COST
+        const val FARM_COST_INCREMENT = EconomyService.FARM_COST_INCREMENT
+
 
         // Board-Dimensionen pro Modus.
         const val DUAL_VALLEY_BOARD_ROWS = 9
@@ -32,9 +45,8 @@ class GameService(
         const val BATTLEFIELD_BOARD_ROWS = 13
         const val BATTLEFIELD_BOARD_COLS = 13
 
-        // Preis fuer eine gekaufte Einheit (#132).
-        // Synchron mit BottomHudLogic.priceOf in der App halten.
-        const val UNIT_PRICE = 5
+        // Bridge zu EconomyService.UNIT_PRICE
+        const val UNIT_PRICE = EconomyService.UNIT_PRICE
 
         // Basis-Positionen fuer DUAL_VALLEY (#104).
         val BASE_POSITION_P1: Pair<Int, Int> = Pair(2, 2)
@@ -349,7 +361,7 @@ class GameService(
 
         // Wirtschaft des Spielers, dessen Zug gerade endet
         state.players.firstOrNull { it.name == state.currentTurn }?.let {
-            applyEconomy(state, it)
+            economyService.applyEconomy(state, it)
         }
 
         if (state.players.size == 2) {
@@ -535,93 +547,17 @@ class GameService(
 
     fun handleDisconnect(sessionId: String): GameState = handleDisconnect(this.gameState, sessionId)
 
-    /**
-     * Wirtschafts-Rundenabschluss (#60).
-     * Farm-Einkommen gutschreiben, Unterhalt abziehen (1. Einheit 3 Gold, jede weitere +1).
-     * Bei Insolvenz: Gold auf 0, alle lebenden Truppen → SKELETON.
-     */
-    private fun applyEconomy(state: GameState, player: Player) {
-        player.gold += computeIncome(player, state)
-        val upkeep = computeUpkeep(player, state)
-        val playerUnits = state.units.filter {
-            it.player == player.name && it.type != UnitType.SKELETON && it.type != UnitType.BASE
-        }
-
-        if (player.gold >= upkeep) {
-            player.gold -= upkeep
-        } else {
-            player.gold = 0
-            playerUnits.forEach { it.type = UnitType.SKELETON }
-        }
-    }
-
-    /**
-     * Kauft eine neue Einheit und platziert sie an (x, y) (#132).
-     *
-     * Diese Methode setzt voraus, dass der Controller bereits alle
-     * Validierungen durchgefuehrt hat (Spieler am Zug, Type gueltig,
-     * Feld gehoert dem Spieler, Feld nicht besetzt, genug Gold).
-     *
-     * Verhalten:
-     *  - Falls ein Skelett auf dem Zielfeld steht, wird es entfernt
-     *    (analog zum Move-Verhalten aus #104). Konsistent mit der
-     *    Annahme, dass ein eigenes Feld zum eigenen Territorium gehoert
-     *    und damit mit der Basis verbunden ist.
-     *  - Gold wird abgezogen.
-     *  - Neue Einheit wird mit hasMovedThisTurn = true hinzugefuegt —
-     *    eine im selben Zug gekaufte Einheit darf nicht zusaetzlich
-     *    noch ziehen.
-     *
-     * Thread-safe ueber state.lock.
-     */
+    /** Bridge zu EconomyService.buyUnit. */
     fun buyUnit(
         state: GameState,
         playerName: String,
         type: UnitType,
         x: Int,
         y: Int
-    ): GameState = synchronized(state.lock) {
-        val player = state.players.find { it.name == playerName } ?: return state
+    ): GameState = economyService.buyUnit(state, playerName, type, x, y)
 
-        // Skelett auf dem Zielfeld entfernen, falls vorhanden
-        state.units.removeIf {
-            it.x == x && it.y == y && it.type == UnitType.SKELETON
-        }
-
-        // Gold abziehen
-        player.gold -= UNIT_PRICE
-
-        // Neue Einheit mit hasMovedThisTurn = true
-        state.units.add(
-            GameUnit(
-                player = playerName,
-                x = x,
-                y = y,
-                type = type,
-                hasMovedThisTurn = true
-            )
-        )
-
-        return state
-    }
-    private fun computeIncome(player: Player, state: GameState): Int {
-        val ownedFields = state.fields.count { it.owner == player.name && !it.isSkeleton }
-        return ownedFields * FIELD_INCOME_PER_ROUND + player.farms * FARM_INCOME_PER_ROUND
-    }
-
-    private fun computeUpkeep(player: Player, state: GameState): Int {
-        val unitCount = state.units.count {
-            it.player == player.name && it.type != UnitType.SKELETON && it.type != UnitType.BASE
-        }
-        return (0 until unitCount).sumOf { 3 + it }
-    }
-
-    fun recomputePlayerStats(state: GameState) {
-        state.players.forEach { player ->
-            player.income = computeIncome(player, state)
-            player.upkeep = computeUpkeep(player, state)
-        }
-    }
+    /** Bridge zu EconomyService — Controller + Tests rufen das auf. */
+    fun recomputePlayerStats(state: GameState) = economyService.recomputePlayerStats(state)
 
     /**
      * Schummel-Geschenk oeffnen (Cheat-Gift).

@@ -7,6 +7,8 @@ import org.mockito.ArgumentMatchers
 import org.mockito.Mockito.*
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import at.aau.hexabrawl.websocketserver.TestServiceFactory
+import at.aau.hexabrawl.websocketserver.service.DisconnectCleanupService
+import at.aau.hexabrawl.websocketserver.service.GameService
 
 /**
  * Tests fuer den DisconnectCleanupService.
