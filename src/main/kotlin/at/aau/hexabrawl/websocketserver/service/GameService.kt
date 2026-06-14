@@ -1,7 +1,16 @@
-package at.aau.hexabrawl.websocketserver.model
+package at.aau.hexabrawl.websocketserver.service
 
-import at.aau.hexabrawl.websocketserver.service.CombatService
-import at.aau.hexabrawl.websocketserver.service.ConnectivityService
+import at.aau.hexabrawl.websocketserver.model.Field
+import at.aau.hexabrawl.websocketserver.model.GameMode
+import at.aau.hexabrawl.websocketserver.model.GameState
+import at.aau.hexabrawl.websocketserver.model.GameStatus
+import at.aau.hexabrawl.websocketserver.model.GameUnit
+import at.aau.hexabrawl.websocketserver.model.HexDistance
+import at.aau.hexabrawl.websocketserver.model.Move
+import at.aau.hexabrawl.websocketserver.model.PendingGift
+import at.aau.hexabrawl.websocketserver.model.Player
+import at.aau.hexabrawl.websocketserver.model.PlayerColor
+import at.aau.hexabrawl.websocketserver.model.UnitType
 import org.springframework.stereotype.Service
 
 @Service

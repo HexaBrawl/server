@@ -2,6 +2,7 @@ package at.aau.hexabrawl.websocketserver.integration
 
 import org.junit.jupiter.api.Test
 import at.aau.hexabrawl.websocketserver.model.*
+import at.aau.hexabrawl.websocketserver.service.GameService
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.extension.ExtendWith
 import org.springframework.beans.factory.annotation.Autowired
