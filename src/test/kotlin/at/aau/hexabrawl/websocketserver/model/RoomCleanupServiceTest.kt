@@ -1,5 +1,6 @@
 package at.aau.hexabrawl.websocketserver.model
 
+import at.aau.hexabrawl.websocketserver.service.RoomCleanupService
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
