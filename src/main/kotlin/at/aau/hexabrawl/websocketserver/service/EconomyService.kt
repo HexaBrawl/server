@@ -1,5 +1,9 @@
-package at.aau.hexabrawl.websocketserver.model
+package at.aau.hexabrawl.websocketserver.service
 
+import at.aau.hexabrawl.websocketserver.model.GameState
+import at.aau.hexabrawl.websocketserver.model.GameUnit
+import at.aau.hexabrawl.websocketserver.model.Player
+import at.aau.hexabrawl.websocketserver.model.UnitType
 import org.springframework.stereotype.Service
 
 /**
