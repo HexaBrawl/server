@@ -2,6 +2,7 @@ package at.aau.hexabrawl.websocketserver.model
 
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import at.aau.hexabrawl.websocketserver.TestServiceFactory
 
 class GameModelTest {
 
@@ -92,7 +93,7 @@ class GameModelTest {
     @Test
     fun `handleJoin only modifies provided state`() {
 
-        val gameService = GameService(CombatService())
+        val gameService = TestServiceFactory.createGameService()
 
         val state1 = GameState()
         val state2 = GameState()
@@ -115,7 +116,7 @@ class GameModelTest {
     @Test
     fun `legacy handleJoin bridge still uses gameState`() {
 
-        val gameService = GameService(CombatService())
+        val gameService = TestServiceFactory.createGameService()
 
         gameService.handleJoin(
             "Josef",
@@ -135,7 +136,7 @@ class GameModelTest {
 
     @Test
     fun `handleMove only modifies provided state`() {
-        val gameService = GameService(CombatService())
+        val gameService = TestServiceFactory.createGameService()
 
         val state1 = GameState()
         val state2 = GameState()
@@ -170,7 +171,7 @@ class GameModelTest {
 
     @Test
     fun `legacy handleMove bridge still uses gameState`() {
-        val gameService = GameService(CombatService())
+        val gameService = TestServiceFactory.createGameService()
 
         gameService.handleJoin("Josef", "s1")
         gameService.handleJoin("Marie", "s2")
@@ -200,7 +201,7 @@ class GameModelTest {
 
     @Test
     fun `handleDisconnect only modifies provided state`() {
-        val gameService = GameService(CombatService())
+        val gameService = TestServiceFactory.createGameService()
         val state1 = GameState()
         val state2 = GameState()
 
@@ -217,7 +218,7 @@ class GameModelTest {
 
     @Test
     fun `legacy handleDisconnect bridge still uses gameState`() {
-        val gameService = GameService(CombatService())
+        val gameService = TestServiceFactory.createGameService()
 
         gameService.handleJoin("Josef", "s1")
         gameService.handleDisconnect("s1")
@@ -230,7 +231,7 @@ class GameModelTest {
     @Test
     fun `initializeGame only modifies provided state`() {
 
-        val gameService = GameService(CombatService())
+        val gameService = TestServiceFactory.createGameService()
 
         val state1 = GameState()
         val state2 = GameState()
@@ -249,7 +250,7 @@ class GameModelTest {
     @Test
     fun `resetToStartCondition only modifies provided state`() {
 
-        val gameService = GameService(CombatService())
+        val gameService = TestServiceFactory.createGameService()
 
         val state1 = GameState()
         val state2 = GameState()
@@ -273,7 +274,7 @@ class GameModelTest {
     @Test
     fun `getCurrentState returns provided state`() {
 
-        val gameService = GameService(CombatService())
+        val gameService = TestServiceFactory.createGameService()
 
         val state1 = GameState()
 
@@ -285,7 +286,7 @@ class GameModelTest {
 
     @Test
     fun `triad outpost does not start after second player joins`() {
-        val gameService = GameService(CombatService())
+        val gameService = TestServiceFactory.createGameService()
         val roomRegistry = RoomRegistry()
 
         val room = roomRegistry.createRoom(
@@ -315,7 +316,7 @@ class GameModelTest {
     @Test
     fun `triad outpost starts when third player joins`() {
 
-        val gameService = GameService(CombatService())
+        val gameService = TestServiceFactory.createGameService()
         val roomRegistry = RoomRegistry()
 
         val room = roomRegistry.createRoom(
@@ -355,7 +356,7 @@ class GameModelTest {
     @Test
     fun `battlefield peaks does not start after third player joins`() {
 
-        val gameService = GameService(CombatService())
+        val gameService = TestServiceFactory.createGameService()
         val roomRegistry = RoomRegistry()
 
         val room = roomRegistry.createRoom(
@@ -389,7 +390,7 @@ class GameModelTest {
     @Test
     fun `battlefield peaks starts when fourth player joins`() {
 
-        val gameService = GameService(CombatService())
+        val gameService = TestServiceFactory.createGameService()
         val roomRegistry = RoomRegistry()
 
         val room = roomRegistry.createRoom(
@@ -435,7 +436,7 @@ class GameModelTest {
     fun `triad outpost turn stays after only one move`() {
 
         val roomRegistry = RoomRegistry()
-        val gameService = GameService(CombatService())
+        val gameService = TestServiceFactory.createGameService()
 
         val room = roomRegistry.createRoom(GameMode.TRIAD_OUTPOST)
 
@@ -466,7 +467,7 @@ class GameModelTest {
     fun `battlefield peaks turn stays after only one move`() {
 
         val roomRegistry = RoomRegistry()
-        val gameService = GameService(CombatService())
+        val gameService = TestServiceFactory.createGameService()
 
         val room = roomRegistry.createRoom(GameMode.BATTLEFIELD_PEAKS)
 
@@ -498,7 +499,7 @@ class GameModelTest {
     fun `triad outpost switches turn after all three units moved`() {
 
         val roomRegistry = RoomRegistry()
-        val gameService = GameService(CombatService())
+        val gameService = TestServiceFactory.createGameService()
 
         val room = roomRegistry.createRoom(GameMode.TRIAD_OUTPOST)
 
@@ -537,7 +538,7 @@ class GameModelTest {
     fun `triad outpost endTurn forces switch with units remaining`() {
 
         val roomRegistry = RoomRegistry()
-        val gameService = GameService(CombatService())
+        val gameService = TestServiceFactory.createGameService()
 
         val room = roomRegistry.createRoom(GameMode.TRIAD_OUTPOST)
 
@@ -562,7 +563,7 @@ class GameModelTest {
     fun `battlefield peaks switches turn after all three units moved`() {
 
         val roomRegistry = RoomRegistry()
-        val gameService = GameService(CombatService())
+        val gameService = TestServiceFactory.createGameService()
 
         val room = roomRegistry.createRoom(GameMode.BATTLEFIELD_PEAKS)
 
