@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test
 import org.mockito.Mockito.*
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
 import org.springframework.messaging.simp.SimpMessagingTemplate
+import at.aau.hexabrawl.websocketserver.TestServiceFactory
 
 /**
  * Tests, dass /move, /end-turn, /buy-farm und /buy-unit blockiert sind
@@ -23,7 +24,7 @@ class CheatGiftBlockTest {
 
     @BeforeEach
     fun setup() {
-        gameService = GameService(CombatService())
+        gameService = TestServiceFactory.createGameService()
         roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java)
         controller = WebSocketBrokerController(gameService, roomRegistry, messagingTemplate)

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import at.aau.hexabrawl.websocketserver.TestServiceFactory
 
 class GameServiceTest {
 
@@ -15,7 +16,7 @@ class GameServiceTest {
 
     @BeforeEach
     fun setup() {
-        gameService = GameService(CombatService())
+        gameService = TestServiceFactory.createGameService()
     }
 
     /**
@@ -587,7 +588,7 @@ class GameServiceTest {
 
     @Test
     fun `field income added on top of farm income`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             // Spiel starten und Alice an die Reihe setzen
             status = GameStatus.IN_PROGRESS
@@ -611,7 +612,7 @@ class GameServiceTest {
 
     @Test
     fun `field income works with zero farms`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             // Spiel starten und Alice an die Reihe setzen
             status = GameStatus.IN_PROGRESS
@@ -629,7 +630,7 @@ class GameServiceTest {
 
     @Test
     fun `field income works with zero fields and zero farms`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             status = GameStatus.IN_PROGRESS
             currentTurn = "Alice"
@@ -645,7 +646,7 @@ class GameServiceTest {
 
     @Test
     fun `field income excludes skeleton fields`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             status = GameStatus.IN_PROGRESS
             currentTurn = "Alice"
@@ -665,7 +666,7 @@ class GameServiceTest {
 
     @Test
     fun `field income is zero when all fields are skeleton`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             status = GameStatus.IN_PROGRESS
             currentTurn = "Alice"
@@ -682,7 +683,7 @@ class GameServiceTest {
 
     @Test
     fun `recomputePlayerStats income drops when a field becomes skeleton`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             players.add(Player(name = "Alice", farms = 0))
             fields.add(Field(0, 0, owner = "Alice"))
@@ -704,7 +705,7 @@ class GameServiceTest {
 
     @Test
     fun `recomputePlayerStats sets income from fields and farms`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             players.add(Player(name = "Alice", farms = 2))
             fields.addAll(List(4) { Field(0, it, owner = "Alice") })
@@ -717,7 +718,7 @@ class GameServiceTest {
 
     @Test
     fun `recomputePlayerStats sets upkeep based on living non-base units`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             players.add(Player(name = "Alice"))
             units.addAll(listOf(
@@ -735,7 +736,7 @@ class GameServiceTest {
 
     @Test
     fun `after buyFarm the broadcasted state contains updated income`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             players.add(Player(name = "Alice", gold = 10, farms = 0))
         }
@@ -752,7 +753,7 @@ class GameServiceTest {
 
     @Test
     fun `after field conquest income shifts from old to new owner`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             players.add(Player(name = "Alice"))
             players.add(Player(name = "Bob"))
@@ -772,7 +773,7 @@ class GameServiceTest {
 
     @Test
     fun `after endTurn with insolvency upkeep drops to zero`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             status = GameStatus.IN_PROGRESS
 
@@ -801,7 +802,7 @@ class GameServiceTest {
 
     @Test
     fun `endTurn applies economy only to the ending player`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             players.addAll(listOf(
                 Player(name = "Alice", gold = 0, farms = 1),
@@ -819,7 +820,7 @@ class GameServiceTest {
 
     @Test
     fun `each player gets exactly one income per full round in TRIAD_OUTPOST`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             gameMode = GameMode.TRIAD_OUTPOST
             players.addAll(listOf(
@@ -841,7 +842,7 @@ class GameServiceTest {
 
     @Test
     fun `insolvency only affects the ending player`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             players.addAll(listOf(
                 Player(name = "Alice", gold = 0, farms = 0),
@@ -864,7 +865,7 @@ class GameServiceTest {
 
     @Test
     fun `each player gets exactly one income per full round in BATTLEFIELD_PEAKS`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             gameMode = GameMode.BATTLEFIELD_PEAKS
             players.addAll(listOf(
@@ -889,7 +890,7 @@ class GameServiceTest {
 
     @Test
     fun `disconnect removes player but game continues cleanly`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             gameMode = GameMode.TRIAD_OUTPOST
             players.addAll(listOf(
@@ -918,7 +919,7 @@ class GameServiceTest {
 
     @Test
     fun `claimCheatGift adds positive delta and sets pendingGift`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             players.addAll(listOf(
                 Player(name = "Alice", gold = 5),
@@ -940,7 +941,7 @@ class GameServiceTest {
 
     @Test
     fun `claimCheatGift caps gold at zero on negative delta`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             players.addAll(listOf(
                 Player(name = "Alice", gold = 3),
@@ -955,7 +956,7 @@ class GameServiceTest {
 
     @Test
     fun `claimCheatGift does not cap when negative delta fits`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             players.addAll(listOf(
                 Player(name = "Alice", gold = 5),
@@ -970,7 +971,7 @@ class GameServiceTest {
 
     @Test
     fun `claimCheatGift sets pendingDecisions to player count minus one`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             players.addAll(listOf(
                 Player(name = "Alice", gold = 0),
@@ -987,7 +988,7 @@ class GameServiceTest {
 
     @Test
     fun `respondCheatSteal accept transfers delta and clears pendingGift`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             players.addAll(listOf(
                 Player(name = "Alice", gold = 12, hasUsedGift = true),
@@ -1005,7 +1006,7 @@ class GameServiceTest {
 
     @Test
     fun `respondCheatSteal accept caps stealer gold at zero on negative delta`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             players.addAll(listOf(
                 Player(name = "Alice", gold = 0, hasUsedGift = true),
@@ -1023,7 +1024,7 @@ class GameServiceTest {
 
     @Test
     fun `respondCheatSteal decline decrements pendingDecisions when others remain`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             players.addAll(listOf(
                 Player(name = "Alice", gold = 10, hasUsedGift = true),
@@ -1042,7 +1043,7 @@ class GameServiceTest {
 
     @Test
     fun `respondCheatSteal decline clears pendingGift when last decision`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             players.addAll(listOf(
                 Player(name = "Alice", gold = 10, hasUsedGift = true),
@@ -1059,7 +1060,7 @@ class GameServiceTest {
 
     @Test
     fun `hardDelete clears pendingGift when owner disconnects`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             gameMode = GameMode.TRIAD_OUTPOST
             status = GameStatus.IN_PROGRESS
@@ -1085,7 +1086,7 @@ class GameServiceTest {
 
     @Test
     fun `hardDelete decrements pendingDecisions when stealer disconnects`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             gameMode = GameMode.TRIAD_OUTPOST
             status = GameStatus.IN_PROGRESS
@@ -1112,7 +1113,7 @@ class GameServiceTest {
 
     @Test
     fun `hardDelete clears pendingGift when last stealer disconnects`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             gameMode = GameMode.TRIAD_OUTPOST
             status = GameStatus.IN_PROGRESS
@@ -1136,7 +1137,7 @@ class GameServiceTest {
 
     @Test
     fun `base loss in multiplayer eliminates player and frees fields`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             status = GameStatus.IN_PROGRESS
             gameMode = GameMode.TRIAD_OUTPOST
@@ -1179,7 +1180,7 @@ class GameServiceTest {
 
     @Test
     fun `disconnect of active player passes turn and eliminates player`() {
-        val service = GameService(CombatService())
+        val service = TestServiceFactory.createGameService()
         val state = GameState().apply {
             status = GameStatus.IN_PROGRESS
             gameMode = GameMode.TRIAD_OUTPOST

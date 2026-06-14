@@ -7,10 +7,11 @@ import org.mockito.ArgumentMatchers
 import org.mockito.Mockito
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.web.socket.messaging.SessionDisconnectEvent
+import at.aau.hexabrawl.websocketserver.TestServiceFactory
 
 class DisconnectHandlerComponentTest {
 
-    private val gameService = GameService(CombatService())
+    private val gameService = TestServiceFactory.createGameService()
     private val roomRegistry = RoomRegistry()
     private val messagingTemplate = Mockito.mock(SimpMessagingTemplate::class.java)
     private val handler = DisconnectHandler(gameService, roomRegistry, messagingTemplate)

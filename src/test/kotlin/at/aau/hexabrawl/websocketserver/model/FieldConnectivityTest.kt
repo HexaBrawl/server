@@ -3,6 +3,7 @@ package at.aau.hexabrawl.websocketserver.model
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import at.aau.hexabrawl.websocketserver.TestServiceFactory
 
 class FieldConnectivityTest {
 
@@ -10,7 +11,7 @@ class FieldConnectivityTest {
 
     @BeforeEach
     fun setup() {
-        gameService = GameService(CombatService())
+        gameService = TestServiceFactory.createGameService()
     }
 
     private fun stateWithBase(owner: String, baseX: Int, baseY: Int): GameState =
