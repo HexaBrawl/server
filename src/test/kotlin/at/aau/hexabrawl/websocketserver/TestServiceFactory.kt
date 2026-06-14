@@ -2,7 +2,7 @@ package at.aau.hexabrawl.websocketserver
 
 import at.aau.hexabrawl.websocketserver.service.CombatService
 import at.aau.hexabrawl.websocketserver.model.GameService
-import at.aau.hexabrawl.websocketserver.model.ConnectivityService
+import at.aau.hexabrawl.websocketserver.service.ConnectivityService
 
 
 /**
