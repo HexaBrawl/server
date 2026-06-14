@@ -14,7 +14,10 @@ import org.springframework.messaging.simp.SimpMessagingTemplate
  */
 class CheatGiftBlockTest {
 
-    private lateinit var controller: WebSocketBrokerController
+    private lateinit var lobbyController: LobbyController
+    private lateinit var gameTurnController: GameTurnController
+    private lateinit var purchaseController: PurchaseController
+    private lateinit var cheatController: CheatController
     private lateinit var gameService: GameService
     private lateinit var roomRegistry: RoomRegistry
     private lateinit var messagingTemplate: SimpMessagingTemplate
@@ -27,7 +30,10 @@ class CheatGiftBlockTest {
         roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java)
         val contextResolver = GameContextResolver(roomRegistry, messagingTemplate)
-        controller = WebSocketBrokerController(gameService, contextResolver, messagingTemplate)
+        lobbyController = LobbyController(gameService, contextResolver, messagingTemplate)
+        gameTurnController = GameTurnController(gameService, contextResolver, messagingTemplate)
+        purchaseController = PurchaseController(gameService, contextResolver, messagingTemplate)
+        cheatController = CheatController(gameService, contextResolver, messagingTemplate)
         aliceHeader = mock(SimpMessageHeaderAccessor::class.java)
         `when`(aliceHeader.sessionId).thenReturn("session-alice")
         bobHeader = mock(SimpMessageHeaderAccessor::class.java)
@@ -37,17 +43,17 @@ class CheatGiftBlockTest {
     /** Erzeugt Room mit Alice+Bob (Status IN_PROGRESS) und aktivem pendingGift von Alice. */
     private fun setupRoomWithPendingGift(): Room {
         val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
-        controller.joinRoom(
+        lobbyController.joinRoom(
             room.roomId,
             JoinRequest(name = "Alice", color = PlayerColor.RED),
             aliceHeader
         )
-        controller.joinRoom(
+        lobbyController.joinRoom(
             room.roomId,
             JoinRequest(name = "Bob", color = PlayerColor.BLUE),
             bobHeader
         )
-        controller.claimCheatGiftRoom(
+        cheatController.claimCheatGiftRoom(
             room.roomId,
             ClaimGiftRequest("Alice", 5),
             aliceHeader
@@ -59,7 +65,7 @@ class CheatGiftBlockTest {
     fun `moveRoom is blocked during pendingGift`() {
         val room = setupRoomWithPendingGift()
 
-        val result = controller.moveRoom(
+        val result = gameTurnController.moveRoom(
             room.roomId,
             Move(player = "Alice", type = UnitType.INFANTRY, fromX = 2, fromY = 2, toX = 3, toY = 2),
             aliceHeader
@@ -77,7 +83,7 @@ class CheatGiftBlockTest {
     fun `endTurnRoom is blocked during pendingGift`() {
         val room = setupRoomWithPendingGift()
 
-        val result = controller.endTurnRoom(
+        val result = gameTurnController.endTurnRoom(
             room.roomId,
             EndTurnRequest(playerName = "Alice"),
             aliceHeader
@@ -95,7 +101,7 @@ class CheatGiftBlockTest {
     fun `buyFarmRoom is blocked during pendingGift`() {
         val room = setupRoomWithPendingGift()
 
-        val result = controller.buyFarmRoom(room.roomId, aliceHeader)
+        val result = purchaseController.buyFarmRoom(room.roomId, aliceHeader)
 
         assertNull(result)
         verify(messagingTemplate).convertAndSendToUser(
@@ -109,7 +115,7 @@ class CheatGiftBlockTest {
     fun `buyUnitRoom is blocked during pendingGift`() {
         val room = setupRoomWithPendingGift()
 
-        val result = controller.buyUnitRoom(
+        val result = purchaseController.buyUnitRoom(
             room.roomId,
             BuyUnitRequest("Alice", UnitType.INFANTRY, 2, 2),
             aliceHeader
