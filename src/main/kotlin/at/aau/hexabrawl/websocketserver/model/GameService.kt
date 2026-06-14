@@ -1,5 +1,6 @@
 package at.aau.hexabrawl.websocketserver.model
 
+import at.aau.hexabrawl.websocketserver.service.CombatService
 import org.springframework.stereotype.Service
 
 @Service
