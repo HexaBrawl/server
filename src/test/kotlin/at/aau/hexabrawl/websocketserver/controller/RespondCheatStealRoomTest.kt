@@ -17,7 +17,8 @@ import at.aau.hexabrawl.websocketserver.service.GameService
  */
 class RespondCheatStealRoomTest {
 
-    private lateinit var controller: WebSocketBrokerController
+    private lateinit var controller: CheatController
+    private lateinit var lobbyController: LobbyController
     private lateinit var gameService: GameService
     private lateinit var roomRegistry: RoomRegistry
     private lateinit var messagingTemplate: SimpMessagingTemplate
@@ -29,7 +30,9 @@ class RespondCheatStealRoomTest {
         gameService = TestServiceFactory.createGameService()
         roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java)
-        controller = WebSocketBrokerController(gameService, roomRegistry, messagingTemplate)
+        val contextResolver = GameContextResolver(roomRegistry, messagingTemplate)
+        controller = CheatController(gameService, contextResolver, messagingTemplate)
+        lobbyController = LobbyController(gameService, contextResolver, messagingTemplate)
         aliceHeader = mock(SimpMessageHeaderAccessor::class.java)
         `when`(aliceHeader.sessionId).thenReturn("session-alice")
         bobHeader = mock(SimpMessageHeaderAccessor::class.java)
@@ -39,12 +42,12 @@ class RespondCheatStealRoomTest {
     /** Helfer: erzeugt einen Room mit Alice + Bob (Status IN_PROGRESS) und aktivem pendingGift von Alice. */
     private fun setupRoomWithPendingGift(delta: Int): Room {
         val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
-        controller.joinRoom(
+        lobbyController.joinRoom(
             room.roomId,
             JoinRequest(name = "Alice", color = PlayerColor.RED),
             aliceHeader
         )
-        controller.joinRoom(
+        lobbyController.joinRoom(
             room.roomId,
             JoinRequest(name = "Bob", color = PlayerColor.BLUE),
             bobHeader
@@ -116,12 +119,12 @@ class RespondCheatStealRoomTest {
     @Test
     fun `respondCheatSteal sends NO_PENDING_GIFT when nothing is pending`() {
         val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
-        controller.joinRoom(
+        lobbyController.joinRoom(
             room.roomId,
             JoinRequest(name = "Alice", color = PlayerColor.RED),
             aliceHeader
         )
-        controller.joinRoom(
+        lobbyController.joinRoom(
             room.roomId,
             JoinRequest(name = "Bob", color = PlayerColor.BLUE),
             bobHeader

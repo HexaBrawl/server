@@ -1,15 +1,17 @@
 package at.aau.hexabrawl.websocketserver.controller
 
-import at.aau.hexabrawl.websocketserver.model.StompMessage
+import at.aau.hexabrawl.websocketserver.model.GameMode
+import at.aau.hexabrawl.websocketserver.model.GameState
+import at.aau.hexabrawl.websocketserver.model.RoomRegistry
 import at.aau.hexabrawl.websocketserver.websocket.StompFrameHandlerClientImpl
 import org.assertj.core.api.Assertions
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.messaging.converter.JacksonJsonMessageConverter
 import org.springframework.messaging.converter.MessageConverter
-import org.springframework.messaging.converter.StringMessageConverter
 import org.springframework.messaging.simp.stomp.StompSession
 import org.springframework.messaging.simp.stomp.StompSessionHandlerAdapter
 import org.springframework.test.context.junit.jupiter.SpringExtension
@@ -19,6 +21,17 @@ import java.util.concurrent.BlockingQueue
 import java.util.concurrent.LinkedBlockingDeque
 import java.util.concurrent.TimeUnit
 
+/**
+ * Smoke-Tests fuer die Spring-STOMP-Pipeline.
+ *
+ * Prueft, dass Spring Boot mit der WebSocket-Broker-Konfiguration sauber
+ * hochkommt, ein STOMP-Client sich verbinden kann, eine @MessageMapping-
+ * Methode antwortet und der Broadcast den Subscriber erreicht.
+ *
+ * Genutzt wird dafuer der /rooms/{roomId}/init-Endpoint (LobbyController),
+ * der bei jeder Anfrage idempotent den aktuellen GameState an
+ * /topic/rooms/{roomId}/state broadcastet.
+ */
 @ExtendWith(SpringExtension::class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class WebSocketBrokerIntegrationTest {
@@ -26,32 +39,26 @@ class WebSocketBrokerIntegrationTest {
     @LocalServerPort
     private var port: Int = 0
 
-    private val WEBSOCKET_TOPIC = "/topic/hello-response"
-    private val WEBSOCKET_TOPIC_OBJECT = "/topic/rcv-object"
+    @Autowired
+    private lateinit var roomRegistry: RoomRegistry
 
     @Test
-    fun testWebSocketMessageBroker() {
-        val messages: BlockingQueue<String> = LinkedBlockingDeque()
-        val session = initStompSession(WEBSOCKET_TOPIC, StringMessageConverter(), messages, String::class.java)
+    fun `init broadcasts current GameState to subscribers`() {
+        val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
+        val messages: BlockingQueue<GameState> = LinkedBlockingDeque()
+        val session = initStompSession(
+            "/topic/rooms/${room.roomId}/state",
+            JacksonJsonMessageConverter(),
+            messages,
+            GameState::class.java
+        )
 
-        // send a message to the server
-        val message = "Test message"
-        session.send("/app/hello", message)
+        // /init triggert einen Broadcast des aktuellen State an alle Subscriber
+        session.send("/app/rooms/${room.roomId}/init", "{}")
 
-        val expectedResponse = "echo from broker: $message"
-        Assertions.assertThat(messages.poll(3, TimeUnit.SECONDS)).isEqualTo(expectedResponse)
-    }
-
-    @Test
-    fun testWebSocketMessageBrokerHandleObject() {
-        val messages: BlockingQueue<StompMessage> = LinkedBlockingDeque()
-        val session = initStompSession(WEBSOCKET_TOPIC_OBJECT, JacksonJsonMessageConverter(), messages, StompMessage::class.java)
-
-        // send a message object to the server
-        val message = StompMessage("client", "Test Object Message")
-        session.send("/app/object", message)
-
-        Assertions.assertThat(messages.poll(3, TimeUnit.SECONDS)).isEqualTo(message)
+        val received = messages.poll(3, TimeUnit.SECONDS)
+        Assertions.assertThat(received).isNotNull
+        Assertions.assertThat(received.players).isEmpty()
     }
 
     /**
@@ -69,9 +76,9 @@ class WebSocketBrokerIntegrationTest {
         // connect client to the websocket server (using Kotlin String interpolation for the port)
         val websocketUri = "ws://localhost:$port/websocket-example-broker"
         val session = stompClient.connectAsync(websocketUri, object : StompSessionHandlerAdapter() {})
-            .get(10, TimeUnit.SECONDS) // wait 1 sec for the client to be connected
+            .get(10, TimeUnit.SECONDS) // wait up to 10 sec for the client to be connected
 
-        // subscribes to the topic defined in WebSocketBrokerController
+        // subscribes to the topic
         session.subscribe(destination, StompFrameHandlerClientImpl(queue, expectedType))
 
         return session

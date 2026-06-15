@@ -17,7 +17,8 @@ import at.aau.hexabrawl.websocketserver.service.GameService
  */
 class ClaimCheatGiftRoomTest {
 
-    private lateinit var controller: WebSocketBrokerController
+    private lateinit var controller: CheatController
+    private lateinit var lobbyController: LobbyController
     private lateinit var gameService: GameService
     private lateinit var roomRegistry: RoomRegistry
     private lateinit var messagingTemplate: SimpMessagingTemplate
@@ -28,7 +29,9 @@ class ClaimCheatGiftRoomTest {
         gameService = TestServiceFactory.createGameService()
         roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java)
-        controller = WebSocketBrokerController(gameService, roomRegistry, messagingTemplate)
+        val contextResolver = GameContextResolver(roomRegistry, messagingTemplate)
+        controller = CheatController(gameService, contextResolver, messagingTemplate)
+        lobbyController = LobbyController(gameService, contextResolver, messagingTemplate)
         headerAccessor = mock(SimpMessageHeaderAccessor::class.java)
         `when`(headerAccessor.sessionId).thenReturn("session-alice")
     }
@@ -36,14 +39,14 @@ class ClaimCheatGiftRoomTest {
     /** Helfer: erzeugt einen Room mit 2 Spielern (Alice + Bob, Status IN_PROGRESS). */
     private fun setupRoomInProgress(): Room {
         val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
-        controller.joinRoom(
+        lobbyController.joinRoom(
             room.roomId,
             JoinRequest(name = "Alice", color = PlayerColor.RED),
             headerAccessor
         )
         val bobHeader = mock(SimpMessageHeaderAccessor::class.java)
         `when`(bobHeader.sessionId).thenReturn("session-bob")
-        controller.joinRoom(
+        lobbyController.joinRoom(
             room.roomId,
             JoinRequest(name = "Bob", color = PlayerColor.BLUE),
             bobHeader
@@ -103,7 +106,7 @@ class ClaimCheatGiftRoomTest {
     @Test
     fun `claimCheatGift sends GAME_NOT_STARTED when game is waiting`() {
         val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
-        controller.joinRoom(
+        lobbyController.joinRoom(
             room.roomId,
             JoinRequest(name = "Alice"),
             headerAccessor

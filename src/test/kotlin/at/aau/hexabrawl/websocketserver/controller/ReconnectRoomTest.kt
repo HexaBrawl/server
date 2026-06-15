@@ -17,7 +17,7 @@ import at.aau.hexabrawl.websocketserver.service.GameService
  */
 class ReconnectRoomTest {
 
-    private lateinit var controller: WebSocketBrokerController
+    private lateinit var controller: LobbyController
     private lateinit var gameService: GameService
     private lateinit var roomRegistry: RoomRegistry
     private lateinit var messagingTemplate: SimpMessagingTemplate
@@ -29,7 +29,8 @@ class ReconnectRoomTest {
         gameService = TestServiceFactory.createGameService()
         roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java)
-        controller = WebSocketBrokerController(gameService, roomRegistry, messagingTemplate)
+        val contextResolver = GameContextResolver(roomRegistry, messagingTemplate)
+        controller = LobbyController(gameService, contextResolver, messagingTemplate)
         aliceHeader = mock(SimpMessageHeaderAccessor::class.java)
         `when`(aliceHeader.sessionId).thenReturn("session-alice")
         bobHeader = mock(SimpMessageHeaderAccessor::class.java)

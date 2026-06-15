@@ -17,7 +17,8 @@ import at.aau.hexabrawl.websocketserver.service.GameService
  */
 class BuyUnitRoomTest {
 
-    private lateinit var controller: WebSocketBrokerController
+    private lateinit var controller: PurchaseController
+    private lateinit var lobbyController: LobbyController
     private lateinit var gameService: GameService
     private lateinit var roomRegistry: RoomRegistry
     private lateinit var messagingTemplate: SimpMessagingTemplate
@@ -28,7 +29,9 @@ class BuyUnitRoomTest {
         gameService = TestServiceFactory.createGameService()
         roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java)
-        controller = WebSocketBrokerController(gameService, roomRegistry, messagingTemplate)
+        val contextResolver = GameContextResolver(roomRegistry, messagingTemplate)
+        controller = PurchaseController(gameService, contextResolver, messagingTemplate)
+        lobbyController = LobbyController(gameService, contextResolver, messagingTemplate)
         headerAccessor = mock(SimpMessageHeaderAccessor::class.java)
         `when`(headerAccessor.sessionId).thenReturn("session-alice")
     }
@@ -37,14 +40,14 @@ class BuyUnitRoomTest {
     private fun setupRoomWithAliceOwning(x: Int, y: Int): Room {
         val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
 
-        controller.joinRoom(
+        lobbyController.joinRoom(
             room.roomId,
             JoinRequest(name = "Alice", color = PlayerColor.RED),
             headerAccessor
         )
         val bobHeader = mock(SimpMessageHeaderAccessor::class.java)
         `when`(bobHeader.sessionId).thenReturn("session-bob")
-        controller.joinRoom(
+        lobbyController.joinRoom(
             room.roomId,
             JoinRequest(name = "Bob", color = PlayerColor.BLUE),
             bobHeader
@@ -106,7 +109,7 @@ class BuyUnitRoomTest {
     fun `buyUnit sends GAME_NOT_STARTED when game is not in progress`() {
         val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
         // Nur ein Spieler -> Status WAITING_FOR_PLAYERS
-        controller.joinRoom(
+        lobbyController.joinRoom(
             room.roomId,
             JoinRequest(name = "Alice"),
             headerAccessor
