@@ -8,6 +8,9 @@ import org.mockito.Mockito.mock
 import org.mockito.Mockito.*
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
 import org.springframework.messaging.simp.SimpMessagingTemplate
+import at.aau.hexabrawl.websocketserver.TestServiceFactory
+import at.aau.hexabrawl.websocketserver.service.GameService
+
 
 class WebSocketBrokerControllerTest {
 
@@ -21,7 +24,7 @@ class WebSocketBrokerControllerTest {
 
     @BeforeEach
     fun setup() {
-        gameService = GameService(CombatService())
+        gameService = TestServiceFactory.createGameService()
         roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java) // Mock erstellen
         val contextResolver = GameContextResolver(roomRegistry, messagingTemplate)

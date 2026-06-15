@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test
 import org.mockito.Mockito.*
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
 import org.springframework.messaging.simp.SimpMessagingTemplate
+import at.aau.hexabrawl.websocketserver.TestServiceFactory
+import at.aau.hexabrawl.websocketserver.service.GameService
 
 /**
  * Tests fuer den Cheat-Geschenk respond-steal Room-Endpoint.
@@ -25,7 +27,7 @@ class RespondCheatStealRoomTest {
 
     @BeforeEach
     fun setup() {
-        gameService = GameService(CombatService())
+        gameService = TestServiceFactory.createGameService()
         roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java)
         val contextResolver = GameContextResolver(roomRegistry, messagingTemplate)

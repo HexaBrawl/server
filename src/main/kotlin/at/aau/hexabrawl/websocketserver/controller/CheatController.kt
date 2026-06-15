@@ -2,7 +2,7 @@ package at.aau.hexabrawl.websocketserver.controller
 
 import at.aau.hexabrawl.websocketserver.model.ClaimGiftRequest
 import at.aau.hexabrawl.websocketserver.model.ErrorCode
-import at.aau.hexabrawl.websocketserver.model.GameService
+import at.aau.hexabrawl.websocketserver.service.GameService
 import at.aau.hexabrawl.websocketserver.model.GameState
 import at.aau.hexabrawl.websocketserver.model.StealResponseRequest
 import org.springframework.messaging.handler.annotation.DestinationVariable

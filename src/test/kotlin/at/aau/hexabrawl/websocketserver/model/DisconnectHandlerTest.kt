@@ -3,6 +3,8 @@ package at.aau.hexabrawl.websocketserver.model
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import at.aau.hexabrawl.websocketserver.TestServiceFactory
+import at.aau.hexabrawl.websocketserver.service.GameService
 
 class DisconnectHandlerTest {
 
@@ -10,7 +12,7 @@ class DisconnectHandlerTest {
 
     @BeforeEach
     fun setUp() {
-        gameService = GameService(CombatService())
+        gameService = TestServiceFactory.createGameService()
     }
 
     /**

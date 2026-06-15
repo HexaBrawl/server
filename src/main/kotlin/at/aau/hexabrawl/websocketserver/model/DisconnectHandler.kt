@@ -1,5 +1,6 @@
 package at.aau.hexabrawl.websocketserver.model
 
+import at.aau.hexabrawl.websocketserver.service.GameService
 import org.springframework.context.event.EventListener
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Component

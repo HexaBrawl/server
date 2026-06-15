@@ -2,7 +2,7 @@ package at.aau.hexabrawl.websocketserver.controller
 
 import at.aau.hexabrawl.websocketserver.model.GameMode
 import at.aau.hexabrawl.websocketserver.model.RoomRegistry
-import at.aau.hexabrawl.websocketserver.model.RoomCleanupService
+import at.aau.hexabrawl.websocketserver.service.RoomCleanupService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 

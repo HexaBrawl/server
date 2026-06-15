@@ -3,6 +3,9 @@ package at.aau.hexabrawl.websocketserver.model
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.BeforeEach
+import at.aau.hexabrawl.websocketserver.TestServiceFactory
+import at.aau.hexabrawl.websocketserver.service.GameService
+
 
 class UnitTypeTest {
 
@@ -11,7 +14,7 @@ class UnitTypeTest {
 
     @BeforeEach
     fun setup() {
-        gameService = GameService(CombatService())
+        gameService = TestServiceFactory.createGameService()
         gameState = gameService.gameState
 
         val state = gameService.gameState

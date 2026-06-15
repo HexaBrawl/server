@@ -3,6 +3,9 @@ package at.aau.hexabrawl.websocketserver.model
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import at.aau.hexabrawl.websocketserver.TestServiceFactory
+import at.aau.hexabrawl.websocketserver.service.GameService
+
 
 class FieldConquestTest {
 
@@ -10,7 +13,7 @@ class FieldConquestTest {
 
     @BeforeEach
     fun setup() {
-        gameService = GameService(CombatService())
+        gameService = TestServiceFactory.createGameService()
         gameService.handleJoin("Alice")
         gameService.handleJoin("Bob")
         // Standard-Combat-Units platzieren (seit Entfernen der Start-Einheiten
