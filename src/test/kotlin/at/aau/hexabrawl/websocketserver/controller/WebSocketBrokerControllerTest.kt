@@ -260,14 +260,15 @@ class WebSocketBrokerControllerTest {
         // Gold geben, damit sie nach der Runde nicht pleitegehen
         gameService.getCurrentState().players.forEach { it.gold = 100 }
 
-        // Alice bewegt alle 3 Einheiten - dann switcht zu Bob
+        // Alice bewegt alle 3 Einheiten und beendet manuell ihren Zug -
+        // dann ist Bob dran.
         gameService.handleMove(Move("Alice", UnitType.ARCHER, 1, 2, 1, 3))
         gameService.handleMove(Move("Alice", UnitType.INFANTRY, 2, 3, 2, 4))
         gameService.handleMove(Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
         val state1 = gameService.endTurn("Alice")
         assertEquals("Bob", state1.currentTurn)
 
-        // Bob bewegt alle 3 Einheiten - dann switcht zurueck zu Alice
+        // Bob bewegt alle 3 Einheiten und beendet manuell - dann ist Alice dran.
         gameService.handleMove(Move("Bob", UnitType.ARCHER, 8, 7, 8, 8))
         gameService.handleMove(Move("Bob", UnitType.INFANTRY, 7, 8, 6, 8))
         gameService.handleMove(Move("Bob", UnitType.CAVALRY, 6, 7, 5, 7))

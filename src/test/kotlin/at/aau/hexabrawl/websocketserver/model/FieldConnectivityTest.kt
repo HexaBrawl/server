@@ -101,7 +101,6 @@ class FieldConnectivityTest {
             players.add(Player(name = "Alice"))
             units.add(GameUnit(player = "Alice", x = 0, y = 0, type = UnitType.BASE))
             units.add(GameUnit(player = "Alice", x = 1, y = 0, type = UnitType.INFANTRY))
-            // Zweite Einheit, damit allMovableUnitsHaveMoved nicht gleich switchTurn triggert
             units.add(GameUnit(player = "Alice", x = 0, y = 1, type = UnitType.CAVALRY))
             fields.add(Field(0, 0, owner = "Alice"))
             fields.add(Field(1, 0, owner = "Alice"))
@@ -132,7 +131,6 @@ class FieldConnectivityTest {
             players.add(Player(name = "Bob"))
             units.add(GameUnit(player = "Alice", x = 0, y = 0, type = UnitType.BASE))
             units.add(GameUnit(player = "Bob", x = 3, y = 0, type = UnitType.INFANTRY))
-            // Zweite Bob-Einheit, damit allMovableUnitsHaveMoved nicht gleich switchTurn triggert
             units.add(GameUnit(player = "Bob", x = 4, y = 1, type = UnitType.CAVALRY))
             // Damit Bob nicht eliminiert wird
             // Bobs Basis direkt auf sein Startfeld (3,0) setzen.
