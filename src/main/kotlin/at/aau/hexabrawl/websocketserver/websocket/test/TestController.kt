@@ -1,6 +1,6 @@
 package at.aau.hexabrawl.websocketserver.websocket.test
 
-import at.aau.hexabrawl.websocketserver.model.GameService
+import at.aau.hexabrawl.websocketserver.service.GameService
 import at.aau.hexabrawl.websocketserver.model.GameState
 import at.aau.hexabrawl.websocketserver.model.Move
 import org.springframework.messaging.simp.SimpMessagingTemplate

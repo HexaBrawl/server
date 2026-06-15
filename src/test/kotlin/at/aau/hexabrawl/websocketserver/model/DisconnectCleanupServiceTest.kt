@@ -6,6 +6,9 @@ import org.junit.jupiter.api.Test
 import org.mockito.ArgumentMatchers
 import org.mockito.Mockito.*
 import org.springframework.messaging.simp.SimpMessagingTemplate
+import at.aau.hexabrawl.websocketserver.TestServiceFactory
+import at.aau.hexabrawl.websocketserver.service.DisconnectCleanupService
+import at.aau.hexabrawl.websocketserver.service.GameService
 
 /**
  * Tests fuer den DisconnectCleanupService.
@@ -21,7 +24,7 @@ class DisconnectCleanupServiceTest {
 
     @BeforeEach
     fun setup() {
-        gameService = GameService(CombatService())
+        gameService = TestServiceFactory.createGameService()
         roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java)
         cleanup = DisconnectCleanupService(gameService, roomRegistry, messagingTemplate)

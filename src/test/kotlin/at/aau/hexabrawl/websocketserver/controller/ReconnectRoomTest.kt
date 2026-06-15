@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test
 import org.mockito.Mockito.*
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
 import org.springframework.messaging.simp.SimpMessagingTemplate
+import at.aau.hexabrawl.websocketserver.TestServiceFactory
+import at.aau.hexabrawl.websocketserver.service.GameService
 
 /**
  * Tests fuer den Reconnect Room-Endpoint.
@@ -24,7 +26,7 @@ class ReconnectRoomTest {
 
     @BeforeEach
     fun setup() {
-        gameService = GameService(CombatService())
+        gameService = TestServiceFactory.createGameService()
         roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java)
         controller = WebSocketBrokerController(gameService, roomRegistry, messagingTemplate)

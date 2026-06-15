@@ -2,7 +2,7 @@ package at.aau.hexabrawl.websocketserver.controller
 
 import at.aau.hexabrawl.websocketserver.model.GameMode
 import at.aau.hexabrawl.websocketserver.model.GameStatus
-import at.aau.hexabrawl.websocketserver.model.RoomCleanupService
+import at.aau.hexabrawl.websocketserver.service.RoomCleanupService
 import at.aau.hexabrawl.websocketserver.model.RoomRegistry
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
