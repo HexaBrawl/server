@@ -107,6 +107,7 @@ class GameServiceTest {
             aliceBefore.x, aliceBefore.y,
             aliceTargetX, aliceTargetY))
         gameService.handleMove(Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
+        gameService.endTurn("Alice")
 
         val aliceAfter = gameService.getCurrentState().units.first {
             it.player == "Alice" && it.type == UnitType.INFANTRY
@@ -241,8 +242,8 @@ class GameServiceTest {
         bobCavalry.y = aliceInfantry.y + 1
 
         // Alice bewegt zuerst ARCHER und CAVALRY auf freie Felder,
-        // dann greift INFANTRY an. Das ist ihr dritter und letzter Zug -
-        // Turn switcht zu Bob.
+        // dann greift INFANTRY an. Nach allen drei Moves beendet sie manuell
+        // ihren Zug, dann ist Bob dran.
         gameService.handleMove(Move("Alice", UnitType.ARCHER, 1, 2, 1, 3))
         gameService.handleMove(Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
 
@@ -252,6 +253,7 @@ class GameServiceTest {
             fromX = aliceInfantry.x, fromY = aliceInfantry.y,
             toX = bobCavalry.x, toY = bobCavalry.y
         ))
+        gameService.endTurn("Alice")
 
         val updated = gameService.getCurrentState()
         assertThat(updated.status).isEqualTo(GameStatus.IN_PROGRESS)
@@ -278,11 +280,45 @@ class GameServiceTest {
         ))
         gameService.handleMove(Move("Alice", UnitType.INFANTRY, 2, 3, 2, 4))
         gameService.handleMove(Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
+        gameService.endTurn("Alice")
 
         val updated = gameService.getCurrentState()
         assertThat(updated.status).isEqualTo(GameStatus.IN_PROGRESS)
         assertThat(updated.winner).isNull()
         assertThat(updated.currentTurn).isEqualTo("Bob")
+    }
+
+    @Test
+    fun `player can move onto own skeleton field and absorbs the skeleton`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+        seedDualValleyCombatUnits()
+
+        val aliceInfantry = gameService.getCurrentState().units.first {
+            it.player == "Alice" && it.type == UnitType.INFANTRY
+        }
+        // Eigenes Skelett auf das Zielfeld setzen (z.B. Reste einer alten Einheit).
+        val targetX = aliceInfantry.x
+        val targetY = aliceInfantry.y + 1
+        gameService.gameState.units.add(GameUnit("Alice", targetX, targetY, UnitType.SKELETON))
+
+        gameService.handleMove(Move(
+            player = "Alice", type = UnitType.INFANTRY,
+            fromX = aliceInfantry.x, fromY = aliceInfantry.y,
+            toX = targetX, toY = targetY
+        ))
+
+        val updated = gameService.getCurrentState()
+        val movedInfantry = updated.units.first {
+            it.player == "Alice" && it.type == UnitType.INFANTRY
+        }
+        assertThat(movedInfantry.x).isEqualTo(targetX)
+        assertThat(movedInfantry.y).isEqualTo(targetY)
+        // Skelett wurde absorbiert
+        assertThat(updated.units.none {
+            it.x == targetX && it.y == targetY && it.type == UnitType.SKELETON
+        }).isTrue()
     }
 
     @Test

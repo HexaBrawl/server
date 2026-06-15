@@ -48,7 +48,9 @@ class TurnService(
         if (unit.hasMovedThisTurn) return state
 
         val friendlyOnTarget = state.units.any {
-            it.x == move.toX && it.y == move.toY && it.player == move.player
+            it.x == move.toX && it.y == move.toY &&
+                    it.player == move.player &&
+                    it.type != UnitType.SKELETON
         }
         if (friendlyOnTarget) return state
 
@@ -112,9 +114,6 @@ class TurnService(
                 }
         }
         connectivityService.recomputeConnectivity(state)
-        if (allMovableUnitsHaveMoved(state, playerName)) {
-            switchTurn(state)
-        }
     }
 
     private fun switchTurn(state: GameState) {
@@ -139,15 +138,6 @@ class TurnService(
         }
 
         state.units.forEach { it.hasMovedThisTurn = false }
-    }
-
-    private fun allMovableUnitsHaveMoved(state: GameState, playerName: String): Boolean {
-        val movable = state.units.filter {
-            it.player == playerName &&
-                    it.type != UnitType.SKELETON &&
-                    it.type != UnitType.BASE
-        }
-        return movable.isNotEmpty() && movable.all { it.hasMovedThisTurn }
     }
 
     private fun isAdjacentToOwnTerritory(state: GameState, x: Int, y: Int, playerName: String): Boolean {

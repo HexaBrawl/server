@@ -8,6 +8,16 @@ import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBr
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer
 
+/**
+ * Spring-Konfiguration des STOMP-Brokers ueber WebSocket.
+ *
+ *  - STOMP-Endpunkt: `/websocket-example-broker` (von der App so genutzt).
+ *  - Broker-Destinations: `/topic` (Broadcast) und `/queue` (per-User).
+ *  - App-Prefix: `/app` — vom Client gesendete Frames landen auf
+ *    `@MessageMapping`-Methoden der Controller.
+ *  - Heartbeat 20s/20s gegen Azure-Idle-Timeout, gestueztt durch einen
+ *    eigenen Task-Scheduler.
+ */
 @Configuration
 @EnableWebSocketMessageBroker
 class WebSocketBrokerConfig : WebSocketMessageBrokerConfigurer {

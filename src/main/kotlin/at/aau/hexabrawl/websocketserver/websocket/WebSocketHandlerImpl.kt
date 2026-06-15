@@ -2,6 +2,12 @@ package at.aau.hexabrawl.websocketserver.websocket
 
 import org.springframework.web.socket.*
 
+/**
+ * Plain-WebSocket-Echo-Handler aus der ursprünglichen Demo. Wird ueber
+ * [at.aau.hexabrawl.websocketserver.config.WebSocketHandlerConfig] am
+ * Endpoint `/websocket-example-handler` registriert; im Production-Flow
+ * der App nicht in Verwendung.
+ */
 class WebSocketHandlerImpl : WebSocketHandler {
 
     override fun afterConnectionEstablished(session: WebSocketSession) {

@@ -7,6 +7,13 @@ import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.web.bind.annotation.*
 import java.util.UUID
 
+/**
+ * Test-/Demo-REST-Endpoints (`/test/...`), die direkt auf den globalen
+ * Single-Game-State von [GameService.gameState] arbeiten. Nicht von der
+ * Production-App genutzt — gedacht fuer manuelle Curl-Smoke-Tests und
+ * frueheres Frontend-Demo. Kandidat fuer Cleanup wenn nicht mehr
+ * gebraucht.
+ */
 @RestController
 @RequestMapping("/test")
 class TestController(

@@ -1,5 +1,10 @@
 package at.aau.hexabrawl.websocketserver.model
 
+/**
+ * Fehler-Codes, die der Server an den Client via /user/queue/errors
+ * sendet (eingepackt in [ErrorMessage]). Vertraglich relevant fuer die
+ * App — wer einen Code umbenennt, muss die App nachziehen.
+ */
 enum class ErrorCode {
     NOT_YOUR_TURN,
     INVALID_MOVE,
