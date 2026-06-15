@@ -116,11 +116,10 @@ class WebSocketBrokerControllerTest {
         gameService.handleJoin("Sebastian", "session-2")
         seedDualValleyCombatUnits(gameService.gameState, "Josef", "Sebastian")
 
-        // Mit Rundensystem switcht der Turn erst wenn alle bewegbaren Einheiten
-        // (ARCHER, INFANTRY, CAVALRY) des Spielers gezogen haben.
         gameService.handleMove(Move("Josef", UnitType.ARCHER, 1, 2, 1, 3))
         gameService.handleMove(Move("Josef", UnitType.INFANTRY, 2, 3, 2, 4))
-        val state = gameService.handleMove(Move("Josef", UnitType.CAVALRY, 3, 2, 3, 3))
+        gameService.handleMove(Move("Josef", UnitType.CAVALRY, 3, 2, 3, 3))
+        val state = gameService.endTurn("Josef")
 
         val josefUnit = state.units.find {
             it.player == "Josef" && it.type == UnitType.INFANTRY
@@ -174,11 +173,13 @@ class WebSocketBrokerControllerTest {
         gameService.handleMove(Move("Alice", UnitType.ARCHER, 1, 2, 1, 3))
         gameService.handleMove(Move("Alice", UnitType.INFANTRY, 2, 3, 2, 4))
         gameService.handleMove(Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
+        gameService.endTurn("Alice")
 
         // Bob bewegt alle 3 bewegbaren Einheiten
         gameService.handleMove(Move("Bob", UnitType.ARCHER, 8, 7, 8, 8))
         gameService.handleMove(Move("Bob", UnitType.INFANTRY, 7, 8, 6, 8))
-        val result = gameService.handleMove(Move("Bob", UnitType.CAVALRY, 6, 7, 5, 7))
+        gameService.handleMove(Move("Bob", UnitType.CAVALRY, 6, 7, 5, 7))
+        val result = gameService.endTurn("Bob")
 
         val aliceUnit = result.units.find {
             it.player == "Alice" && it.type == UnitType.INFANTRY
@@ -262,13 +263,15 @@ class WebSocketBrokerControllerTest {
         // Alice bewegt alle 3 Einheiten - dann switcht zu Bob
         gameService.handleMove(Move("Alice", UnitType.ARCHER, 1, 2, 1, 3))
         gameService.handleMove(Move("Alice", UnitType.INFANTRY, 2, 3, 2, 4))
-        val state1 = gameService.handleMove(Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
+        gameService.handleMove(Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
+        val state1 = gameService.endTurn("Alice")
         assertEquals("Bob", state1.currentTurn)
 
         // Bob bewegt alle 3 Einheiten - dann switcht zurueck zu Alice
         gameService.handleMove(Move("Bob", UnitType.ARCHER, 8, 7, 8, 8))
         gameService.handleMove(Move("Bob", UnitType.INFANTRY, 7, 8, 6, 8))
-        val state2 = gameService.handleMove(Move("Bob", UnitType.CAVALRY, 6, 7, 5, 7))
+        gameService.handleMove(Move("Bob", UnitType.CAVALRY, 6, 7, 5, 7))
+        val state2 = gameService.endTurn("Bob")
         assertEquals("Alice", state2.currentTurn)
     }
 
@@ -604,12 +607,17 @@ class WebSocketBrokerControllerTest {
 
         seedDualValleyCombatUnits(room.gameState, "Alice", "Bob")
 
-        // Alle 3 bewegbaren Einheiten bewegen damit der Turn switcht.
+        // Alle 3 bewegbaren Einheiten bewegen, dann manuell Runde beenden.
         gameTurnController.moveRoom(room.roomId, Move("Alice", UnitType.ARCHER, 1, 2, 1, 3), headerAccessor)
         gameTurnController.moveRoom(room.roomId, Move("Alice", UnitType.INFANTRY, 2, 3, 2, 4), headerAccessor)
-        val result = gameTurnController.moveRoom(
+        gameTurnController.moveRoom(
             room.roomId,
             Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3),
+            headerAccessor
+        )
+        val result = gameTurnController.endTurnRoom(
+            room.roomId,
+            EndTurnRequest(playerName = "Alice"),
             headerAccessor
         )
 
@@ -1245,7 +1253,8 @@ class WebSocketBrokerControllerTest {
         // Alice bewegt alle 3 Einheiten - INFANTRY genau 2 Hex weit.
         gameService.handleMove(Move("Alice", UnitType.ARCHER, 1, 2, 1, 3))
         gameService.handleMove(Move("Alice", UnitType.INFANTRY, 2, 3, 4, 2))
-        val state = gameService.handleMove(Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
+        gameService.handleMove(Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
+        val state = gameService.endTurn("Alice")
 
         val infantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
         assertEquals(4, infantry.x)

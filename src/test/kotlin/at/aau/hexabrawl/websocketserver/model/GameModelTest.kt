@@ -525,11 +525,11 @@ class GameModelTest {
         )
         assertEquals("P1", room.gameState.currentTurn)
 
-        // Mit dem dritten Move sollte der Auto-Switch greifen.
-        val state = gameService.handleMove(
+        gameService.handleMove(
             room.gameState,
             Move("P1", UnitType.CAVALRY, 6, 9, 6, 10)
         )
+        val state = gameService.endTurn(room.gameState, "P1")
 
         assertEquals("P2", state.currentTurn)
     }
@@ -590,11 +590,11 @@ class GameModelTest {
         )
         assertEquals("P1", room.gameState.currentTurn)
 
-        // Mit dem dritten Move sollte der Auto-Switch greifen.
-        val state = gameService.handleMove(
+        gameService.handleMove(
             room.gameState,
             Move("P1", UnitType.CAVALRY, 7, 9, 7, 10)
         )
+        val state = gameService.endTurn(room.gameState, "P1")
 
         assertEquals("P2", state.currentTurn)
     }

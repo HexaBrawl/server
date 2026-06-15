@@ -170,15 +170,16 @@ class UnitTypeTest {
             it.player == "Alice" && it.type == UnitType.ARCHER
         }
 
-        // Mit Rundensystem switcht der Turn erst wenn alle 3 bewegbaren
-        // Einheiten gezogen haben.
+        // Alice bewegt alle drei Einheiten und beendet manuell ihren Zug,
+        // dann ist Bob dran.
         gameService.handleMove(Move(
             player = "Alice", type = UnitType.ARCHER,
             fromX = archer.x, fromY = archer.y,
             toX = archer.x, toY = archer.y + 1
         ))
         gameService.handleMove(Move("Alice", UnitType.INFANTRY, 2, 3, 2, 4))
-        val state = gameService.handleMove(Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
+        gameService.handleMove(Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
+        val state = gameService.endTurn("Alice")
 
         assertEquals("Bob", state.currentTurn)
     }
