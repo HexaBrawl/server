@@ -7,6 +7,17 @@ import at.aau.hexabrawl.websocketserver.model.PlayerColor
 import at.aau.hexabrawl.websocketserver.model.UnitType
 import org.springframework.stereotype.Service
 
+/**
+ * Delegations-Fassade ueber die spezialisierten Domain-Services
+ * (Board, Player, Turn, Economy, Cheat, Connectivity).
+ *
+ * Existiert vor allem als stabile API fuer Controller und Tests, die nach
+ * dem Service-Split nicht alle einzeln umgestellt werden mussten. Haelt
+ * zusaetzlich eine globale [gameState]-Instanz fuer Single-Game-Test-Pfade.
+ *
+ * Neue Production-Aufrufer sollten direkt auf den passenden Sub-Service
+ * gehen statt ueber GameService.
+ */
 @Service
 class GameService(
     private val connectivityService: ConnectivityService,

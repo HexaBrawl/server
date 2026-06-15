@@ -5,6 +5,14 @@ import at.aau.hexabrawl.websocketserver.model.GameUnit
 import at.aau.hexabrawl.websocketserver.model.UnitType
 import org.springframework.stereotype.Service
 
+/**
+ * Stein-Schere-Papier-Combat zwischen zwei Einheiten.
+ *
+ * Loest den Kampf rein rechnerisch ueber [UnitType.beats] auf und liefert
+ * ein [CombatResult]; State-Mutation auf den GameUnit-Objekten passiert
+ * separat in [applyCombatResult]. Skelette koennen weder angreifen noch
+ * angegriffen werden.
+ */
 @Service
 class CombatService {
 

@@ -6,6 +6,11 @@ import org.springframework.web.socket.config.annotation.EnableWebSocket
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 
+/**
+ * Registriert den Plain-WebSocket-Handler (`/websocket-example-handler`)
+ * neben dem STOMP-Broker. Wird im Production-Flow von der App nicht
+ * genutzt — existiert als Demo/Smoke-Test-Endpoint.
+ */
 @Configuration
 @EnableWebSocket
 class WebSocketHandlerConfig : WebSocketConfigurer {
