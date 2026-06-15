@@ -286,6 +286,39 @@ class GameServiceTest {
     }
 
     @Test
+    fun `player can move onto own skeleton field and absorbs the skeleton`() {
+        gameService.initializeGame()
+        gameService.handleJoin("Alice")
+        gameService.handleJoin("Bob")
+        seedDualValleyCombatUnits()
+
+        val aliceInfantry = gameService.getCurrentState().units.first {
+            it.player == "Alice" && it.type == UnitType.INFANTRY
+        }
+        // Eigenes Skelett auf das Zielfeld setzen (z.B. Reste einer alten Einheit).
+        val targetX = aliceInfantry.x
+        val targetY = aliceInfantry.y + 1
+        gameService.gameState.units.add(GameUnit("Alice", targetX, targetY, UnitType.SKELETON))
+
+        gameService.handleMove(Move(
+            player = "Alice", type = UnitType.INFANTRY,
+            fromX = aliceInfantry.x, fromY = aliceInfantry.y,
+            toX = targetX, toY = targetY
+        ))
+
+        val updated = gameService.getCurrentState()
+        val movedInfantry = updated.units.first {
+            it.player == "Alice" && it.type == UnitType.INFANTRY
+        }
+        assertThat(movedInfantry.x).isEqualTo(targetX)
+        assertThat(movedInfantry.y).isEqualTo(targetY)
+        // Skelett wurde absorbiert
+        assertThat(updated.units.none {
+            it.x == targetX && it.y == targetY && it.type == UnitType.SKELETON
+        }).isTrue()
+    }
+
+    @Test
     fun `base unit is spawned for each player at configured position when game starts`() {
         gameService.initializeGame()
         gameService.handleJoin("Alice")

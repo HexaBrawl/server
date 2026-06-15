@@ -48,7 +48,9 @@ class TurnService(
         if (unit.hasMovedThisTurn) return state
 
         val friendlyOnTarget = state.units.any {
-            it.x == move.toX && it.y == move.toY && it.player == move.player
+            it.x == move.toX && it.y == move.toY &&
+                    it.player == move.player &&
+                    it.type != UnitType.SKELETON
         }
         if (friendlyOnTarget) return state
 
