@@ -101,10 +101,11 @@ class MultiRoomIntegrationTest {
 
         val turnBefore = roomB.gameState.currentTurn
 
-        // In DUAL_VALLEY muessen alle 3 Einheiten ziehen, bevor der Turn wechselt
+        // Josef bewegt alle 3 Einheiten und beendet manuell seinen Zug.
         gameService.handleMove(roomA.gameState, Move("Josef", UnitType.ARCHER, 1, 2, 1, 3))
         gameService.handleMove(roomA.gameState, Move("Josef", UnitType.INFANTRY, 2, 3, 2, 4))
         gameService.handleMove(roomA.gameState, Move("Josef", UnitType.CAVALRY, 3, 2, 3, 3))
+        gameService.endTurn(roomA.gameState, "Josef")
 
         //prüfen
         assertEquals(
