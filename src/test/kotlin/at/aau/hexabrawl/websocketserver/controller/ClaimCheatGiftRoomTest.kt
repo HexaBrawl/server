@@ -104,6 +104,29 @@ class ClaimCheatGiftRoomTest {
     }
 
     @Test
+    fun `claimCheatGift sends NOT_YOUR_TURN when player is not on turn`() {
+        val room = setupRoomInProgress()
+        // Im DUAL_VALLEY-Start ist Alice am Zug. Bob versucht das Geschenk zu oeffnen.
+        val bobHeader = mock(SimpMessageHeaderAccessor::class.java)
+        `when`(bobHeader.sessionId).thenReturn("session-bob")
+
+        val request = ClaimGiftRequest("Bob", 5)
+        val result = controller.claimCheatGiftRoom(room.roomId, request, bobHeader)
+
+        assertNull(result)
+        // Geschenk wurde nicht geoeffnet, kein pendingGift gesetzt.
+        assertNull(room.gameState.pendingGift)
+        val bob = room.gameState.players.first { it.name == "Bob" }
+        assertFalse(bob.hasUsedGift)
+
+        verify(messagingTemplate).convertAndSendToUser(
+            eq("session-bob"),
+            eq("/queue/errors"),
+            argThat { it is ErrorMessage && it.errorCode == ErrorCode.NOT_YOUR_TURN }
+        )
+    }
+
+    @Test
     fun `claimCheatGift sends GAME_NOT_STARTED when game is waiting`() {
         val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
         lobbyController.joinRoom(
@@ -157,10 +180,15 @@ class ClaimCheatGiftRoomTest {
     @Test
     fun `claimCheatGift sends CHEAT_ALREADY_PENDING when one is active`() {
         val room = setupRoomInProgress()
-        // Alice oeffnet zuerst
+        // Alice oeffnet zuerst (waehrend ihres Zuges)
         controller.claimCheatGiftRoom(room.roomId, ClaimGiftRequest("Alice", 5), headerAccessor)
 
-        // Bob versucht zu oeffnen waehrend Alice's pendingGift aktiv ist
+        // Zug auf Bob weiterschalten, damit Bob den /claim-gift-Endpoint
+        // ueberhaupt erreicht (sonst wuerde NOT_YOUR_TURN den Pfad
+        // abfangen). Bob's pendingGift-Test prueft also den Folgefall:
+        // Bob ist am Zug, will sein Geschenk oeffnen, aber Alice's
+        // Geschenk haengt noch.
+        room.gameState.currentTurn = "Bob"
         val bobHeader = mock(SimpMessageHeaderAccessor::class.java)
         `when`(bobHeader.sessionId).thenReturn("session-bob")
         val result = controller.claimCheatGiftRoom(room.roomId, ClaimGiftRequest("Bob", 5), bobHeader)

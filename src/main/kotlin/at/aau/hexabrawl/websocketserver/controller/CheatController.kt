@@ -48,7 +48,11 @@ class CheatController(
     ): GameState? {
         val sessionId = headerAccessor.sessionId ?: ""
 
-        val ctx = contextResolver.resolveActiveGame(sessionId, roomId) ?: return null
+        val ctx = contextResolver.resolveActiveGame(
+            sessionId, roomId,
+            notYourTurnMessage = "Du kannst das Geschenk nur waehrend deines Zuges oeffnen.",
+            expectedCurrentTurn = request.playerName
+        ) ?: return null
         val state = ctx.state
 
         if (request.delta !in -10..10) {
