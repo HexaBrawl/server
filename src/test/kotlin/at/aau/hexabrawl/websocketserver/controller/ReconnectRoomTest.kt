@@ -8,7 +8,9 @@ import org.mockito.Mockito.*
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import at.aau.hexabrawl.websocketserver.TestServiceFactory
+import at.aau.hexabrawl.websocketserver.service.EconomyService
 import at.aau.hexabrawl.websocketserver.service.GameService
+import at.aau.hexabrawl.websocketserver.service.PlayerService
 
 /**
  * Tests fuer den Reconnect Room-Endpoint.
@@ -19,6 +21,8 @@ class ReconnectRoomTest {
 
     private lateinit var controller: LobbyController
     private lateinit var gameService: GameService
+    private lateinit var playerService: PlayerService
+    private lateinit var economyService: EconomyService
     private lateinit var roomRegistry: RoomRegistry
     private lateinit var messagingTemplate: SimpMessagingTemplate
     private lateinit var aliceHeader: SimpMessageHeaderAccessor
@@ -27,10 +31,12 @@ class ReconnectRoomTest {
     @BeforeEach
     fun setup() {
         gameService = TestServiceFactory.createGameService()
+        playerService = TestServiceFactory.createPlayerService()
+        economyService = EconomyService()
         roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java)
         val contextResolver = GameContextResolver(roomRegistry, messagingTemplate)
-        controller = LobbyController(gameService, contextResolver, messagingTemplate)
+        controller = LobbyController(playerService, economyService, contextResolver, messagingTemplate)
         aliceHeader = mock(SimpMessageHeaderAccessor::class.java)
         `when`(aliceHeader.sessionId).thenReturn("session-alice")
         bobHeader = mock(SimpMessageHeaderAccessor::class.java)

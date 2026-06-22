@@ -10,6 +10,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate
 import at.aau.hexabrawl.websocketserver.TestServiceFactory
 import at.aau.hexabrawl.websocketserver.service.EconomyService
 import at.aau.hexabrawl.websocketserver.service.GameService
+import at.aau.hexabrawl.websocketserver.service.PlayerService
 import at.aau.hexabrawl.websocketserver.service.TurnService
 
 /**
@@ -24,6 +25,7 @@ class CheatGiftBlockTest {
     private lateinit var cheatController: CheatController
     private lateinit var gameService: GameService
     private lateinit var economyService: EconomyService
+    private lateinit var playerService: PlayerService
     private lateinit var turnService: TurnService
     private lateinit var roomRegistry: RoomRegistry
     private lateinit var messagingTemplate: SimpMessagingTemplate
@@ -34,11 +36,12 @@ class CheatGiftBlockTest {
     fun setup() {
         gameService = TestServiceFactory.createGameService()
         economyService = EconomyService()
+        playerService = TestServiceFactory.createPlayerService()
         turnService = TestServiceFactory.createTurnService()
         roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java)
         val contextResolver = GameContextResolver(roomRegistry, messagingTemplate)
-        lobbyController = LobbyController(gameService, contextResolver, messagingTemplate)
+        lobbyController = LobbyController(playerService, economyService, contextResolver, messagingTemplate)
         gameTurnController = GameTurnController(turnService, economyService, contextResolver, messagingTemplate)
         purchaseController = PurchaseController(economyService, contextResolver, messagingTemplate)
         cheatController = CheatController(gameService, contextResolver, messagingTemplate)

@@ -45,4 +45,6 @@ object TestServiceFactory {
             PlayerService(boardService)
         )
     }
+
+    fun createPlayerService(): PlayerService = PlayerService(BoardService())
 }

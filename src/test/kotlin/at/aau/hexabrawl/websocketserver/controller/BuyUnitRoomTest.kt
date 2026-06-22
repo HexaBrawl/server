@@ -10,6 +10,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate
 import at.aau.hexabrawl.websocketserver.TestServiceFactory
 import at.aau.hexabrawl.websocketserver.service.EconomyService
 import at.aau.hexabrawl.websocketserver.service.GameService
+import at.aau.hexabrawl.websocketserver.service.PlayerService
 
 /**
  * Tests fuer den Buy-Unit Room-Endpoint (#132).
@@ -22,6 +23,7 @@ class BuyUnitRoomTest {
     private lateinit var lobbyController: LobbyController
     private lateinit var gameService: GameService
     private lateinit var economyService: EconomyService
+    private lateinit var playerService: PlayerService
     private lateinit var roomRegistry: RoomRegistry
     private lateinit var messagingTemplate: SimpMessagingTemplate
     private lateinit var headerAccessor: SimpMessageHeaderAccessor
@@ -30,11 +32,12 @@ class BuyUnitRoomTest {
     fun setup() {
         gameService = TestServiceFactory.createGameService()
         economyService = EconomyService()
+        playerService = TestServiceFactory.createPlayerService()
         roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java)
         val contextResolver = GameContextResolver(roomRegistry, messagingTemplate)
         controller = PurchaseController(economyService, contextResolver, messagingTemplate)
-        lobbyController = LobbyController(gameService, contextResolver, messagingTemplate)
+        lobbyController = LobbyController(playerService, economyService, contextResolver, messagingTemplate)
         headerAccessor = mock(SimpMessageHeaderAccessor::class.java)
         `when`(headerAccessor.sessionId).thenReturn("session-alice")
     }
