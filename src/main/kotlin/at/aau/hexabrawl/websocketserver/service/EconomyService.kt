@@ -67,6 +67,18 @@ class EconomyService {
     }
 
     /**
+     * Kauft eine Farm fuer den Spieler.
+     * Gibt true zurueck wenn der Kauf erfolgreich war, false bei zu wenig Gold.
+     */
+    fun buyFarm(state: GameState, player: Player): Boolean = synchronized(state.lock) {
+        val cost = FARM_BASE_COST + (player.farms * FARM_COST_INCREMENT)
+        if (player.gold < cost) return false
+        player.gold -= cost
+        player.farms += 1
+        return true
+    }
+
+    /**
      * Kauft eine neue Einheit und platziert sie an (x, y).
      * Setzt voraus, dass der Controller bereits alle Validierungen
      * durchgefuehrt hat.

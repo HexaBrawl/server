@@ -2,9 +2,9 @@ package at.aau.hexabrawl.websocketserver.controller
 
 import at.aau.hexabrawl.websocketserver.model.BuyUnitRequest
 import at.aau.hexabrawl.websocketserver.model.ErrorCode
-import at.aau.hexabrawl.websocketserver.service.GameService
 import at.aau.hexabrawl.websocketserver.model.GameState
 import at.aau.hexabrawl.websocketserver.model.UnitType
+import at.aau.hexabrawl.websocketserver.service.EconomyService
 import org.springframework.messaging.handler.annotation.DestinationVariable
 import org.springframework.messaging.handler.annotation.MessageMapping
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
@@ -18,13 +18,13 @@ import org.springframework.stereotype.Controller
  */
 @Controller
 class PurchaseController(
-    private val gameService: GameService,
+    private val economyService: EconomyService,
     private val contextResolver: GameContextResolver,
     private val messagingTemplate: SimpMessagingTemplate
 ) {
 
     private fun sendRoomState(roomId: String, state: GameState) {
-        gameService.recomputePlayerStats(state)
+        economyService.recomputePlayerStats(state)
         messagingTemplate.convertAndSend("/topic/rooms/${roomId}/state", state)
     }
 
@@ -48,18 +48,9 @@ class PurchaseController(
             return null
         }
 
-        val cost = GameService.FARM_BASE_COST + (player.farms * GameService.FARM_COST_INCREMENT)
-
-        if (player.gold < cost) {
+        if (!economyService.buyFarm(state, player)) {
             contextResolver.sendError(sessionId, ErrorCode.INSUFFICIENT_GOLD, "Nicht genug Gold.")
             return null
-        }
-
-        // Werte direkt hier updaten
-        synchronized(state.lock) {
-            player.gold -= cost
-            player.farms += 1
-            player.income = player.farms * GameService.FARM_INCOME_PER_ROUND
         }
 
         sendRoomState(roomId, state)
@@ -153,12 +144,12 @@ class PurchaseController(
             return null
         }
 
-        if (player.gold < GameService.UNIT_PRICE) {
+        if (player.gold < EconomyService.UNIT_PRICE) {
             contextResolver.sendError(sessionId, ErrorCode.INSUFFICIENT_GOLD, "Nicht genug Gold.")
             return null
         }
 
-        val updated = gameService.buyUnit(
+        val updated = economyService.buyUnit(
             state,
             request.playerName,
             request.type,

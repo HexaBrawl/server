@@ -8,6 +8,7 @@ import org.mockito.Mockito.*
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import at.aau.hexabrawl.websocketserver.TestServiceFactory
+import at.aau.hexabrawl.websocketserver.service.EconomyService
 import at.aau.hexabrawl.websocketserver.service.GameService
 
 /**
@@ -20,6 +21,7 @@ class BuyUnitRoomTest {
     private lateinit var controller: PurchaseController
     private lateinit var lobbyController: LobbyController
     private lateinit var gameService: GameService
+    private lateinit var economyService: EconomyService
     private lateinit var roomRegistry: RoomRegistry
     private lateinit var messagingTemplate: SimpMessagingTemplate
     private lateinit var headerAccessor: SimpMessageHeaderAccessor
@@ -27,10 +29,11 @@ class BuyUnitRoomTest {
     @BeforeEach
     fun setup() {
         gameService = TestServiceFactory.createGameService()
+        economyService = EconomyService()
         roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java)
         val contextResolver = GameContextResolver(roomRegistry, messagingTemplate)
-        controller = PurchaseController(gameService, contextResolver, messagingTemplate)
+        controller = PurchaseController(economyService, contextResolver, messagingTemplate)
         lobbyController = LobbyController(gameService, contextResolver, messagingTemplate)
         headerAccessor = mock(SimpMessageHeaderAccessor::class.java)
         `when`(headerAccessor.sessionId).thenReturn("session-alice")

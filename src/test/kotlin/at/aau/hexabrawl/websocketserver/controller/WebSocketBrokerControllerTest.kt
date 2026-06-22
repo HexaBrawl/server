@@ -9,6 +9,7 @@ import org.mockito.Mockito.*
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import at.aau.hexabrawl.websocketserver.TestServiceFactory
+import at.aau.hexabrawl.websocketserver.service.EconomyService
 import at.aau.hexabrawl.websocketserver.service.GameService
 
 
@@ -18,6 +19,7 @@ class WebSocketBrokerControllerTest {
     private lateinit var gameTurnController: GameTurnController
     private lateinit var purchaseController: PurchaseController
     private lateinit var gameService: GameService
+    private lateinit var economyService: EconomyService
     private lateinit var messagingTemplate: SimpMessagingTemplate // Neu für Issue #24
     private lateinit var headerAccessor: SimpMessageHeaderAccessor // Neu für Issue #24
     private lateinit var roomRegistry: RoomRegistry
@@ -25,12 +27,13 @@ class WebSocketBrokerControllerTest {
     @BeforeEach
     fun setup() {
         gameService = TestServiceFactory.createGameService()
+        economyService = EconomyService()
         roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java) // Mock erstellen
         val contextResolver = GameContextResolver(roomRegistry, messagingTemplate)
         lobbyController = LobbyController(gameService, contextResolver, messagingTemplate)
         gameTurnController = GameTurnController(gameService, contextResolver, messagingTemplate)
-        purchaseController = PurchaseController(gameService, contextResolver, messagingTemplate)
+        purchaseController = PurchaseController(economyService, contextResolver, messagingTemplate)
 
         headerAccessor = mock(SimpMessageHeaderAccessor::class.java)
         `when`(headerAccessor.sessionId).thenReturn("test-session")
