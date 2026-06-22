@@ -9,7 +9,6 @@ import org.springframework.messaging.simp.SimpMessagingTemplate
 import at.aau.hexabrawl.websocketserver.TestServiceFactory
 import at.aau.hexabrawl.websocketserver.service.DisconnectCleanupService
 import at.aau.hexabrawl.websocketserver.service.EconomyService
-import at.aau.hexabrawl.websocketserver.service.GameService
 import at.aau.hexabrawl.websocketserver.service.PlayerService
 
 /**
@@ -19,7 +18,6 @@ import at.aau.hexabrawl.websocketserver.service.PlayerService
  */
 class DisconnectCleanupServiceTest {
 
-    private lateinit var gameService: GameService
     private lateinit var playerService: PlayerService
     private lateinit var economyService: EconomyService
     private lateinit var roomRegistry: RoomRegistry
@@ -28,7 +26,6 @@ class DisconnectCleanupServiceTest {
 
     @BeforeEach
     fun setup() {
-        gameService = TestServiceFactory.createGameService()
         playerService = TestServiceFactory.createPlayerService()
         economyService = EconomyService()
         roomRegistry = RoomRegistry()
@@ -38,8 +35,8 @@ class DisconnectCleanupServiceTest {
 
     private fun createRoomWithTwoPlayers(): Room {
         val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
-        gameService.handleJoin(room.gameState, "Alice", "sess-alice")
-        gameService.handleJoin(room.gameState, "Bob", "sess-bob")
+        playerService.handleJoin(room.gameState, "Alice", "sess-alice")
+        playerService.handleJoin(room.gameState, "Bob", "sess-bob")
         return room
     }
 
