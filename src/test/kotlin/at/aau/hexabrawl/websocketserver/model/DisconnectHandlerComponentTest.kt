@@ -11,10 +11,10 @@ import at.aau.hexabrawl.websocketserver.TestServiceFactory
 
 class DisconnectHandlerComponentTest {
 
-    private val gameService = TestServiceFactory.createGameService()
+    private val playerService = TestServiceFactory.createPlayerService()
     private val roomRegistry = RoomRegistry()
     private val messagingTemplate = Mockito.mock(SimpMessagingTemplate::class.java)
-    private val handler = DisconnectHandler(gameService, roomRegistry, messagingTemplate)
+    private val handler = DisconnectHandler(playerService, roomRegistry, messagingTemplate)
 
     @Test
     fun `handleDisconnect broadcasts updated state`() {
@@ -23,13 +23,13 @@ class DisconnectHandlerComponentTest {
             GameMode.DUAL_VALLEY
         )
 
-        gameService.handleJoin(
+        playerService.handleJoin(
             room.gameState,
             "Alice",
             "session-1"
         )
 
-        gameService.handleJoin(
+        playerService.handleJoin(
             room.gameState,
             "Bob",
             "session-2"
@@ -49,7 +49,7 @@ class DisconnectHandlerComponentTest {
     @Test
     fun `handleDisconnect marks player as not connected but keeps them`() {
         val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
-        gameService.handleJoin(room.gameState, "Alice", "session-1")
+        playerService.handleJoin(room.gameState, "Alice", "session-1")
 
         val event = Mockito.mock(SessionDisconnectEvent::class.java)
         Mockito.`when`(event.sessionId).thenReturn("session-1")
@@ -82,29 +82,10 @@ class DisconnectHandlerComponentTest {
             GameMode.DUAL_VALLEY
         )
 
-        gameService.handleJoin(
-            room1.gameState,
-            "Alice",
-            "session-1"
-        )
-
-        gameService.handleJoin(
-            room1.gameState,
-            "Bob",
-            "session-2"
-        )
-
-        gameService.handleJoin(
-            room2.gameState,
-            "Charlie",
-            "session-3"
-        )
-
-        gameService.handleJoin(
-            room2.gameState,
-            "Dave",
-            "session-4"
-        )
+        playerService.handleJoin(room1.gameState, "Alice", "session-1")
+        playerService.handleJoin(room1.gameState, "Bob", "session-2")
+        playerService.handleJoin(room2.gameState, "Charlie", "session-3")
+        playerService.handleJoin(room2.gameState, "Dave", "session-4")
 
         val event = Mockito.mock(SessionDisconnectEvent::class.java)
 
@@ -130,17 +111,8 @@ class DisconnectHandlerComponentTest {
             GameMode.DUAL_VALLEY
         )
 
-        gameService.handleJoin(
-            room.gameState,
-            "Alice",
-            "session-1"
-        )
-
-        gameService.handleJoin(
-            room.gameState,
-            "Bob",
-            "session-2"
-        )
+        playerService.handleJoin(room.gameState, "Alice", "session-1")
+        playerService.handleJoin(room.gameState, "Bob", "session-2")
 
         val event = Mockito.mock(SessionDisconnectEvent::class.java)
 
@@ -161,15 +133,15 @@ class DisconnectHandlerComponentTest {
     fun `soft disconnect does not change status of either room`() {
         val room1 = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
         val room2 = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
-        gameService.handleJoin(room1.gameState, "Alice", "session-1")
-        gameService.handleJoin(room1.gameState, "Bob", "session-2")
-        gameService.handleJoin(room2.gameState, "Charlie", "session-3")
-        gameService.handleJoin(room2.gameState, "Dave", "session-4")
+        playerService.handleJoin(room1.gameState, "Alice", "session-1")
+        playerService.handleJoin(room1.gameState, "Bob", "session-2")
+        playerService.handleJoin(room2.gameState, "Charlie", "session-3")
+        playerService.handleJoin(room2.gameState, "Dave", "session-4")
 
         assertEquals(GameStatus.IN_PROGRESS, room1.gameState.status)
         assertEquals(GameStatus.IN_PROGRESS, room2.gameState.status)
 
-        gameService.handleDisconnect(room2.gameState, "session-3")
+        playerService.handleDisconnect(room2.gameState, "session-3")
 
         // Soft-Disconnect: kein Statuswechsel — der passiert erst beim hardDelete
         assertEquals(GameStatus.IN_PROGRESS, room1.gameState.status)
@@ -179,11 +151,11 @@ class DisconnectHandlerComponentTest {
     @Test
     fun `hardDelete in DUAL_VALLEY sets status to FINISHED`() {
         val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
-        gameService.handleJoin(room.gameState, "Alice", "session-1")
-        gameService.handleJoin(room.gameState, "Bob", "session-2")
+        playerService.handleJoin(room.gameState, "Alice", "session-1")
+        playerService.handleJoin(room.gameState, "Bob", "session-2")
 
         val alice = room.gameState.players.first { it.name == "Alice" }
-        gameService.hardDelete(room.gameState, alice)
+        playerService.hardDelete(room.gameState, alice)
 
         // Bob ist letzter mit BASE → Win
         assertEquals(GameStatus.FINISHED, room.gameState.status)

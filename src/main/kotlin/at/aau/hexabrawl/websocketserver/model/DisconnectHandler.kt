@@ -1,6 +1,6 @@
 package at.aau.hexabrawl.websocketserver.model
 
-import at.aau.hexabrawl.websocketserver.service.GameService
+import at.aau.hexabrawl.websocketserver.service.PlayerService
 import org.springframework.context.event.EventListener
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Component
@@ -15,7 +15,7 @@ import org.springframework.web.socket.messaging.SessionDisconnectEvent
  */
 @Component
 class DisconnectHandler(
-    private val gameService: GameService,
+    private val playerService: PlayerService,
     private val roomRegistry: RoomRegistry,
     private val messagingTemplate: SimpMessagingTemplate
 ) {
@@ -41,7 +41,7 @@ class DisconnectHandler(
                 }
             } ?: return
 
-        val updatedState = gameService.handleDisconnect(room.gameState, sessionId)
+        val updatedState = playerService.handleDisconnect(room.gameState, sessionId)
 
         messagingTemplate.convertAndSend("/topic/rooms/${room.roomId}/state",
             updatedState)

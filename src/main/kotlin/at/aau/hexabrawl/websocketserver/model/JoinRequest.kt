@@ -10,7 +10,7 @@ package at.aau.hexabrawl.websocketserver.model
  *
  * Das Farbfeld ist nullable, damit Clients (und Tests) auch joinen
  * koennen, ohne eine Farbe vorzugeben. In diesem Fall vergibt
- * [at.aau.hexabrawl.websocketserver.service.GameService.handleJoin] die
+ * [at.aau.hexabrawl.websocketserver.service.PlayerService.handleJoin] die
  * Farbe dynamisch anhand der Spielerposition.
  */
 data class JoinRequest(
