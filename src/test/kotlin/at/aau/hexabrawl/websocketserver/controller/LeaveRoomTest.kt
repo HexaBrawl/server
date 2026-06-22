@@ -9,7 +9,6 @@ import org.springframework.messaging.simp.SimpMessageHeaderAccessor
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import at.aau.hexabrawl.websocketserver.TestServiceFactory
 import at.aau.hexabrawl.websocketserver.service.EconomyService
-import at.aau.hexabrawl.websocketserver.service.GameService
 import at.aau.hexabrawl.websocketserver.service.PlayerService
 
 /**
@@ -20,7 +19,6 @@ import at.aau.hexabrawl.websocketserver.service.PlayerService
 class LeaveRoomTest {
 
     private lateinit var controller: LobbyController
-    private lateinit var gameService: GameService
     private lateinit var playerService: PlayerService
     private lateinit var economyService: EconomyService
     private lateinit var roomRegistry: RoomRegistry
@@ -30,7 +28,6 @@ class LeaveRoomTest {
 
     @BeforeEach
     fun setup() {
-        gameService = TestServiceFactory.createGameService()
         playerService = TestServiceFactory.createPlayerService()
         economyService = EconomyService()
         roomRegistry = RoomRegistry()

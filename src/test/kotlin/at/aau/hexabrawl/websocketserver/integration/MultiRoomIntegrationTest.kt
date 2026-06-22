@@ -2,7 +2,8 @@ package at.aau.hexabrawl.websocketserver.integration
 
 import org.junit.jupiter.api.Test
 import at.aau.hexabrawl.websocketserver.model.*
-import at.aau.hexabrawl.websocketserver.service.GameService
+import at.aau.hexabrawl.websocketserver.service.PlayerService
+import at.aau.hexabrawl.websocketserver.service.TurnService
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.extension.ExtendWith
 import org.springframework.beans.factory.annotation.Autowired
@@ -20,14 +21,18 @@ class MultiRoomIntegrationTest {
     private lateinit var roomRegistry: RoomRegistry
 
     @Autowired
-    private lateinit var gameService: GameService
+    private lateinit var playerService: PlayerService
+
+    @Autowired
+    private lateinit var turnService: TurnService
 
     //Test zurPrüfung ob Test-Infrastruktur funktioniert
     @Test
     fun `spring injects required beans`() {
 
         assertNotNull(roomRegistry)
-        assertNotNull(gameService)
+        assertNotNull(playerService)
+        assertNotNull(turnService)
     }
 
     @Test
@@ -48,25 +53,25 @@ class MultiRoomIntegrationTest {
         )
 
         //Spieler beitreten lassen:
-        gameService.handleJoin(
+        playerService.handleJoin(
             roomA.gameState,
             "Josef",
             "a1"
         )
 
-        gameService.handleJoin(
+        playerService.handleJoin(
             roomA.gameState,
             "Marie",
             "a2"
         )
 
-        gameService.handleJoin(
+        playerService.handleJoin(
             roomB.gameState,
             "Benedikt",
             "b1"
         )
 
-        gameService.handleJoin(
+        playerService.handleJoin(
             roomB.gameState,
             "Amalia",
             "b2"
@@ -102,10 +107,10 @@ class MultiRoomIntegrationTest {
         val turnBefore = roomB.gameState.currentTurn
 
         // Josef bewegt alle 3 Einheiten und beendet manuell seinen Zug.
-        gameService.handleMove(roomA.gameState, Move("Josef", UnitType.ARCHER, 1, 2, 1, 3))
-        gameService.handleMove(roomA.gameState, Move("Josef", UnitType.INFANTRY, 2, 3, 2, 4))
-        gameService.handleMove(roomA.gameState, Move("Josef", UnitType.CAVALRY, 3, 2, 3, 3))
-        gameService.endTurn(roomA.gameState, "Josef")
+        turnService.handleMove(roomA.gameState, Move("Josef", UnitType.ARCHER, 1, 2, 1, 3))
+        turnService.handleMove(roomA.gameState, Move("Josef", UnitType.INFANTRY, 2, 3, 2, 4))
+        turnService.handleMove(roomA.gameState, Move("Josef", UnitType.CAVALRY, 3, 2, 3, 3))
+        turnService.endTurn(roomA.gameState, "Josef")
 
         //prüfen
         assertEquals(
