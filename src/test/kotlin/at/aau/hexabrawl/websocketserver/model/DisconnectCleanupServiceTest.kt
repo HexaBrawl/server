@@ -8,7 +8,9 @@ import org.mockito.Mockito.*
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import at.aau.hexabrawl.websocketserver.TestServiceFactory
 import at.aau.hexabrawl.websocketserver.service.DisconnectCleanupService
+import at.aau.hexabrawl.websocketserver.service.EconomyService
 import at.aau.hexabrawl.websocketserver.service.GameService
+import at.aau.hexabrawl.websocketserver.service.PlayerService
 
 /**
  * Tests fuer den DisconnectCleanupService.
@@ -18,6 +20,8 @@ import at.aau.hexabrawl.websocketserver.service.GameService
 class DisconnectCleanupServiceTest {
 
     private lateinit var gameService: GameService
+    private lateinit var playerService: PlayerService
+    private lateinit var economyService: EconomyService
     private lateinit var roomRegistry: RoomRegistry
     private lateinit var messagingTemplate: SimpMessagingTemplate
     private lateinit var cleanup: DisconnectCleanupService
@@ -25,9 +29,11 @@ class DisconnectCleanupServiceTest {
     @BeforeEach
     fun setup() {
         gameService = TestServiceFactory.createGameService()
+        playerService = TestServiceFactory.createPlayerService()
+        economyService = EconomyService()
         roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java)
-        cleanup = DisconnectCleanupService(gameService, roomRegistry, messagingTemplate)
+        cleanup = DisconnectCleanupService(playerService, economyService, roomRegistry, messagingTemplate)
     }
 
     private fun createRoomWithTwoPlayers(): Room {
