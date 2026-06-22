@@ -2,9 +2,10 @@ package at.aau.hexabrawl.websocketserver.controller
 
 import at.aau.hexabrawl.websocketserver.model.ClaimGiftRequest
 import at.aau.hexabrawl.websocketserver.model.ErrorCode
-import at.aau.hexabrawl.websocketserver.service.GameService
 import at.aau.hexabrawl.websocketserver.model.GameState
 import at.aau.hexabrawl.websocketserver.model.StealResponseRequest
+import at.aau.hexabrawl.websocketserver.service.CheatGiftService
+import at.aau.hexabrawl.websocketserver.service.EconomyService
 import org.springframework.messaging.handler.annotation.DestinationVariable
 import org.springframework.messaging.handler.annotation.MessageMapping
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
@@ -19,13 +20,14 @@ import org.springframework.stereotype.Controller
  */
 @Controller
 class CheatController(
-    private val gameService: GameService,
+    private val cheatGiftService: CheatGiftService,
+    private val economyService: EconomyService,
     private val contextResolver: GameContextResolver,
     private val messagingTemplate: SimpMessagingTemplate
 ) {
 
     private fun sendRoomState(roomId: String, state: GameState) {
-        gameService.recomputePlayerStats(state)
+        economyService.recomputePlayerStats(state)
         messagingTemplate.convertAndSend("/topic/rooms/${roomId}/state", state)
     }
 
@@ -73,7 +75,7 @@ class CheatController(
             return null
         }
 
-        val updated = gameService.claimCheatGift(state, request.playerName, request.delta)
+        val updated = cheatGiftService.claimCheatGift(state, request.playerName, request.delta)
         sendRoomState(roomId, updated)
         return updated
     }
@@ -112,7 +114,7 @@ class CheatController(
         val player = state.players.find { it.name == request.playerName }
         if (player == null) return null
 
-        val updated = gameService.respondCheatSteal(state, request.playerName, request.accept)
+        val updated = cheatGiftService.respondCheatSteal(state, request.playerName, request.accept)
         sendRoomState(roomId, updated)
         return updated
     }
