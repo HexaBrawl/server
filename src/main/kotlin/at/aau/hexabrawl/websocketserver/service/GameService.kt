@@ -90,7 +90,7 @@ class GameService(
     fun isColorTaken(state: GameState, color: PlayerColor): Boolean = playerService.isColorTaken(state, color)
 
     /** Bridge zu TurnService.handleMove. */
-    fun handleMove(state: GameState, move: Move): GameState = turnService.handleMove(state, move)
+    fun handleMove(state: GameState, move: Move): GameState = turnService.handleMove(state, move).state
     fun handleMove(move: Move): GameState = handleMove(this.gameState, move)
 
     /** Bridge zu TurnService.endTurn. */

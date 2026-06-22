@@ -11,6 +11,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate
 import at.aau.hexabrawl.websocketserver.TestServiceFactory
 import at.aau.hexabrawl.websocketserver.service.EconomyService
 import at.aau.hexabrawl.websocketserver.service.GameService
+import at.aau.hexabrawl.websocketserver.service.TurnService
 
 
 class WebSocketBrokerControllerTest {
@@ -20,6 +21,7 @@ class WebSocketBrokerControllerTest {
     private lateinit var purchaseController: PurchaseController
     private lateinit var gameService: GameService
     private lateinit var economyService: EconomyService
+    private lateinit var turnService: TurnService
     private lateinit var messagingTemplate: SimpMessagingTemplate // Neu für Issue #24
     private lateinit var headerAccessor: SimpMessageHeaderAccessor // Neu für Issue #24
     private lateinit var roomRegistry: RoomRegistry
@@ -28,11 +30,12 @@ class WebSocketBrokerControllerTest {
     fun setup() {
         gameService = TestServiceFactory.createGameService()
         economyService = EconomyService()
+        turnService = TestServiceFactory.createTurnService()
         roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java) // Mock erstellen
         val contextResolver = GameContextResolver(roomRegistry, messagingTemplate)
         lobbyController = LobbyController(gameService, contextResolver, messagingTemplate)
-        gameTurnController = GameTurnController(gameService, contextResolver, messagingTemplate)
+        gameTurnController = GameTurnController(turnService, economyService, contextResolver, messagingTemplate)
         purchaseController = PurchaseController(economyService, contextResolver, messagingTemplate)
 
         headerAccessor = mock(SimpMessageHeaderAccessor::class.java)

@@ -10,6 +10,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate
 import at.aau.hexabrawl.websocketserver.TestServiceFactory
 import at.aau.hexabrawl.websocketserver.service.EconomyService
 import at.aau.hexabrawl.websocketserver.service.GameService
+import at.aau.hexabrawl.websocketserver.service.TurnService
 
 /**
  * Tests, dass /move, /end-turn, /buy-farm und /buy-unit blockiert sind
@@ -23,6 +24,7 @@ class CheatGiftBlockTest {
     private lateinit var cheatController: CheatController
     private lateinit var gameService: GameService
     private lateinit var economyService: EconomyService
+    private lateinit var turnService: TurnService
     private lateinit var roomRegistry: RoomRegistry
     private lateinit var messagingTemplate: SimpMessagingTemplate
     private lateinit var aliceHeader: SimpMessageHeaderAccessor
@@ -32,11 +34,12 @@ class CheatGiftBlockTest {
     fun setup() {
         gameService = TestServiceFactory.createGameService()
         economyService = EconomyService()
+        turnService = TestServiceFactory.createTurnService()
         roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java)
         val contextResolver = GameContextResolver(roomRegistry, messagingTemplate)
         lobbyController = LobbyController(gameService, contextResolver, messagingTemplate)
-        gameTurnController = GameTurnController(gameService, contextResolver, messagingTemplate)
+        gameTurnController = GameTurnController(turnService, economyService, contextResolver, messagingTemplate)
         purchaseController = PurchaseController(economyService, contextResolver, messagingTemplate)
         cheatController = CheatController(gameService, contextResolver, messagingTemplate)
         aliceHeader = mock(SimpMessageHeaderAccessor::class.java)

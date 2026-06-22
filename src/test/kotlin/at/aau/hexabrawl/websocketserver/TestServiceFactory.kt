@@ -35,4 +35,14 @@ object TestServiceFactory {
             playerService,
             turnService)
     }
+
+    fun createTurnService(): TurnService {
+        val boardService = BoardService()
+        return TurnService(
+            CombatService(),
+            ConnectivityService(),
+            EconomyService(),
+            PlayerService(boardService)
+        )
+    }
 }

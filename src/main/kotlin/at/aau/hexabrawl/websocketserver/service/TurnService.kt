@@ -8,6 +8,11 @@ import at.aau.hexabrawl.websocketserver.model.Move
 import at.aau.hexabrawl.websocketserver.model.UnitType
 import org.springframework.stereotype.Service
 
+sealed class MoveResult(open val state: GameState) {
+    data class Applied(override val state: GameState) : MoveResult(state)
+    data class Rejected(override val state: GameState) : MoveResult(state)
+}
+
 /**
  * Move-Pipeline und Turn-Management.
  *
@@ -28,11 +33,11 @@ class TurnService(
         const val MAX_MOVE_DISTANCE = 2
     }
 
-    fun handleMove(state: GameState, move: Move): GameState = synchronized(state.lock) {
-        if (state.status != GameStatus.IN_PROGRESS) return state
-        if (move.player != state.currentTurn) return state
+    fun handleMove(state: GameState, move: Move): MoveResult = synchronized(state.lock) {
+        if (state.status != GameStatus.IN_PROGRESS) return MoveResult.Rejected(state)
+        if (move.player != state.currentTurn) return MoveResult.Rejected(state)
 
-        if (move.type == UnitType.BASE) return state
+        if (move.type == UnitType.BASE) return MoveResult.Rejected(state)
 
         val unit = state.units.firstOrNull {
             it.player == move.player &&
@@ -40,24 +45,24 @@ class TurnService(
                     it.type != UnitType.SKELETON &&
                     it.x == move.fromX &&
                     it.y == move.fromY
-        } ?: return state
+        } ?: return MoveResult.Rejected(state)
 
         val distance = HexDistance.between(move.fromX, move.fromY, move.toX, move.toY)
-        if (distance == 0 || distance > MAX_MOVE_DISTANCE) return state
+        if (distance == 0 || distance > MAX_MOVE_DISTANCE) return MoveResult.Rejected(state)
 
-        if (unit.hasMovedThisTurn) return state
+        if (unit.hasMovedThisTurn) return MoveResult.Rejected(state)
 
         val friendlyOnTarget = state.units.any {
             it.x == move.toX && it.y == move.toY &&
                     it.player == move.player &&
                     it.type != UnitType.SKELETON
         }
-        if (friendlyOnTarget) return state
+        if (friendlyOnTarget) return MoveResult.Rejected(state)
 
         val targetField = state.fields.firstOrNull { it.x == move.toX && it.y == move.toY }
         val isOwnField = targetField?.owner == move.player
         val isBorderField = isAdjacentToOwnTerritory(state, move.toX, move.toY, move.player)
-        if (!isOwnField && !isBorderField) return state
+        if (!isOwnField && !isBorderField) return MoveResult.Rejected(state)
 
         state.units.removeIf {
             it.x == move.toX && it.y == move.toY && it.type == UnitType.SKELETON
@@ -76,7 +81,7 @@ class TurnService(
                 unit.y = move.toY
                 finishMove(state, unit, move.player)
                 playerService.checkWinCondition(state)
-                return state
+                return MoveResult.Applied(state)
             }
 
             val result = combatService.resolveCombat(unit, enemyOnTarget)
@@ -85,7 +90,7 @@ class TurnService(
             if (!result.attackerSurvived) state.units.remove(unit)
             finishMove(state, unit, move.player)
             playerService.checkWinCondition(state)
-            return state
+            return MoveResult.Applied(state)
         }
 
         unit.x = move.toX
@@ -94,7 +99,7 @@ class TurnService(
         finishMove(state, unit, move.player)
 
         playerService.checkWinCondition(state)
-        return state
+        return MoveResult.Applied(state)
     }
 
     fun endTurn(state: GameState, playerName: String): GameState = synchronized(state.lock) {
