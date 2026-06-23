@@ -28,11 +28,21 @@ class EconomyService {
         const val UNIT_PRICE = 5
     }
 
+    /**
+     * Berechnet das Einkommen von [player] für eine Runde:
+     * Anzahl eigener, nicht-skeletonisierter Felder × [FIELD_INCOME_PER_ROUND]
+     * plus Anzahl Farmen × [FARM_INCOME_PER_ROUND].
+     */
     fun computeIncome(player: Player, state: GameState): Int {
         val ownedFields = state.fields.count { it.owner == player.name && !it.isSkeleton }
         return ownedFields * FIELD_INCOME_PER_ROUND + player.farms * FARM_INCOME_PER_ROUND
     }
 
+    /**
+     * Berechnet den progressiven Unterhalt von [player]:
+     * 1. lebende Einheit kostet 3, jede weitere +1 (4, 5, …).
+     * BASE und SKELETON zählen nicht.
+     */
     fun computeUpkeep(player: Player, state: GameState): Int {
         val unitCount = state.units.count {
             it.player == player.name && it.type != UnitType.SKELETON && it.type != UnitType.BASE
@@ -40,6 +50,11 @@ class EconomyService {
         return (0 until unitCount).sumOf { 3 + it }
     }
 
+    /**
+     * Aktualisiert [at.aau.hexabrawl.websocketserver.model.Player.income] und
+     * [at.aau.hexabrawl.websocketserver.model.Player.upkeep] für alle Spieler im [state].
+     * Wird nach jeder Zustandsänderung aufgerufen, bevor der State gebroadcastet wird.
+     */
     fun recomputePlayerStats(state: GameState) {
         state.players.forEach { player ->
             player.income = computeIncome(player, state)
@@ -79,6 +94,17 @@ class EconomyService {
         return true
     }
 
+    /**
+     * Kauft eine Einheit vom Typ [type] und platziert sie auf ([x], [y]).
+     * Validiert Feldbesitz, Skeleton-Status, Belegung und Gold.
+     *
+     * @param state      Aktueller Spielzustand.
+     * @param playerName Name des kaufenden Spielers.
+     * @param type       Einheitentyp (BASE und SKELETON sind nicht kaufbar).
+     * @param x          X-Koordinate des Zielfelds.
+     * @param y          Y-Koordinate des Zielfelds.
+     * @return [BuyUnitResult.Placed] bei Erfolg, [BuyUnitResult.Rejected] bei Regelverstoß.
+     */
     fun buyUnit(
         state: GameState,
         playerName: String,
