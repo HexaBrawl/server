@@ -50,6 +50,14 @@ class CombatService {
         }
     }
 
+    /**
+     * Wendet das [CombatResult] auf die Einheiten an: bewegt den Angreifer auf das
+     * Zielfeld, wenn er überlebt hat. Entfernen toter Einheiten übernimmt der Aufrufer.
+     *
+     * @param result   Ergebnis aus [resolveCombat].
+     * @param attacker Angreifende Einheit.
+     * @param defender Verteidigende Einheit.
+     */
     fun applyCombatResult(result: CombatResult, attacker: GameUnit, defender: GameUnit) {
         if (result.attackerSurvived) {
             attacker.x = result.tileX

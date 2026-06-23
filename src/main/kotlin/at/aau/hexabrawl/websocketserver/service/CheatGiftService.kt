@@ -18,6 +18,15 @@ import org.springframework.stereotype.Service
 @Service
 class CheatGiftService {
 
+    /**
+     * Öffnet ein Cheat-Geschenk für [playerName]: bucht [delta] Gold sofort und
+     * legt ein [at.aau.hexabrawl.websocketserver.model.PendingGift] für die anderen Spieler an.
+     *
+     * @param state      Aktueller Spielzustand.
+     * @param playerName Name des Spielers, der das Geschenk öffnet.
+     * @param delta      Gold-Änderung (−10..+10).
+     * @return [ClaimGiftResult.Claimed] bei Erfolg, [ClaimGiftResult.Rejected] bei Regelverstoß.
+     */
     fun claimCheatGift(
         state: GameState,
         playerName: String,
@@ -50,6 +59,15 @@ class CheatGiftService {
         return ClaimGiftResult.Claimed(state)
     }
 
+    /**
+     * Verarbeitet die Stahl-Entscheidung von [playerName] für das laufende PendingGift.
+     * Bei [accept] = true wird das Gold vom Owner zum Stealer transferiert.
+     *
+     * @param state      Aktueller Spielzustand.
+     * @param playerName Name des antwortenden Spielers.
+     * @param accept     true = stehlen, false = ablehnen.
+     * @return [StealResult.Resolved] bei Erfolg, [StealResult.Rejected] bei Regelverstoß.
+     */
     fun respondCheatSteal(
         state: GameState,
         playerName: String,
