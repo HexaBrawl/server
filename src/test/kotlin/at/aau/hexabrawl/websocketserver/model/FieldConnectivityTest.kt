@@ -85,15 +85,48 @@ class FieldConnectivityTest {
     }
 
     @Test
-    fun `skeleton corridor blocks bfs path`() {
+    fun `skeleton field connected to base gets un-skeletonized`() {
         val state = stateWithBase("Alice", 0, 0).apply {
-            // (1,0) ist Alice aber bereits SKELETON – sollte als Pfad nicht zählen
             fields.add(Field(1, 0, owner = "Alice", isSkeleton = true))
-            fields.add(Field(2, 0, owner = "Alice"))
+            fields.add(Field(2, 0, owner = "Alice", isSkeleton = true))
         }
         connectivityService.recomputeConnectivity(state)
-        val field20 = state.fields.first { it.x == 2 && it.y == 0 }
-        assertTrue(field20.isSkeleton)
+        assertFalse(state.fields.first { it.x == 1 && it.y == 0 }.isSkeleton)
+        assertFalse(state.fields.first { it.x == 2 && it.y == 0 }.isSkeleton)
+    }
+
+    @Test
+    fun `genuinely disconnected skeleton field stays skeleton`() {
+        val state = stateWithBase("Alice", 0, 0).apply {
+            // (3,0) hat keinen Pfad zur BASE – (1,0) und (2,0) fehlen
+            fields.add(Field(3, 0, owner = "Alice", isSkeleton = true))
+        }
+        connectivityService.recomputeConnectivity(state)
+        assertTrue(state.fields.first { it.x == 3 && it.y == 0 }.isSkeleton)
+    }
+
+    @Test
+    fun `skeleton fields reconnected after blocking path restored`() {
+        val state = stateWithBase("Alice", 0, 0).apply {
+            fields.add(Field(1, 0, owner = "Alice"))
+            fields.add(Field(2, 0, owner = "Alice", isSkeleton = true))
+            fields.add(Field(3, 0, owner = "Alice", isSkeleton = true))
+        }
+        connectivityService.recomputeConnectivity(state)
+        assertFalse(state.fields.first { it.x == 2 && it.y == 0 }.isSkeleton)
+        assertFalse(state.fields.first { it.x == 3 && it.y == 0 }.isSkeleton)
+    }
+
+    @Test
+    fun `skeleton units on reconnected field stay skeleton`() {
+        val state = stateWithBase("Alice", 0, 0).apply {
+            fields.add(Field(1, 0, owner = "Alice"))
+            fields.add(Field(2, 0, owner = "Alice", isSkeleton = true))
+            units.add(GameUnit(player = "Alice", x = 2, y = 0, type = UnitType.SKELETON))
+        }
+        connectivityService.recomputeConnectivity(state)
+        assertFalse(state.fields.first { it.x == 2 && it.y == 0 }.isSkeleton)
+        assertEquals(UnitType.SKELETON, state.units.first { it.x == 2 && it.y == 0 }.type)
     }
 
     @Test

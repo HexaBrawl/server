@@ -38,8 +38,11 @@ class ConnectivityService {
 
             val connected = bfsConnectedFields(state, player.name, baseUnit.x, baseUnit.y)
 
-            state.fields.filter { it.owner == player.name && !it.isSkeleton }.forEach { field ->
-                if ((field.x to field.y) !in connected) {
+            state.fields.filter { it.owner == player.name }.forEach { field ->
+                val coord = field.x to field.y
+                if (coord in connected) {
+                    field.isSkeleton = false
+                } else if (!field.isSkeleton) {
                     field.isSkeleton = true
                     state.units.filter {
                         it.x == field.x && it.y == field.y &&
@@ -68,7 +71,6 @@ class ConnectivityService {
                 if ((nx to ny) in visited) continue
                 val field = state.fields.firstOrNull { it.x == nx && it.y == ny } ?: continue
                 if (field.owner != playerName) continue
-                if (field.isSkeleton) continue
                 visited.add(nx to ny)
                 queue.add(nx to ny)
             }
