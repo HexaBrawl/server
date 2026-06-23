@@ -29,11 +29,21 @@ class LobbyController(
     private val messagingTemplate: SimpMessagingTemplate
 ) {
 
+    /** Aktualisiert Income/Upkeep und broadcastet den [state] an alle Subscriber des Raums. */
     private fun sendRoomState(roomId: String, state: GameState) {
         economyService.recomputePlayerStats(state)
         messagingTemplate.convertAndSend("/topic/rooms/${roomId}/state", state)
     }
 
+    /**
+     * Lässt einen Spieler dem Raum [roomId] beitreten.
+     * Validiert Name, Farbkonflikte und Raumkapazität.
+     *
+     * @param roomId         ID des Zielraums.
+     * @param request        Enthält Name und optionale Wunschfarbe des Spielers.
+     * @param headerAccessor STOMP-Header zum Auslesen der Session-ID.
+     * @return Aktualisierter [GameState] oder null bei Ablehnung.
+     */
     @MessageMapping("/rooms/{roomId}/join")
     fun joinRoom(
         @DestinationVariable roomId: String,
@@ -88,6 +98,14 @@ class LobbyController(
         return state
     }
 
+    /**
+     * Liefert den aktuellen [GameState] des Raums [roomId] an alle Subscriber.
+     * Wird beim ersten Verbinden eines Clients aufgerufen, um den Zustand zu synchronisieren.
+     *
+     * @param roomId         ID des Zielraums.
+     * @param headerAccessor STOMP-Header zum Auslesen der Session-ID.
+     * @return Aktueller [GameState] oder null, wenn der Raum nicht gefunden wurde.
+     */
     @MessageMapping("/rooms/{roomId}/init")
     fun initRoom(
         @DestinationVariable roomId: String,
