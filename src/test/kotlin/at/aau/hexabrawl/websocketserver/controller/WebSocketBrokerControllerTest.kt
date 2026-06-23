@@ -1044,13 +1044,13 @@ class WebSocketBrokerControllerTest {
         room.gameState.players.add(alice)
         room.gameState.currentTurn = "Alice"
 
-        val result1 = purchaseController.buyFarmRoom(room.roomId, headerAccessor)!!
+        val result1 = purchaseController.buyFarmRoom(room.roomId, BuyFarmRequest("Alice"), headerAccessor)!!
         assertEquals(1, alice.farms)
         assertEquals(15, alice.gold)
         assertEquals(3, alice.income)
         verify(messagingTemplate).convertAndSend(eq("/topic/rooms/${room.roomId}/state"), eq(result1))
 
-        val result2 = purchaseController.buyFarmRoom(room.roomId, headerAccessor)!!
+        val result2 = purchaseController.buyFarmRoom(room.roomId, BuyFarmRequest("Alice"), headerAccessor)!!
         assertEquals(2, alice.farms)
         assertEquals(4, alice.gold)
         assertEquals(6, alice.income)
@@ -1058,7 +1058,7 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `buyFarmRoom sends ROOM_NOT_FOUND if room does not exist`() {
-        val result = purchaseController.buyFarmRoom("invalid-id", headerAccessor)
+        val result = purchaseController.buyFarmRoom("invalid-id", BuyFarmRequest("Alice"), headerAccessor)
         assertNull(result)
         verify(messagingTemplate).convertAndSendToUser(
             eq("test-session"), eq("/queue/errors"),
@@ -1070,7 +1070,7 @@ class WebSocketBrokerControllerTest {
     fun `buyFarmRoom sends GAME_NOT_STARTED if status is WAITING`() {
         val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
         room.gameState.players.add(Player("Alice", "test-session"))
-        val result = purchaseController.buyFarmRoom(room.roomId, headerAccessor)
+        val result = purchaseController.buyFarmRoom(room.roomId, BuyFarmRequest("Alice"), headerAccessor)
         assertNull(result)
     }
 
@@ -1080,7 +1080,7 @@ class WebSocketBrokerControllerTest {
         room.gameState.status = GameStatus.IN_PROGRESS
         room.gameState.players.add(Player("Alice", "test-session"))
         room.gameState.currentTurn = "Bob"
-        val result = purchaseController.buyFarmRoom(room.roomId, headerAccessor)
+        val result = purchaseController.buyFarmRoom(room.roomId, BuyFarmRequest("Alice"), headerAccessor)
         assertNull(result)
     }
 
@@ -1090,7 +1090,7 @@ class WebSocketBrokerControllerTest {
         room.gameState.status = GameStatus.IN_PROGRESS
         room.gameState.currentTurn = "Alice"
         room.gameState.players.add(Player("Alice", "test-session", gold = 9))
-        val result = purchaseController.buyFarmRoom(room.roomId, headerAccessor)
+        val result = purchaseController.buyFarmRoom(room.roomId, BuyFarmRequest("Alice"), headerAccessor)
         assertNull(result)
     }
 
@@ -1098,7 +1098,7 @@ class WebSocketBrokerControllerTest {
     fun `buyFarmRoom returns null if player is not found in room`() {
         val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
         room.gameState.status = GameStatus.IN_PROGRESS
-        val result = purchaseController.buyFarmRoom(room.roomId, headerAccessor)
+        val result = purchaseController.buyFarmRoom(room.roomId, BuyFarmRequest("Alice"), headerAccessor)
         assertNull(result)
     }
 
@@ -1107,14 +1107,14 @@ class WebSocketBrokerControllerTest {
         val emptyAccessor = mock(SimpMessageHeaderAccessor::class.java)
         `when`(emptyAccessor.sessionId).thenReturn(null)
         val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
-        val result = purchaseController.buyFarmRoom(room.roomId, emptyAccessor)
+        val result = purchaseController.buyFarmRoom(room.roomId, BuyFarmRequest("Alice"), emptyAccessor)
         assertNull(result)
     }
 
     // ---- Color-/Reconnect-Tests fuer Sub-Issue #107 ----
 
     @Test
-    fun `joinRoom allows reconnecting player even if game is max capacity`() {
+    fun `joinRoom rejects duplicate name if connected player holds it`() {
         val room = roomRegistry.createRoom(GameMode.DUAL_VALLEY)
 
         lobbyController.joinRoom(
@@ -1130,7 +1130,7 @@ class WebSocketBrokerControllerTest {
             secondHeaderAccessor
         )
 
-        // Alice joint neu mit anderer Session
+        // Anderer Client versucht denselben Namen zu verwenden — Alice ist noch connected
         val reconnectHeaderAccessor = mock(SimpMessageHeaderAccessor::class.java)
         `when`(reconnectHeaderAccessor.sessionId).thenReturn("session-3")
 
@@ -1140,9 +1140,12 @@ class WebSocketBrokerControllerTest {
             reconnectHeaderAccessor
         )
 
-        // Re-Join wird durchgewinkt, kein GAME_FULL
-        assertNotNull(state)
-        assertEquals(2, state?.players?.size)
+        // Wird abgelehnt: NAME_ALREADY_TAKEN, echter Reconnect läuft über /reconnect
+        assertNull(state)
+        verify(messagingTemplate).convertAndSendToUser(
+            eq("session-3"), eq("/queue/errors"),
+            argThat { it is ErrorMessage && it.errorCode == ErrorCode.NAME_ALREADY_TAKEN }
+        )
     }
 
     @Test
