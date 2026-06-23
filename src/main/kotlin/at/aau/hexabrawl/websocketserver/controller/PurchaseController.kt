@@ -1,5 +1,6 @@
 package at.aau.hexabrawl.websocketserver.controller
 
+import at.aau.hexabrawl.websocketserver.model.BuyFarmRequest
 import at.aau.hexabrawl.websocketserver.model.BuyUnitRequest
 import at.aau.hexabrawl.websocketserver.model.ErrorCode
 import at.aau.hexabrawl.websocketserver.model.GameState
@@ -31,22 +32,21 @@ class PurchaseController(
     @MessageMapping("/rooms/{roomId}/buy-farm")
     fun buyFarmRoom(
         @DestinationVariable roomId: String,
+        request: BuyFarmRequest,
         headerAccessor: SimpMessageHeaderAccessor
     ): GameState? {
         val sessionId = headerAccessor.sessionId ?: ""
 
         val ctx = contextResolver.resolveActiveGame(
             sessionId, roomId,
+            gameNotStartedMessage = "Kauf abgelehnt: Spiel laeuft nicht.",
+            notYourTurnMessage = "Du bist nicht am Zug.",
+            expectedCurrentTurn = request.playerName,
             requireNoPendingGift = true
         ) ?: return null
         val state = ctx.state
 
-        val player = state.players.find { it.sessionId == sessionId } ?: return null
-
-        if (state.currentTurn != player.name) {
-            contextResolver.sendError(sessionId, ErrorCode.NOT_YOUR_TURN, "Du bist nicht am Zug.")
-            return null
-        }
+        val player = state.players.find { it.name == request.playerName } ?: return null
 
         if (!economyService.buyFarm(state, player)) {
             contextResolver.sendError(sessionId, ErrorCode.INSUFFICIENT_GOLD, "Nicht genug Gold.")
