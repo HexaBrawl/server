@@ -55,6 +55,13 @@ class ConnectivityService {
         }
     }
 
+    /**
+     * Traversiert per BFS alle Felder, die [playerName] gehören und von ([startX], [startY])
+     * aus erreichbar sind — einschließlich bereits als Skeleton markierter Felder,
+     * damit diese bei Wiederverbindung korrekt zurückgesetzt werden können.
+     *
+     * @return Menge der erreichbaren Koordinaten-Paare.
+     */
     private fun bfsConnectedFields(
         state: GameState,
         playerName: String,

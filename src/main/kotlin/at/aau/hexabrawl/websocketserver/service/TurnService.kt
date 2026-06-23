@@ -8,8 +8,11 @@ import at.aau.hexabrawl.websocketserver.model.Move
 import at.aau.hexabrawl.websocketserver.model.UnitType
 import org.springframework.stereotype.Service
 
+/** Ergebnis eines [TurnService.handleMove]-Aufrufs. */
 sealed class MoveResult(open val state: GameState) {
+    /** Zug wurde regelkonform ausgeführt; [state] enthält den aktualisierten Spielzustand. */
     data class Applied(override val state: GameState) : MoveResult(state)
+    /** Zug wurde abgelehnt, weil er gegen Spielregeln verstößt; [state] bleibt unverändert. */
     data class Rejected(override val state: GameState) : MoveResult(state)
 }
 
@@ -33,6 +36,14 @@ class TurnService(
         const val MAX_MOVE_DISTANCE = 2
     }
 
+    /**
+     * Verarbeitet einen Spielzug: validiert Entfernung, Eigentum, Bewegungs-Status
+     * und führt ggf. Combat über den [CombatService] aus.
+     *
+     * @param state Aktueller Spielzustand (wird mutiert).
+     * @param move  Der auszuführende Zug mit Quell- und Zielkoordinaten.
+     * @return [MoveResult.Applied] bei Erfolg, [MoveResult.Rejected] bei Regelverstoß.
+     */
     fun handleMove(state: GameState, move: Move): MoveResult = synchronized(state.lock) {
         if (state.status != GameStatus.IN_PROGRESS) return MoveResult.Rejected(state)
         if (move.player != state.currentTurn) return MoveResult.Rejected(state)
@@ -102,6 +113,14 @@ class TurnService(
         return MoveResult.Applied(state)
     }
 
+    /**
+     * Beendet den Zug von [playerName] und schaltet auf den nächsten Spieler weiter.
+     * Bucht dabei die Wirtschaft (Income/Upkeep) des scheidenden Spielers.
+     *
+     * @param state      Aktueller Spielzustand.
+     * @param playerName Name des Spielers, der seinen Zug beendet.
+     * @return Den aktualisierten [GameState].
+     */
     fun endTurn(state: GameState, playerName: String): GameState = synchronized(state.lock) {
         if (state.status != GameStatus.IN_PROGRESS) return state
         if (state.currentTurn != playerName) return state
@@ -109,6 +128,10 @@ class TurnService(
         return state
     }
 
+    /**
+     * Schließt einen Zug ab: setzt hasMovedThisTurn, übernimmt das Zielfeld,
+     * und ruft [ConnectivityService.recomputeConnectivity] auf.
+     */
     private fun finishMove(state: GameState, unit: GameUnit, playerName: String) {
         if (unit in state.units) {
             unit.hasMovedThisTurn = true
@@ -121,6 +144,10 @@ class TurnService(
         connectivityService.recomputeConnectivity(state)
     }
 
+    /**
+     * Wechselt den aktiven Spieler zum nächsten in der Runde,
+     * bucht die Wirtschaft des scheidenden Spielers und setzt hasMovedThisTurn zurück.
+     */
     private fun switchTurn(state: GameState) {
         if (state.players.isEmpty()) return
 
@@ -145,6 +172,10 @@ class TurnService(
         state.units.forEach { it.hasMovedThisTurn = false }
     }
 
+    /**
+     * Prüft, ob das Feld ([x], [y]) an ein Feld angrenzt, das [playerName] gehört.
+     * Wird verwendet, um Angriffe auf Randfelder des gegnerischen Gebiets zu erlauben.
+     */
     private fun isAdjacentToOwnTerritory(state: GameState, x: Int, y: Int, playerName: String): Boolean {
         return state.fields.any { field ->
             field.owner == playerName &&
