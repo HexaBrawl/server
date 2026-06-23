@@ -1,11 +1,12 @@
 package at.aau.hexabrawl.websocketserver.controller
 
 import at.aau.hexabrawl.websocketserver.model.ClaimGiftRequest
-import at.aau.hexabrawl.websocketserver.model.ErrorCode
 import at.aau.hexabrawl.websocketserver.model.GameState
 import at.aau.hexabrawl.websocketserver.model.StealResponseRequest
 import at.aau.hexabrawl.websocketserver.service.CheatGiftService
+import at.aau.hexabrawl.websocketserver.service.ClaimGiftResult
 import at.aau.hexabrawl.websocketserver.service.EconomyService
+import at.aau.hexabrawl.websocketserver.service.StealResult
 import org.springframework.messaging.handler.annotation.DestinationVariable
 import org.springframework.messaging.handler.annotation.MessageMapping
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
@@ -31,17 +32,6 @@ class CheatController(
         messagingTemplate.convertAndSend("/topic/rooms/${roomId}/state", state)
     }
 
-    /**
-     * Oeffnet ein Schummel-Geschenk fuer den Spieler.
-     *
-     * Validierungs-Reihenfolge (billig vor teuer):
-     *  1. Room existiert? sonst ROOM_NOT_FOUND
-     *  2. Status IN_PROGRESS? sonst GAME_NOT_STARTED
-     *  3. delta in -10..10? sonst INVALID_CHEAT_DELTA
-     *  4. Kein pendingGift aktiv? sonst CHEAT_ALREADY_PENDING
-     *  5. Spieler existiert? sonst no-op
-     *  6. hasUsedGift false? sonst CHEAT_ALREADY_USED
-     */
     @MessageMapping("/rooms/{roomId}/cheat/claim-gift")
     fun claimCheatGiftRoom(
         @DestinationVariable roomId: String,
@@ -55,40 +45,19 @@ class CheatController(
             notYourTurnMessage = "Du kannst das Geschenk nur waehrend deines Zuges oeffnen.",
             expectedCurrentTurn = request.playerName
         ) ?: return null
-        val state = ctx.state
 
-        if (request.delta !in -10..10) {
-            contextResolver.sendError(sessionId, ErrorCode.INVALID_CHEAT_DELTA, "Delta muss zwischen -10 und +10 liegen.")
+        val result = cheatGiftService.claimCheatGift(ctx.state, request.playerName, request.delta)
+
+        if (result is ClaimGiftResult.Rejected) {
+            contextResolver.sendError(sessionId, result.errorCode, result.message)
             return null
         }
 
-        if (state.pendingGift != null) {
-            contextResolver.sendError(sessionId, ErrorCode.CHEAT_ALREADY_PENDING, "Es laeuft bereits ein Geschenk.")
-            return null
-        }
-
-        val player = state.players.find { it.name == request.playerName }
-        if (player == null) return null
-
-        if (player.hasUsedGift) {
-            contextResolver.sendError(sessionId, ErrorCode.CHEAT_ALREADY_USED, "Du hast dein Geschenk schon benutzt.")
-            return null
-        }
-
-        val updated = cheatGiftService.claimCheatGift(state, request.playerName, request.delta)
-        sendRoomState(roomId, updated)
-        return updated
+        val claimed = (result as ClaimGiftResult.Claimed).state
+        sendRoomState(roomId, claimed)
+        return claimed
     }
 
-    /**
-     * Antwort auf das Schummel-Geschenk: "Ja klauen" oder "Nein".
-     *
-     * Validierungs-Reihenfolge (billig vor teuer):
-     *  1. Room existiert? sonst ROOM_NOT_FOUND
-     *  2. pendingGift aktiv? sonst NO_PENDING_GIFT
-     *  3. playerName != owner? sonst OWNER_CANNOT_STEAL
-     *  4. Spieler existiert? sonst no-op
-     */
     @MessageMapping("/rooms/{roomId}/cheat/respond-steal")
     fun respondCheatStealRoom(
         @DestinationVariable roomId: String,
@@ -98,24 +67,16 @@ class CheatController(
         val sessionId = headerAccessor.sessionId ?: ""
 
         val ctx = contextResolver.resolveRoom(sessionId, roomId) ?: return null
-        val state = ctx.state
 
-        val gift = state.pendingGift
-        if (gift == null) {
-            contextResolver.sendError(sessionId, ErrorCode.NO_PENDING_GIFT, "Es laeuft kein Geschenk.")
+        val result = cheatGiftService.respondCheatSteal(ctx.state, request.playerName, request.accept)
+
+        if (result is StealResult.Rejected) {
+            contextResolver.sendError(sessionId, result.errorCode, result.message)
             return null
         }
 
-        if (request.playerName == gift.ownerName) {
-            contextResolver.sendError(sessionId, ErrorCode.OWNER_CANNOT_STEAL, "Du kannst dein eigenes Geschenk nicht stehlen.")
-            return null
-        }
-
-        val player = state.players.find { it.name == request.playerName }
-        if (player == null) return null
-
-        val updated = cheatGiftService.respondCheatSteal(state, request.playerName, request.accept)
-        sendRoomState(roomId, updated)
-        return updated
+        val resolved = (result as StealResult.Resolved).state
+        sendRoomState(roomId, resolved)
+        return resolved
     }
 }
