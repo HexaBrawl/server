@@ -18,8 +18,13 @@ enum class UnitType {
 
 
 companion object {
+    /** Rock-Paper-Scissors-Sieges-Map: Schlüssel schlägt Wert. */
     val BEATS = mapOf(INFANTRY to CAVALRY, CAVALRY to ARCHER, ARCHER to INFANTRY)
 }
 
+/**
+ * Gibt true zurück, wenn dieser [UnitType] [other] im Kampf schlägt.
+ * Basiert auf der [BEATS]-Map im Companion Object.
+ */
 fun beats(other: UnitType) = BEATS[this] == other
 }
