@@ -32,6 +32,7 @@ data class GameState(
     var pendingGift: PendingGift? = null
 )
 {
+    /** Synchronisierungs-Objekt für alle mutierende Zugriffe auf diesen GameState. Wird von Jackson ignoriert. */
     @JsonIgnore
     val lock: Any = Any()
 }

@@ -24,6 +24,16 @@ class PlayerService(
     private val boardService: BoardService
 ) {
 
+    /**
+     * Fügt [playerName] dem Spiel hinzu, falls noch Platz vorhanden und der Name noch nicht vergeben ist.
+     * Startet automatisch das Spiel, sobald die Mode-Spielerzahl erreicht ist.
+     *
+     * @param state      Aktueller Spielzustand.
+     * @param playerName Name des beitretenden Spielers.
+     * @param sessionId  WebSocket-Session-ID des Spielers.
+     * @param color      Gewünschte Farbe; wird automatisch zugewiesen wenn null.
+     * @return Den (ggf. gestarteten) [GameState].
+     */
     fun handleJoin(
         state: GameState,
         playerName: String,
@@ -51,10 +61,23 @@ class PlayerService(
         return state
     }
 
+    /**
+     * Prüft, ob [color] bereits von einem Spieler im aktuellen [state] belegt ist.
+     * @return true wenn die Farbe vergeben ist, sonst false.
+     */
     fun isColorTaken(state: GameState, color: PlayerColor): Boolean = synchronized(state.lock) {
         return state.players.any { it.color == color }
     }
 
+    /**
+     * Setzt den Verbindungsstatus eines wartenden Spielers zurück auf connected.
+     *
+     * @param state        Aktueller Spielzustand.
+     * @param playerName   Name des reconnectenden Spielers.
+     * @param newSessionId Neue WebSocket-Session-ID.
+     * @return [ReconnectResult.Reconnected] bei Erfolg, [ReconnectResult.Rejected] wenn der
+     *         Spieler nicht gefunden oder bereits verbunden ist.
+     */
     fun handleReconnect(state: GameState, playerName: String, newSessionId: String): ReconnectResult =
         synchronized(state.lock) {
             val player = state.players.find { it.name == playerName }

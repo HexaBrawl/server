@@ -26,11 +26,21 @@ class GameTurnController(
     private val messagingTemplate: SimpMessagingTemplate
 ) {
 
+    /** Aktualisiert Income/Upkeep und broadcastet den [state] an alle Subscriber des Raums. */
     private fun sendRoomState(roomId: String, state: GameState) {
         economyService.recomputePlayerStats(state)
         messagingTemplate.convertAndSend("/topic/rooms/${roomId}/state", state)
     }
 
+    /**
+     * Verarbeitet einen Einheitenzug für den Raum [roomId].
+     * Validiert Spielberechtigung und delegiert an [TurnService.handleMove].
+     *
+     * @param roomId         ID des Zielraums.
+     * @param move           Zug-Objekt mit Spieler, Einheitstyp und Koordinaten.
+     * @param headerAccessor STOMP-Header zum Auslesen der Session-ID.
+     * @return Aktualisierter [GameState] oder null bei Ablehnung.
+     */
     @MessageMapping("/rooms/{roomId}/move")
     fun moveRoom(
         @DestinationVariable roomId: String,
@@ -58,6 +68,14 @@ class GameTurnController(
         return result.state
     }
 
+    /**
+     * Beendet den Zug des Spielers für den Raum [roomId] und schaltet auf den nächsten Spieler weiter.
+     *
+     * @param roomId         ID des Zielraums.
+     * @param request        Enthält den Namen des Spielers, der seinen Zug beendet.
+     * @param headerAccessor STOMP-Header zum Auslesen der Session-ID.
+     * @return Aktualisierter [GameState] oder null bei Ablehnung.
+     */
     @MessageMapping("/rooms/{roomId}/end-turn")
     fun endTurnRoom(
         @DestinationVariable roomId: String,

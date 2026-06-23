@@ -13,6 +13,7 @@ import org.springframework.scheduling.annotation.EnableScheduling
 @EnableScheduling
 class WebSocketDemoServerApplication
 
+/** Startet die Spring-Boot-Anwendung. */
 fun main(args: Array<String>) {
     runApplication<WebSocketDemoServerApplication>(*args)
 }

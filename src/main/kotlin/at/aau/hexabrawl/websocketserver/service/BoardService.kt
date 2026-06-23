@@ -41,7 +41,12 @@ class BoardService {
         )
     }
 
-    /** Dispatcht den modus-spezifischen Spielstart. */
+    /**
+     * Startet das Spiel im passenden Modus: initialisiert Board, Startgebiete und BASE-Units.
+     * Dispatcht an den jeweiligen modus-spezifischen Start-Handler.
+     *
+     * @param state Spielzustand, dessen [at.aau.hexabrawl.websocketserver.model.GameState.gameMode] den Modus bestimmt.
+     */
     fun startGame(state: GameState) {
         when (state.gameMode) {
             GameMode.DUAL_VALLEY -> startDualValleyGame(state)
@@ -50,6 +55,7 @@ class BoardService {
         }
     }
 
+    /** Initialisiert ein 2-Spieler-DUAL_VALLEY-Spiel mit 9×9-Board. */
     private fun startDualValleyGame(state: GameState) {
         val p1 = state.players[0]
         val p2 = state.players[1]
@@ -65,6 +71,7 @@ class BoardService {
         println("Service: GAME STARTED")
     }
 
+    /** Initialisiert ein 3-Spieler-TRIAD_OUTPOST-Spiel mit 11×11-Board. */
     private fun startTriadOutpostGame(state: GameState) {
         val p1 = state.players[0]
         val p2 = state.players[1]
@@ -92,6 +99,7 @@ class BoardService {
         println("Service: TRIAD OUTPOST GAME STARTED")
     }
 
+    /** Initialisiert ein 4-Spieler-BATTLEFIELD_PEAKS-Spiel mit 13×13-Board. */
     private fun startBattlefieldPeaksGame(state: GameState) {
         val p1 = state.players[0]
         val p2 = state.players[1]
@@ -122,7 +130,15 @@ class BoardService {
         println("Service: BATTLEFIELD PEAKS GAME STARTED")
     }
 
-    /** Erzeugt alle Felder des Boards und weist die Startgebiete zu. */
+    /**
+     * Erzeugt alle Felder des Boards ([cols] × [rows]) und weist die in
+     * [territories] definierten Startgebiete den jeweiligen Spielern zu.
+     *
+     * @param state       Spielzustand, dessen fields-Liste befüllt wird.
+     * @param cols        Anzahl Spalten des Boards.
+     * @param rows        Anzahl Zeilen des Boards.
+     * @param territories Map von Spielername zu Liste von (x, y)-Startfeldern.
+     */
     private fun initializeBoard(
         state: GameState,
         cols: Int,
@@ -142,7 +158,13 @@ class BoardService {
         }
     }
 
-    /** Komplettes Reset auf Startzustand. */
+    /**
+     * Setzt den [GameState] vollständig zurück: löscht Spieler, Einheiten und Felder
+     * und versetzt den Status auf WAITING_FOR_PLAYERS.
+     *
+     * @param state Spielzustand, der vollständig zurückgesetzt wird.
+     * @return Den geleerten [GameState].
+     */
     fun initializeGame(state: GameState): GameState = synchronized(state.lock) {
         state.players.clear()
         state.units.clear()
@@ -153,7 +175,13 @@ class BoardService {
         return state
     }
 
-    /** Spieler behalten, alles andere zuruecksetzen. */
+    /**
+     * Setzt das Spiel auf den Startzustand zurück, behält aber die aktuellen Spieler.
+     * Startet das Spiel neu, wenn die nötige Spielerzahl vorhanden ist.
+     *
+     * @param state Spielzustand, der zurückgesetzt wird.
+     * @return Den zurückgesetzten [GameState].
+     */
     fun resetToStartCondition(state: GameState): GameState = synchronized(state.lock) {
         state.units.clear()
         state.fields.clear()

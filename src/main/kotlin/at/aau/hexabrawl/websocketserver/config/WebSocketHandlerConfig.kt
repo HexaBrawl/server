@@ -14,6 +14,10 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 @Configuration
 @EnableWebSocket
 class WebSocketHandlerConfig : WebSocketConfigurer {
+    /**
+     * Registriert den [at.aau.hexabrawl.websocketserver.websocket.WebSocketHandlerImpl]
+     * am Endpunkt `/websocket-example-handler` mit offenem CORS-Ursprung.
+     */
     override fun registerWebSocketHandlers(registry: WebSocketHandlerRegistry) {
         registry.addHandler(WebSocketHandlerImpl(), "/websocket-example-handler")
             .setAllowedOrigins("*")
