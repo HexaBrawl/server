@@ -112,7 +112,7 @@ class CheatGiftBlockTest {
     fun `buyFarmRoom is blocked during pendingGift`() {
         val room = setupRoomWithPendingGift()
 
-        val result = purchaseController.buyFarmRoom(room.roomId, aliceHeader)
+        val result = purchaseController.buyFarmRoom(room.roomId, BuyFarmRequest("Alice"), aliceHeader)
 
         assertNull(result)
         verify(messagingTemplate).convertAndSendToUser(

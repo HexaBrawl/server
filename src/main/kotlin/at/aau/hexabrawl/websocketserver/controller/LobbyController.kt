@@ -45,6 +45,18 @@ class LobbyController(
         val ctx = contextResolver.resolveRoom(sessionId, roomId) ?: return null
         val currentState = ctx.room.gameState
 
+        val nameClash = currentState.players.any {
+            it.name == request.name && it.sessionId != sessionId && it.connected
+        }
+        if (nameClash) {
+            contextResolver.sendError(
+                sessionId,
+                ErrorCode.NAME_ALREADY_TAKEN,
+                "Dieser Name ist im Raum bereits vergeben. Bitte waehle einen anderen."
+            )
+            return null
+        }
+
         if (currentState.players.size >= ctx.room.mode.maxPlayers &&
             !currentState.players.any { it.name == request.name }
         ) {
