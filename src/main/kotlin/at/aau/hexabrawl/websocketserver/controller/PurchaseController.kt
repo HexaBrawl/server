@@ -24,11 +24,20 @@ class PurchaseController(
     private val messagingTemplate: SimpMessagingTemplate
 ) {
 
+    /** Aktualisiert Income/Upkeep und broadcastet den [state] an alle Subscriber des Raums. */
     private fun sendRoomState(roomId: String, state: GameState) {
         economyService.recomputePlayerStats(state)
         messagingTemplate.convertAndSend("/topic/rooms/${roomId}/state", state)
     }
 
+    /**
+     * Kauft eine Farm für den Spieler im Raum [roomId].
+     *
+     * @param roomId         ID des Zielraums.
+     * @param request        Enthält den Spielernamen, der die Farm kauft.
+     * @param headerAccessor STOMP-Header zum Auslesen der Session-ID.
+     * @return Aktualisierter [GameState] oder null bei Ablehnung.
+     */
     @MessageMapping("/rooms/{roomId}/buy-farm")
     fun buyFarmRoom(
         @DestinationVariable roomId: String,
@@ -57,6 +66,14 @@ class PurchaseController(
         return state
     }
 
+    /**
+     * Kauft eine Einheit und platziert sie auf dem angegebenen Feld im Raum [roomId].
+     *
+     * @param roomId         ID des Zielraums.
+     * @param request        Enthält Spielername, Einheitentyp und Zielkoordinaten.
+     * @param headerAccessor STOMP-Header zum Auslesen der Session-ID.
+     * @return Aktualisierter [GameState] oder null bei Ablehnung.
+     */
     @MessageMapping("/rooms/{roomId}/buy-unit")
     fun buyUnitRoom(
         @DestinationVariable roomId: String,

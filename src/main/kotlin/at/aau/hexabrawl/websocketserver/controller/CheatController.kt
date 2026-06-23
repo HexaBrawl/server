@@ -27,11 +27,20 @@ class CheatController(
     private val messagingTemplate: SimpMessagingTemplate
 ) {
 
+    /** Aktualisiert Income/Upkeep und broadcastet den [state] an alle Subscriber des Raums. */
     private fun sendRoomState(roomId: String, state: GameState) {
         economyService.recomputePlayerStats(state)
         messagingTemplate.convertAndSend("/topic/rooms/${roomId}/state", state)
     }
 
+    /**
+     * Öffnet ein Cheat-Geschenk für den Spieler im Raum [roomId].
+     *
+     * @param roomId         ID des Zielraums.
+     * @param request        Enthält Spielername und Gold-Delta.
+     * @param headerAccessor STOMP-Header zum Auslesen der Session-ID.
+     * @return Aktualisierter [GameState] oder null bei Ablehnung.
+     */
     @MessageMapping("/rooms/{roomId}/cheat/claim-gift")
     fun claimCheatGiftRoom(
         @DestinationVariable roomId: String,
@@ -58,6 +67,14 @@ class CheatController(
         return claimed
     }
 
+    /**
+     * Verarbeitet die Stahl-Antwort eines Spielers auf das laufende Geschenk im Raum [roomId].
+     *
+     * @param roomId         ID des Zielraums.
+     * @param request        Enthält Spielername und accept-Flag.
+     * @param headerAccessor STOMP-Header zum Auslesen der Session-ID.
+     * @return Aktualisierter [GameState] oder null bei Ablehnung.
+     */
     @MessageMapping("/rooms/{roomId}/cheat/respond-steal")
     fun respondCheatStealRoom(
         @DestinationVariable roomId: String,
