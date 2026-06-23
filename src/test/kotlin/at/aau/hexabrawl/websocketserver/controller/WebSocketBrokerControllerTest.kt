@@ -9,7 +9,9 @@ import org.mockito.Mockito.*
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import at.aau.hexabrawl.websocketserver.TestServiceFactory
-import at.aau.hexabrawl.websocketserver.service.GameService
+import at.aau.hexabrawl.websocketserver.service.EconomyService
+import at.aau.hexabrawl.websocketserver.service.PlayerService
+import at.aau.hexabrawl.websocketserver.service.TurnService
 
 
 class WebSocketBrokerControllerTest {
@@ -17,20 +19,26 @@ class WebSocketBrokerControllerTest {
     private lateinit var lobbyController: LobbyController
     private lateinit var gameTurnController: GameTurnController
     private lateinit var purchaseController: PurchaseController
-    private lateinit var gameService: GameService
-    private lateinit var messagingTemplate: SimpMessagingTemplate // Neu für Issue #24
-    private lateinit var headerAccessor: SimpMessageHeaderAccessor // Neu für Issue #24
+    private lateinit var economyService: EconomyService
+    private lateinit var playerService: PlayerService
+    private lateinit var turnService: TurnService
+    private lateinit var messagingTemplate: SimpMessagingTemplate
+    private lateinit var headerAccessor: SimpMessageHeaderAccessor
     private lateinit var roomRegistry: RoomRegistry
+    private lateinit var gameState: GameState
 
     @BeforeEach
     fun setup() {
-        gameService = TestServiceFactory.createGameService()
+        economyService = EconomyService()
+        playerService = TestServiceFactory.createPlayerService()
+        turnService = TestServiceFactory.createTurnService()
+        gameState = GameState()
         roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java) // Mock erstellen
         val contextResolver = GameContextResolver(roomRegistry, messagingTemplate)
-        lobbyController = LobbyController(gameService, contextResolver, messagingTemplate)
-        gameTurnController = GameTurnController(gameService, contextResolver, messagingTemplate)
-        purchaseController = PurchaseController(gameService, contextResolver, messagingTemplate)
+        lobbyController = LobbyController(playerService, economyService, contextResolver, messagingTemplate)
+        gameTurnController = GameTurnController(turnService, economyService, contextResolver, messagingTemplate)
+        purchaseController = PurchaseController(economyService, contextResolver, messagingTemplate)
 
         headerAccessor = mock(SimpMessageHeaderAccessor::class.java)
         `when`(headerAccessor.sessionId).thenReturn("test-session")
@@ -52,23 +60,23 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `player can join game`() {
-        val state = gameService.handleJoin("Josef", "session-1")
+        val state = playerService.handleJoin(gameState, "Josef", "session-1")
         assertTrue(state.players.any { it.name == "Josef" })
         assertEquals(1, state.players.size)
     }
 
     @Test
     fun `duplicate player is not added`() {
-        gameService.handleJoin("Josef", "session-1")
-        val state = gameService.handleJoin("Josef", "session-1")
+        playerService.handleJoin(gameState, "Josef", "session-1")
+        val state = playerService.handleJoin(gameState, "Josef", "session-1")
 
         assertEquals(1, state.players.size)
     }
 
     @Test
     fun `game starts when two players join`() {
-        gameService.handleJoin("Josef", "session-1")
-        val state = gameService.handleJoin("Sebastian", "session-1")
+        playerService.handleJoin(gameState, "Josef", "session-1")
+        val state = playerService.handleJoin(gameState, "Sebastian", "session-1")
 
         assertEquals(2, state.players.size)
         assertNotNull(state.currentTurn)
@@ -80,9 +88,9 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `third player cannot join`() {
-        gameService.handleJoin("Josef", "session-1")
-        gameService.handleJoin("Sebastian", "session-2")
-        val state = gameService.handleJoin("Gustav", "session-3")
+        playerService.handleJoin(gameState, "Josef", "session-1")
+        playerService.handleJoin(gameState, "Sebastian", "session-2")
+        val state = playerService.handleJoin(gameState, "Gustav", "session-3")
 
         assertEquals(2, state.players.size)
     }
@@ -91,20 +99,20 @@ class WebSocketBrokerControllerTest {
     fun `move is rejected if game not started`() {
         val move = Move("Josef", UnitType.INFANTRY, 0, 0, 1, 1)
 
-        val state = gameService.handleMove(move)
+        val state = turnService.handleMove(gameState, move).state
 
         assertNull(state.currentTurn)
     }
 
     @Test
     fun `wrong player cannot move`() {
-        gameService.handleJoin("Josef", "session-1")
-        gameService.handleJoin("Sebastian", "session-2")
-        seedDualValleyCombatUnits(gameService.gameState, "Josef", "Sebastian")
+        playerService.handleJoin(gameState, "Josef", "session-1")
+        playerService.handleJoin(gameState, "Sebastian", "session-2")
+        seedDualValleyCombatUnits(gameState, "Josef", "Sebastian")
 
         val move = Move("Sebastian", UnitType.INFANTRY, 5, 5, 6, 6)
 
-        val state = gameService.handleMove(move)
+        val state = turnService.handleMove(gameState, move).state
 
         // Turn should still be Josef
         assertEquals("Josef", state.currentTurn)
@@ -112,14 +120,14 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `player can move and turn switches`() {
-        gameService.handleJoin("Josef", "session-1")
-        gameService.handleJoin("Sebastian", "session-2")
-        seedDualValleyCombatUnits(gameService.gameState, "Josef", "Sebastian")
+        playerService.handleJoin(gameState, "Josef", "session-1")
+        playerService.handleJoin(gameState, "Sebastian", "session-2")
+        seedDualValleyCombatUnits(gameState, "Josef", "Sebastian")
 
-        gameService.handleMove(Move("Josef", UnitType.ARCHER, 1, 2, 1, 3))
-        gameService.handleMove(Move("Josef", UnitType.INFANTRY, 2, 3, 2, 4))
-        gameService.handleMove(Move("Josef", UnitType.CAVALRY, 3, 2, 3, 3))
-        val state = gameService.endTurn("Josef")
+        turnService.handleMove(gameState, Move("Josef", UnitType.ARCHER, 1, 2, 1, 3))
+        turnService.handleMove(gameState, Move("Josef", UnitType.INFANTRY, 2, 3, 2, 4))
+        turnService.handleMove(gameState, Move("Josef", UnitType.CAVALRY, 3, 2, 3, 3))
+        val state = turnService.endTurn(gameState, "Josef")
 
         val josefUnit = state.units.find {
             it.player == "Josef" && it.type == UnitType.INFANTRY
@@ -162,24 +170,24 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `multiple moves update unit positions correctly`() {
-        gameService.handleJoin("Alice", "session-1")
-        gameService.handleJoin("Bob", "session-2")
-        seedDualValleyCombatUnits(gameService.gameState, "Alice", "Bob")
+        playerService.handleJoin(gameState, "Alice", "session-1")
+        playerService.handleJoin(gameState, "Bob", "session-2")
+        seedDualValleyCombatUnits(gameState, "Alice", "Bob")
 
         // Gold geben, damit sie nach der Runde nicht pleitegehen
-        gameService.getCurrentState().players.forEach { it.gold = 100 }
+        gameState.players.forEach { it.gold = 100 }
 
         // Alice bewegt alle 3 bewegbaren Einheiten - dann ist Bob dran.
-        gameService.handleMove(Move("Alice", UnitType.ARCHER, 1, 2, 1, 3))
-        gameService.handleMove(Move("Alice", UnitType.INFANTRY, 2, 3, 2, 4))
-        gameService.handleMove(Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
-        gameService.endTurn("Alice")
+        turnService.handleMove(gameState, Move("Alice", UnitType.ARCHER, 1, 2, 1, 3))
+        turnService.handleMove(gameState, Move("Alice", UnitType.INFANTRY, 2, 3, 2, 4))
+        turnService.handleMove(gameState, Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
+        turnService.endTurn(gameState, "Alice")
 
         // Bob bewegt alle 3 bewegbaren Einheiten
-        gameService.handleMove(Move("Bob", UnitType.ARCHER, 8, 7, 8, 8))
-        gameService.handleMove(Move("Bob", UnitType.INFANTRY, 7, 8, 6, 8))
-        gameService.handleMove(Move("Bob", UnitType.CAVALRY, 6, 7, 5, 7))
-        val result = gameService.endTurn("Bob")
+        turnService.handleMove(gameState, Move("Bob", UnitType.ARCHER, 8, 7, 8, 8))
+        turnService.handleMove(gameState, Move("Bob", UnitType.INFANTRY, 7, 8, 6, 8))
+        turnService.handleMove(gameState, Move("Bob", UnitType.CAVALRY, 6, 7, 5, 7))
+        val result = turnService.endTurn(gameState, "Bob")
 
         val aliceUnit = result.units.find {
             it.player == "Alice" && it.type == UnitType.INFANTRY
@@ -197,11 +205,11 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `move does nothing when wrong player`() {
-        gameService.handleJoin("Alice", "session-1")
-        gameService.handleJoin("Bob", "session-2")
-        seedDualValleyCombatUnits(gameService.gameState, "Alice", "Bob")
+        playerService.handleJoin(gameState, "Alice", "session-1")
+        playerService.handleJoin(gameState, "Bob", "session-2")
+        seedDualValleyCombatUnits(gameState, "Alice", "Bob")
 
-        val result = gameService.handleMove(Move("Bob", UnitType.INFANTRY, 7, 8, 7, 6))
+        val result = turnService.handleMove(gameState, Move("Bob", UnitType.INFANTRY, 7, 8, 7, 6)).state
 
         val bobUnit = result.units.find { it.player == "Bob" && it.type == UnitType.INFANTRY }
 
@@ -212,7 +220,7 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `move ignored when game not started`() {
-        val result = gameService.handleMove(Move("Alice", UnitType.INFANTRY, 0, 0, 1, 1))
+        val result = turnService.handleMove(gameState, Move("Alice", UnitType.INFANTRY, 0, 0, 1, 1)).state
 
         assertTrue(result.units.isEmpty())
     }
@@ -241,38 +249,38 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `move rejected when not players turn`() {
-        gameService.handleJoin("Alice", "session-1")
-        gameService.handleJoin("Bob", "session-2")
+        playerService.handleJoin(gameState, "Alice", "session-1")
+        playerService.handleJoin(gameState, "Bob", "session-2")
 
         val move = Move(player = "Bob", toX = 1, toY = 1)
 
-        val state = gameService.handleMove(move)
+        val state = turnService.handleMove(gameState, move).state
 
         assertEquals("Alice", state.currentTurn)
     }
 
     @Test
     fun `turn switches after valid move`() {
-        gameService.handleJoin("Alice", "session-1")
-        gameService.handleJoin("Bob", "session-2")
-        seedDualValleyCombatUnits(gameService.gameState, "Alice", "Bob")
+        playerService.handleJoin(gameState, "Alice", "session-1")
+        playerService.handleJoin(gameState, "Bob", "session-2")
+        seedDualValleyCombatUnits(gameState, "Alice", "Bob")
 
         // Gold geben, damit sie nach der Runde nicht pleitegehen
-        gameService.getCurrentState().players.forEach { it.gold = 100 }
+        gameState.players.forEach { it.gold = 100 }
 
         // Alice bewegt alle 3 Einheiten und beendet manuell ihren Zug -
         // dann ist Bob dran.
-        gameService.handleMove(Move("Alice", UnitType.ARCHER, 1, 2, 1, 3))
-        gameService.handleMove(Move("Alice", UnitType.INFANTRY, 2, 3, 2, 4))
-        gameService.handleMove(Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
-        val state1 = gameService.endTurn("Alice")
+        turnService.handleMove(gameState, Move("Alice", UnitType.ARCHER, 1, 2, 1, 3))
+        turnService.handleMove(gameState, Move("Alice", UnitType.INFANTRY, 2, 3, 2, 4))
+        turnService.handleMove(gameState, Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
+        val state1 = turnService.endTurn(gameState, "Alice")
         assertEquals("Bob", state1.currentTurn)
 
         // Bob bewegt alle 3 Einheiten und beendet manuell - dann ist Alice dran.
-        gameService.handleMove(Move("Bob", UnitType.ARCHER, 8, 7, 8, 8))
-        gameService.handleMove(Move("Bob", UnitType.INFANTRY, 7, 8, 6, 8))
-        gameService.handleMove(Move("Bob", UnitType.CAVALRY, 6, 7, 5, 7))
-        val state2 = gameService.endTurn("Bob")
+        turnService.handleMove(gameState, Move("Bob", UnitType.ARCHER, 8, 7, 8, 8))
+        turnService.handleMove(gameState, Move("Bob", UnitType.INFANTRY, 7, 8, 6, 8))
+        turnService.handleMove(gameState, Move("Bob", UnitType.CAVALRY, 6, 7, 5, 7))
+        val state2 = turnService.endTurn(gameState, "Bob")
         assertEquals("Alice", state2.currentTurn)
     }
 
@@ -303,10 +311,7 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `join stores sessionId`() {
-        val state = gameService.handleJoin(
-            "Alice",
-            "session-1"
-        )
+        val state = playerService.handleJoin(gameState, "Alice", "session-1")
 
         assertEquals(
             "session-1",
@@ -316,10 +321,7 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `join with empty sessionId still adds player`() {
-        val state = gameService.handleJoin(
-            "Alice",
-            ""
-        )
+        val state = playerService.handleJoin(gameState, "Alice", "")
 
         assertEquals(1, state.players.size)
         assertEquals("Alice", state.players[0].name)
@@ -533,10 +535,10 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `move via websocket rejected when game status is FINISHED`() {
-        gameService.handleJoin("Alice", "session-1")
-        gameService.handleJoin("Bob", "session-2")
+        playerService.handleJoin(gameState, "Alice", "session-1")
+        playerService.handleJoin(gameState, "Bob", "session-2")
 
-        gameService.gameState.status = GameStatus.FINISHED
+        gameState.status = GameStatus.FINISHED
     }
 
     @Test
@@ -788,17 +790,10 @@ class WebSocketBrokerControllerTest {
 
         val headerAccessor = SimpMessageHeaderAccessor.create()
 
-        gameService.handleJoin(
-            room.gameState,
-            "Josef",
-            "session-1"
-        )
+        playerService.handleJoin(room.gameState, "Josef", "session-1")
 
-        gameService.handleJoin(
-            room.gameState,
-            "Marie",
-            "session-2"
-        )
+        playerService.handleJoin(room.gameState, "Marie", "session-2")
+
         seedDualValleyCombatUnits(room.gameState, "Josef", "Marie")
 
         val move = Move(
@@ -901,17 +896,9 @@ class WebSocketBrokerControllerTest {
             GameMode.DUAL_VALLEY
         )
 
-        gameService.handleJoin(
-            room.gameState,
-            "Benno",
-            "session-1"
-        )
+        playerService.handleJoin(room.gameState, "Benno", "session-1")
 
-        gameService.handleJoin(
-            room.gameState,
-            "Josef",
-            "session-2"
-        )
+        playerService.handleJoin(room.gameState, "Josef", "session-2")
 
         val result = lobbyController.joinRoom(
             room.roomId,
@@ -940,17 +927,9 @@ class WebSocketBrokerControllerTest {
             GameMode.DUAL_VALLEY
         )
 
-        gameService.handleJoin(
-            room.gameState,
-            "Josef",
-            "session-1"
-        )
+        playerService.handleJoin(room.gameState, "Josef", "session-1")
 
-        gameService.handleJoin(
-            room.gameState,
-            "Marie",
-            "session-2"
-        )
+        playerService.handleJoin(room.gameState, "Marie", "session-2")
 
         val move = Move(
             player = "Marie",
@@ -988,17 +967,9 @@ class WebSocketBrokerControllerTest {
             GameMode.DUAL_VALLEY
         )
 
-        gameService.handleJoin(
-            room.gameState,
-            "P1",
-            "session-1"
-        )
+        playerService.handleJoin(room.gameState, "P1", "session-1")
 
-        gameService.handleJoin(
-            room.gameState,
-            "P2",
-            "session-2"
-        )
+        playerService.handleJoin(room.gameState, "P2", "session-2")
 
         val move = Move(
             player = "P1",
@@ -1228,13 +1199,13 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `move further than 2 hex fields is rejected`() {
-        gameService.handleJoin("Alice", "session-1")
-        gameService.handleJoin("Bob", "session-2")
-        seedDualValleyCombatUnits(gameService.gameState, "Alice", "Bob")
+        playerService.handleJoin(gameState, "Alice", "session-1")
+        playerService.handleJoin(gameState, "Bob", "session-2")
+        seedDualValleyCombatUnits(gameState, "Alice", "Bob")
 
         // Alice INFANTRY steht auf (2, 3), Versuch auf (2, 8) - viel zu weit.
         val move = Move("Alice", UnitType.INFANTRY, 2, 3, 2, 8)
-        val state = gameService.handleMove(move)
+        val state = turnService.handleMove(gameState, move).state
 
         // Position unveraendert.
         val infantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
@@ -1247,15 +1218,15 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `move exactly 2 hex fields is accepted`() {
-        gameService.handleJoin("Alice", "session-1")
-        gameService.handleJoin("Bob", "session-2")
-        seedDualValleyCombatUnits(gameService.gameState, "Alice", "Bob")
+        playerService.handleJoin(gameState, "Alice", "session-1")
+        playerService.handleJoin(gameState, "Bob", "session-2")
+        seedDualValleyCombatUnits(gameState, "Alice", "Bob")
 
         // Alice bewegt alle 3 Einheiten - INFANTRY genau 2 Hex weit.
-        gameService.handleMove(Move("Alice", UnitType.ARCHER, 1, 2, 1, 3))
-        gameService.handleMove(Move("Alice", UnitType.INFANTRY, 2, 3, 4, 2))
-        gameService.handleMove(Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
-        val state = gameService.endTurn("Alice")
+        turnService.handleMove(gameState, Move("Alice", UnitType.ARCHER, 1, 2, 1, 3))
+        turnService.handleMove(gameState, Move("Alice", UnitType.INFANTRY, 2, 3, 4, 2))
+        turnService.handleMove(gameState, Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
+        val state = turnService.endTurn(gameState, "Alice")
 
         val infantry = state.units.first { it.player == "Alice" && it.type == UnitType.INFANTRY }
         assertEquals(4, infantry.x)
@@ -1267,12 +1238,12 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `move to same field is rejected`() {
-        gameService.handleJoin("Alice", "session-1")
-        gameService.handleJoin("Bob", "session-2")
+        playerService.handleJoin(gameState, "Alice", "session-1")
+        playerService.handleJoin(gameState, "Bob", "session-2")
 
         // (3, 2) -> (3, 2): Distanz 0.
         val move = Move("Alice", UnitType.INFANTRY, 3, 2, 3, 2)
-        val state = gameService.handleMove(move)
+        val state = turnService.handleMove(gameState, move).state
 
         assertEquals("Alice", state.currentTurn)
     }
@@ -1287,10 +1258,10 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `endTurn switches to next player`() {
-        gameService.handleJoin("Alice", "session-1")
-        gameService.handleJoin("Bob", "session-2")
+        playerService.handleJoin(gameState, "Alice", "session-1")
+        playerService.handleJoin(gameState, "Bob", "session-2")
 
-        val result = gameService.endTurn("Alice")
+        val result = turnService.endTurn(gameState, "Alice")
 
         assertNotNull(result)
         assertEquals("Bob", result.currentTurn)
@@ -1298,19 +1269,18 @@ class WebSocketBrokerControllerTest {
 
     @Test
     fun `endTurn resets hasMovedThisTurn flags`() {
-        gameService.handleJoin("Alice", "session-1")
-        gameService.handleJoin("Bob", "session-2")
+        playerService.handleJoin(gameState, "Alice", "session-1")
+        playerService.handleJoin(gameState, "Bob", "session-2")
 
         // Alice bewegt INFANTRY (Flag wird gesetzt)
-        gameService.handleMove(Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3))
+        turnService.handleMove(gameState, Move("Alice", UnitType.INFANTRY, 3, 2, 3, 3))
 
         // Alice beendet Runde freiwillig (CAVALRY und ARCHER noch nicht bewegt)
-        gameService.endTurn("Alice")
+        turnService.endTurn(gameState, "Alice")
 
         // Nach endTurn muessen alle Flags zurueckgesetzt sein.
-        val state = gameService.getCurrentState()
-        assertTrue(state.units.none { it.hasMovedThisTurn })
-        assertEquals("Bob", state.currentTurn)
+        assertTrue(gameState.units.none { it.hasMovedThisTurn })
+        assertEquals("Bob", gameState.currentTurn)
     }
 
     @Test

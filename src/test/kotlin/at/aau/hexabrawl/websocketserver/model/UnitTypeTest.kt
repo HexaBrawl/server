@@ -4,34 +4,38 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.BeforeEach
 import at.aau.hexabrawl.websocketserver.TestServiceFactory
-import at.aau.hexabrawl.websocketserver.service.GameService
+import at.aau.hexabrawl.websocketserver.service.BoardService
+import at.aau.hexabrawl.websocketserver.service.PlayerService
+import at.aau.hexabrawl.websocketserver.service.TurnService
 
 
 class UnitTypeTest {
 
-    private lateinit var gameService: GameService
+    private lateinit var playerService: PlayerService
+    private lateinit var turnService: TurnService
+    private lateinit var boardService: BoardService
     private lateinit var gameState: GameState
 
     @BeforeEach
     fun setup() {
-        gameService = TestServiceFactory.createGameService()
-        gameState = gameService.gameState
+        playerService = TestServiceFactory.createPlayerService()
+        turnService = TestServiceFactory.createTurnService()
+        boardService = BoardService()
+        gameState = GameState()
 
-        val state = gameService.gameState
-
-        state.players.clear()
-        state.players.addAll(
+        gameState.players.clear()
+        gameState.players.addAll(
             listOf(
                 Player("Alice"),
                 Player("Bob")
             )
         )
 
-        state.currentTurn = "Alice"
-        state.status = GameStatus.IN_PROGRESS
+        gameState.currentTurn = "Alice"
+        gameState.status = GameStatus.IN_PROGRESS
 
-        state.units.clear()
-        state.units.addAll(listOf(
+        gameState.units.clear()
+        gameState.units.addAll(listOf(
             GameUnit("Alice", 2, 2, UnitType.ARCHER),
             GameUnit("Alice", 3, 2, UnitType.INFANTRY),
             GameUnit("Alice", 4, 2, UnitType.CAVALRY),
@@ -45,17 +49,17 @@ class UnitTypeTest {
         // Wird gebraucht damit die Randfeld-Regel in handleMove greifen
         // kann - ohne Fields wuerde jeder Move als "kein Randfeld"
         // abgelehnt.
-        state.fields.clear()
+        gameState.fields.clear()
         for (x in 0 until 10) {
             for (y in 0 until 10) {
-                state.fields.add(Field(x, y))
+                gameState.fields.add(Field(x, y))
             }
         }
         listOf(2 to 2, 3 to 2, 4 to 2, 3 to 0).forEach { (x, y) ->
-            state.fields.first { it.x == x && it.y == y }.owner = "Alice"
+            gameState.fields.first { it.x == x && it.y == y }.owner = "Alice"
         }
         listOf(5 to 5, 6 to 5, 7 to 5, 6 to 7).forEach { (x, y) ->
-            state.fields.first { it.x == x && it.y == y }.owner = "Bob"
+            gameState.fields.first { it.x == x && it.y == y }.owner = "Bob"
         }
     }
 
@@ -72,9 +76,9 @@ class UnitTypeTest {
     fun `move should update correct unit by type`() {
         // Basis direkt neben das Ziel setzen und die Felder Alice geben.
         // Verhindert, dass der Archer auf (3,3) wegen recomputeConnectivity zum Skelett wird.
-        gameService.gameState.units.add(GameUnit(player = "Alice", type = UnitType.BASE, x = 3, y = 2))
-        gameService.gameState.fields.add(Field(3, 2).apply { owner = "Alice" })
-        gameService.gameState.fields.add(Field(3, 3).apply { owner = "Alice" })
+        gameState.units.add(GameUnit(player = "Alice", type = UnitType.BASE, x = 3, y = 2))
+        gameState.fields.add(Field(3, 2).apply { owner = "Alice" })
+        gameState.fields.add(Field(3, 3).apply { owner = "Alice" })
 
         val move = Move(
             player = "Alice",
@@ -85,7 +89,7 @@ class UnitTypeTest {
             toY = 3
         )
 
-        val state = gameService.handleMove(move)
+        val state = turnService.handleMove(gameState, move).state
 
         val unit = state.units.find {
             it.player == "Alice" && it.type == UnitType.ARCHER
@@ -104,7 +108,7 @@ class UnitTypeTest {
             toY = 3
         )
 
-        val state = gameService.handleMove(move)
+        val state = turnService.handleMove(gameState, move).state
 
         val unit = state.units.find {
             it.player == "Alice" && it.type == UnitType.CAVALRY
@@ -127,7 +131,7 @@ class UnitTypeTest {
 
         val before = gameState.units.toList()
 
-        val state = gameService.handleMove(move)
+        val state = turnService.handleMove(gameState, move).state
 
         assertEquals(before, state.units)
     }
@@ -141,7 +145,7 @@ class UnitTypeTest {
             toY = 5 // Bob steht dort
         )
 
-        val state = gameService.handleMove(move)
+        val state = turnService.handleMove(gameState, move).state
 
         val unit = state.units.find {
             it.player == "Alice" && it.type == UnitType.ARCHER
@@ -152,49 +156,44 @@ class UnitTypeTest {
 
     @Test
     fun `turn should switch after valid move`() {
-
-        gameService.initializeGame()
-
-        gameService.handleJoin("Alice")
-        gameService.handleJoin("Bob")
+        val freshState = GameState()
+        playerService.handleJoin(freshState, "Alice", "s1")
+        playerService.handleJoin(freshState, "Bob", "s2")
         // Combat-Units manuell platzieren (werden seit Entfernung der
         // Start-Einheiten nicht mehr automatisch gesetzt).
-        val s = gameService.gameState
-        s.units.add(GameUnit("Alice", 1, 2, UnitType.ARCHER))
-        s.units.add(GameUnit("Alice", 2, 3, UnitType.INFANTRY))
-        s.units.add(GameUnit("Alice", 3, 2, UnitType.CAVALRY))
+        freshState.units.add(GameUnit("Alice", 1, 2, UnitType.ARCHER))
+        freshState.units.add(GameUnit("Alice", 2, 3, UnitType.INFANTRY))
+        freshState.units.add(GameUnit("Alice", 3, 2, UnitType.CAVALRY))
 
-        val stateBefore = gameService.getCurrentState()
-
-        val archer = stateBefore.units.first {
+        val archer = freshState.units.first {
             it.player == "Alice" && it.type == UnitType.ARCHER
         }
 
         // Alice bewegt alle drei Einheiten und beendet manuell ihren Zug,
         // dann ist Bob dran.
-        gameService.handleMove(Move(
+        turnService.handleMove(freshState, Move(
             player = "Alice", type = UnitType.ARCHER,
             fromX = archer.x, fromY = archer.y,
             toX = archer.x, toY = archer.y + 1
         ))
-        gameService.handleMove(Move("Alice", UnitType.INFANTRY, 2, 3, 2, 4))
-        gameService.handleMove(Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
-        val state = gameService.endTurn("Alice")
+        turnService.handleMove(freshState, Move("Alice", UnitType.INFANTRY, 2, 3, 2, 4))
+        turnService.handleMove(freshState, Move("Alice", UnitType.CAVALRY, 3, 2, 3, 3))
+        val state = turnService.endTurn(freshState, "Alice")
 
         assertEquals("Bob", state.currentTurn)
     }
 
     @Test
     fun `move fails if unit type does not match`() {
-        gameService.initializeGame()
-        gameService.handleJoin("Alice")
-        gameService.handleJoin("Bob")
+        val freshState = GameState()
+        playerService.handleJoin(freshState, "Alice", "s1")
+        playerService.handleJoin(freshState, "Bob", "s2")
         // Combat-Units manuell platzieren
-        gameService.gameState.units.add(GameUnit("Alice", 2, 3, UnitType.INFANTRY))
+        freshState.units.add(GameUnit("Alice", 2, 3, UnitType.INFANTRY))
 
         val move = Move("Alice", UnitType.ARCHER, 2, 3, 2, 4) // kein ARCHER bei (2,3) - nur INFANTRY
 
-        val state = gameService.handleMove(move)
+        val state = turnService.handleMove(freshState, move).state
 
         val unit = state.units.first {
             it.player == "Alice" && it.type == UnitType.INFANTRY
@@ -206,18 +205,17 @@ class UnitTypeTest {
 
     @Test
     fun `move onto enemy tile triggers combat draw`() {
-        gameService.initializeGame()
-        gameService.handleJoin("Alice")
-        gameService.handleJoin("Bob")
+        val freshState = GameState()
+        playerService.handleJoin(freshState, "Alice", "s1")
+        playerService.handleJoin(freshState, "Bob", "s2")
         // Combat-Units manuell platzieren
-        val s = gameService.gameState
-        s.units.add(GameUnit("Alice", 3, 2, UnitType.INFANTRY))
-        s.units.add(GameUnit("Bob", 6, 5, UnitType.INFANTRY))
+        freshState.units.add(GameUnit("Alice", 3, 2, UnitType.INFANTRY))
+        freshState.units.add(GameUnit("Bob", 6, 5, UnitType.INFANTRY))
 
-        val alice = gameService.getCurrentState().units.first {
+        val alice = freshState.units.first {
             it.player == "Alice" && it.type == UnitType.INFANTRY
         }
-        val bob = gameService.getCurrentState().units.first {
+        val bob = freshState.units.first {
             it.player == "Bob" && it.type == UnitType.INFANTRY
         }
 
@@ -228,7 +226,7 @@ class UnitTypeTest {
         bob.y = 3
 
         val move = Move("Alice", UnitType.INFANTRY, alice.x, alice.y, bob.x, bob.y)
-        val state = gameService.handleMove(move)
+        val state = turnService.handleMove(freshState, move).state
 
         // INFANTRY vs INFANTRY → Draw → beide weg
         assertNull(state.units.find { it.player == "Alice" && it.type == UnitType.INFANTRY })
@@ -238,11 +236,12 @@ class UnitTypeTest {
 
     @Test
     fun `move ignored if game not in progress`() {
-        gameService.initializeGame()
+        val freshState = GameState()
+        // status ist WAITING_FOR_PLAYERS per default
 
         val move = Move("Alice", UnitType.INFANTRY, 0, 0, 1, 1)
 
-        val state = gameService.handleMove(move)
+        val state = turnService.handleMove(freshState, move).state
 
         assertEquals(GameStatus.WAITING_FOR_PLAYERS, state.status)
     }

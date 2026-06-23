@@ -1,5 +1,6 @@
 package at.aau.hexabrawl.websocketserver.service
 
+import at.aau.hexabrawl.websocketserver.model.ErrorCode
 import at.aau.hexabrawl.websocketserver.model.GameState
 import at.aau.hexabrawl.websocketserver.model.GameStatus
 import at.aau.hexabrawl.websocketserver.model.Player
@@ -53,6 +54,18 @@ class PlayerService(
     fun isColorTaken(state: GameState, color: PlayerColor): Boolean = synchronized(state.lock) {
         return state.players.any { it.color == color }
     }
+
+    fun handleReconnect(state: GameState, playerName: String, newSessionId: String): ReconnectResult =
+        synchronized(state.lock) {
+            val player = state.players.find { it.name == playerName }
+            if (player == null || player.connected) {
+                return ReconnectResult.Rejected(ErrorCode.RECONNECT_REJECTED, "Kein wartender Spieler mit diesem Namen.")
+            }
+            player.connected = true
+            player.disconnectedAt = null
+            player.sessionId = newSessionId
+            return ReconnectResult.Reconnected(state)
+        }
 
     /**
      * Soft-Disconnect: markiert den Spieler als nicht-verbunden und merkt

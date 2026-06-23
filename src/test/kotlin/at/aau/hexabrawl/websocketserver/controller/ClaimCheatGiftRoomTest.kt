@@ -8,7 +8,9 @@ import org.mockito.Mockito.*
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import at.aau.hexabrawl.websocketserver.TestServiceFactory
-import at.aau.hexabrawl.websocketserver.service.GameService
+import at.aau.hexabrawl.websocketserver.service.CheatGiftService
+import at.aau.hexabrawl.websocketserver.service.EconomyService
+import at.aau.hexabrawl.websocketserver.service.PlayerService
 
 /**
  * Tests fuer den Cheat-Geschenk claim-gift Room-Endpoint.
@@ -19,19 +21,23 @@ class ClaimCheatGiftRoomTest {
 
     private lateinit var controller: CheatController
     private lateinit var lobbyController: LobbyController
-    private lateinit var gameService: GameService
+    private lateinit var cheatGiftService: CheatGiftService
+    private lateinit var playerService: PlayerService
+    private lateinit var economyService: EconomyService
     private lateinit var roomRegistry: RoomRegistry
     private lateinit var messagingTemplate: SimpMessagingTemplate
     private lateinit var headerAccessor: SimpMessageHeaderAccessor
 
     @BeforeEach
     fun setup() {
-        gameService = TestServiceFactory.createGameService()
+        cheatGiftService = TestServiceFactory.createCheatGiftService()
+        playerService = TestServiceFactory.createPlayerService()
+        economyService = EconomyService()
         roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java)
         val contextResolver = GameContextResolver(roomRegistry, messagingTemplate)
-        controller = CheatController(gameService, contextResolver, messagingTemplate)
-        lobbyController = LobbyController(gameService, contextResolver, messagingTemplate)
+        controller = CheatController(cheatGiftService, economyService, contextResolver, messagingTemplate)
+        lobbyController = LobbyController(playerService, economyService, contextResolver, messagingTemplate)
         headerAccessor = mock(SimpMessageHeaderAccessor::class.java)
         `when`(headerAccessor.sessionId).thenReturn("session-alice")
     }

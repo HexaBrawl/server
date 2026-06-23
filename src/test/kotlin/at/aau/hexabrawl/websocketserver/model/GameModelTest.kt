@@ -3,6 +3,7 @@ package at.aau.hexabrawl.websocketserver.model
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import at.aau.hexabrawl.websocketserver.TestServiceFactory
+import at.aau.hexabrawl.websocketserver.service.BoardService
 
 class GameModelTest {
 
@@ -92,77 +93,35 @@ class GameModelTest {
 
     @Test
     fun `handleJoin only modifies provided state`() {
-
-        val gameService = TestServiceFactory.createGameService()
+        val playerService = TestServiceFactory.createPlayerService()
 
         val state1 = GameState()
         val state2 = GameState()
 
-        gameService.handleJoin(
-            state1,
-            "Josef",
-            "session-1"
-        )
+        playerService.handleJoin(state1, "Josef", "session-1")
 
         assertEquals(1, state1.players.size)
         assertEquals(0, state2.players.size)
-
-        assertEquals(
-            "Josef",
-            state1.players[0].name
-        )
-    }
-
-    @Test
-    fun `legacy handleJoin bridge still uses gameState`() {
-
-        val gameService = TestServiceFactory.createGameService()
-
-        gameService.handleJoin(
-            "Josef",
-            "session-1"
-        )
-
-        assertEquals(
-            1,
-            gameService.gameState.players.size
-        )
-
-        assertEquals(
-            "Josef",
-            gameService.gameState.players[0].name
-        )
+        assertEquals("Josef", state1.players[0].name)
     }
 
     @Test
     fun `handleMove only modifies provided state`() {
-        val gameService = TestServiceFactory.createGameService()
+        val playerService = TestServiceFactory.createPlayerService()
+        val turnService = TestServiceFactory.createTurnService()
 
         val state1 = GameState()
         val state2 = GameState()
 
-        gameService.handleJoin(state1, "Josef", "s1")
-        gameService.handleJoin(state1, "Marie", "s2")
+        playerService.handleJoin(state1, "Josef", "s1")
+        playerService.handleJoin(state1, "Marie", "s2")
         // Combat-Units manuell platzieren (Start-Einheiten werden nicht mehr automatisch gesetzt).
         state1.units.add(GameUnit("Josef", 2, 3, UnitType.INFANTRY))
 
-        val move = Move(
-            "Josef",
-            UnitType.INFANTRY,
-            2,
-            3,
-            2,
-            4
-        )
+        val move = Move("Josef", UnitType.INFANTRY, 2, 3, 2, 4)
+        turnService.handleMove(state1, move)
 
-        gameService.handleMove(state1, move)
-
-        val movedUnit =
-            state1.units.find {
-                it.player == "Josef" &&
-                        it.type == UnitType.INFANTRY
-            }
-
+        val movedUnit = state1.units.find { it.player == "Josef" && it.type == UnitType.INFANTRY }
         assertEquals(2, movedUnit?.x)
         assertEquals(4, movedUnit?.y)
 
@@ -170,43 +129,14 @@ class GameModelTest {
     }
 
     @Test
-    fun `legacy handleMove bridge still uses gameState`() {
-        val gameService = TestServiceFactory.createGameService()
-
-        gameService.handleJoin("Josef", "s1")
-        gameService.handleJoin("Marie", "s2")
-        // Combat-Units manuell platzieren
-        gameService.gameState.units.add(GameUnit("Josef", 2, 3, UnitType.INFANTRY))
-
-        val move = Move(
-            "Josef",
-            UnitType.INFANTRY,
-            2,
-            3,
-            2,
-            4
-        )
-
-        gameService.handleMove(move)
-
-        val movedUnit =
-            gameService.gameState.units.find {
-                it.player == "Josef" &&
-                        it.type == UnitType.INFANTRY
-            }
-
-        assertEquals(2, movedUnit?.x)
-        assertEquals(4, movedUnit?.y)
-    }
-
-    @Test
     fun `handleDisconnect only modifies provided state`() {
-        val gameService = TestServiceFactory.createGameService()
+        val playerService = TestServiceFactory.createPlayerService()
+
         val state1 = GameState()
         val state2 = GameState()
 
-        gameService.handleJoin(state1, "Josef", "s1")
-        gameService.handleDisconnect(state1, "s1")
+        playerService.handleJoin(state1, "Josef", "s1")
+        playerService.handleDisconnect(state1, "s1")
 
         // Soft-Disconnect: Josef bleibt im state1, aber connected = false
         assertEquals(1, state1.players.size)
@@ -217,52 +147,35 @@ class GameModelTest {
     }
 
     @Test
-    fun `legacy handleDisconnect bridge still uses gameState`() {
-        val gameService = TestServiceFactory.createGameService()
-
-        gameService.handleJoin("Josef", "s1")
-        gameService.handleDisconnect("s1")
-
-        // Soft-Disconnect: Josef bleibt, ist nur als nicht-verbunden markiert
-        assertEquals(1, gameService.gameState.players.size)
-        assertFalse(gameService.gameState.players.first().connected)
-    }
-
-    @Test
     fun `initializeGame only modifies provided state`() {
-
-        val gameService = TestServiceFactory.createGameService()
+        val playerService = TestServiceFactory.createPlayerService()
+        val boardService = BoardService()
 
         val state1 = GameState()
         val state2 = GameState()
 
-        gameService.handleJoin(state1, "Josef", "s1")
-
-        gameService.initializeGame(state1)
+        playerService.handleJoin(state1, "Josef", "s1")
+        boardService.initializeGame(state1)
 
         assertTrue(state1.players.isEmpty())
-
         assertTrue(state2.players.isEmpty())
-
         assertTrue(state2.units.isEmpty())
     }
 
     @Test
     fun `resetToStartCondition only modifies provided state`() {
-
-        val gameService = TestServiceFactory.createGameService()
+        val playerService = TestServiceFactory.createPlayerService()
+        val boardService = BoardService()
 
         val state1 = GameState()
         val state2 = GameState()
 
-        gameService.handleJoin(state1, "Josef", "s1")
-        gameService.handleJoin(state1, "Marie", "s2")
-
-        gameService.resetToStartCondition(state1)
+        playerService.handleJoin(state1, "Josef", "s1")
+        playerService.handleJoin(state1, "Marie", "s2")
+        boardService.resetToStartCondition(state1)
 
         // Spieler bleiben erhalten
         assertEquals(2, state1.players.size)
-
         // Units existieren weiterhin
         assertFalse(state1.units.isEmpty())
 
@@ -272,192 +185,82 @@ class GameModelTest {
     }
 
     @Test
-    fun `getCurrentState returns provided state`() {
-
-        val gameService = TestServiceFactory.createGameService()
-
-        val state1 = GameState()
-
-        val result = gameService.getCurrentState(state1)
-
-        assertSame(state1, result)
-    }
-
-
-    @Test
     fun `triad outpost does not start after second player joins`() {
-        val gameService = TestServiceFactory.createGameService()
+        val playerService = TestServiceFactory.createPlayerService()
         val roomRegistry = RoomRegistry()
 
-        val room = roomRegistry.createRoom(
-            GameMode.TRIAD_OUTPOST
-        )
+        val room = roomRegistry.createRoom(GameMode.TRIAD_OUTPOST)
 
-        gameService.handleJoin(
-            room.gameState,
-            "P1",
-            "session-1"
-        )
+        playerService.handleJoin(room.gameState, "P1", "session-1")
+        playerService.handleJoin(room.gameState, "P2", "session-2")
 
-        gameService.handleJoin(
-            room.gameState,
-            "P2",
-            "session-2"
-        )
-        println(room.mode)
-        println(room.gameState.gameMode)
-
-        assertEquals(
-            GameStatus.WAITING_FOR_PLAYERS,
-            room.gameState.status
-        )
+        assertEquals(GameStatus.WAITING_FOR_PLAYERS, room.gameState.status)
     }
 
     @Test
     fun `triad outpost starts when third player joins`() {
-
-        val gameService = TestServiceFactory.createGameService()
+        val playerService = TestServiceFactory.createPlayerService()
         val roomRegistry = RoomRegistry()
 
-        val room = roomRegistry.createRoom(
-            GameMode.TRIAD_OUTPOST
-        )
+        val room = roomRegistry.createRoom(GameMode.TRIAD_OUTPOST)
 
-        gameService.handleJoin(
-            room.gameState,
-            "P1",
-            "session-1"
-        )
+        playerService.handleJoin(room.gameState, "P1", "session-1")
+        playerService.handleJoin(room.gameState, "P2", "session-2")
+        assertEquals(GameStatus.WAITING_FOR_PLAYERS, room.gameState.status)
 
-        gameService.handleJoin(
-            room.gameState,
-            "P2",
-            "session-2"
-        )
-
-        assertEquals(
-            GameStatus.WAITING_FOR_PLAYERS,
-            room.gameState.status
-        )
-
-        gameService.handleJoin(
-            room.gameState,
-            "P3",
-            "session-3"
-        )
-
-        assertEquals(
-            GameStatus.IN_PROGRESS,
-            room.gameState.status
-        )
+        playerService.handleJoin(room.gameState, "P3", "session-3")
+        assertEquals(GameStatus.IN_PROGRESS, room.gameState.status)
     }
-
 
     @Test
     fun `battlefield peaks does not start after third player joins`() {
-
-        val gameService = TestServiceFactory.createGameService()
+        val playerService = TestServiceFactory.createPlayerService()
         val roomRegistry = RoomRegistry()
 
-        val room = roomRegistry.createRoom(
-            GameMode.BATTLEFIELD_PEAKS
-        )
+        val room = roomRegistry.createRoom(GameMode.BATTLEFIELD_PEAKS)
 
-        gameService.handleJoin(
-            room.gameState,
-            "P1",
-            "session-1"
-        )
+        playerService.handleJoin(room.gameState, "P1", "session-1")
+        playerService.handleJoin(room.gameState, "P2", "session-2")
+        playerService.handleJoin(room.gameState, "P3", "session-3")
 
-        gameService.handleJoin(
-            room.gameState,
-            "P2",
-            "session-2"
-        )
-
-        gameService.handleJoin(
-            room.gameState,
-            "P3",
-            "session-3"
-        )
-
-        assertEquals(
-            GameStatus.WAITING_FOR_PLAYERS,
-            room.gameState.status
-        )
+        assertEquals(GameStatus.WAITING_FOR_PLAYERS, room.gameState.status)
     }
 
     @Test
     fun `battlefield peaks starts when fourth player joins`() {
-
-        val gameService = TestServiceFactory.createGameService()
+        val playerService = TestServiceFactory.createPlayerService()
         val roomRegistry = RoomRegistry()
 
-        val room = roomRegistry.createRoom(
-            GameMode.BATTLEFIELD_PEAKS
-        )
+        val room = roomRegistry.createRoom(GameMode.BATTLEFIELD_PEAKS)
 
-        gameService.handleJoin(
-            room.gameState,
-            "P1",
-            "session-1"
-        )
+        playerService.handleJoin(room.gameState, "P1", "session-1")
+        playerService.handleJoin(room.gameState, "P2", "session-2")
+        playerService.handleJoin(room.gameState, "P3", "session-3")
+        assertEquals(GameStatus.WAITING_FOR_PLAYERS, room.gameState.status)
 
-        gameService.handleJoin(
-            room.gameState,
-            "P2",
-            "session-2"
-        )
-
-        gameService.handleJoin(
-            room.gameState,
-            "P3",
-            "session-3"
-        )
-
-        assertEquals(
-            GameStatus.WAITING_FOR_PLAYERS,
-            room.gameState.status
-        )
-
-        gameService.handleJoin(
-            room.gameState,
-            "P4",
-            "session-4"
-        )
-
-        assertEquals(
-            GameStatus.IN_PROGRESS,
-            room.gameState.status
-        )
+        playerService.handleJoin(room.gameState, "P4", "session-4")
+        assertEquals(GameStatus.IN_PROGRESS, room.gameState.status)
     }
 
     @Test
     fun `triad outpost turn stays after only one move`() {
-
+        val playerService = TestServiceFactory.createPlayerService()
+        val turnService = TestServiceFactory.createTurnService()
         val roomRegistry = RoomRegistry()
-        val gameService = TestServiceFactory.createGameService()
 
         val room = roomRegistry.createRoom(GameMode.TRIAD_OUTPOST)
 
-        gameService.handleJoin(room.gameState, "P1", "session-1")
-        gameService.handleJoin(room.gameState, "P2", "session-2")
-        gameService.handleJoin(room.gameState, "P3", "session-3")
+        playerService.handleJoin(room.gameState, "P1", "session-1")
+        playerService.handleJoin(room.gameState, "P2", "session-2")
+        playerService.handleJoin(room.gameState, "P3", "session-3")
 
         assertEquals("P1", room.gameState.currentTurn)
 
         // P1 bewegt nur INFANTRY -- die anderen 2 Einheiten bleiben unbewegt.
-        val state = gameService.handleMove(
+        val state = turnService.handleMove(
             room.gameState,
-            Move(
-                player = "P1",
-                type = UnitType.INFANTRY,
-                fromX = 4,
-                fromY = 9,
-                toX = 4,
-                toY = 10
-            )
-        )
+            Move(player = "P1", type = UnitType.INFANTRY, fromX = 4, fromY = 9, toX = 4, toY = 10)
+        ).state
 
         // Turn bleibt bei P1, weil ARCHER und CAVALRY noch nicht gezogen haben.
         assertEquals("P1", state.currentTurn)
@@ -465,31 +268,23 @@ class GameModelTest {
 
     @Test
     fun `battlefield peaks turn stays after only one move`() {
-
+        val playerService = TestServiceFactory.createPlayerService()
+        val turnService = TestServiceFactory.createTurnService()
         val roomRegistry = RoomRegistry()
-        val gameService = TestServiceFactory.createGameService()
 
         val room = roomRegistry.createRoom(GameMode.BATTLEFIELD_PEAKS)
 
-        gameService.handleJoin(room.gameState, "P1", "session-1")
-        gameService.handleJoin(room.gameState, "P2", "session-2")
-        gameService.handleJoin(room.gameState, "P3", "session-3")
-        gameService.handleJoin(room.gameState, "P4", "session-4")
+        playerService.handleJoin(room.gameState, "P1", "session-1")
+        playerService.handleJoin(room.gameState, "P2", "session-2")
+        playerService.handleJoin(room.gameState, "P3", "session-3")
+        playerService.handleJoin(room.gameState, "P4", "session-4")
 
         assertEquals("P1", room.gameState.currentTurn)
 
-        // P1-INFANTRY-Start: (6,9), Basis bei (6,10). Move zu (6,8) ist Border.
-        val state = gameService.handleMove(
+        val state = turnService.handleMove(
             room.gameState,
-            Move(
-                player = "P1",
-                type = UnitType.INFANTRY,
-                fromX = 6,
-                fromY = 9,
-                toX = 6,
-                toY = 8
-            )
-        )
+            Move(player = "P1", type = UnitType.INFANTRY, fromX = 6, fromY = 9, toX = 6, toY = 8)
+        ).state
 
         // Turn bleibt bei P1, weil ARCHER und CAVALRY noch nicht gezogen haben.
         assertEquals("P1", state.currentTurn)
@@ -497,106 +292,80 @@ class GameModelTest {
 
     @Test
     fun `triad outpost switches turn after all three units moved`() {
-
+        val playerService = TestServiceFactory.createPlayerService()
+        val turnService = TestServiceFactory.createTurnService()
         val roomRegistry = RoomRegistry()
-        val gameService = TestServiceFactory.createGameService()
 
         val room = roomRegistry.createRoom(GameMode.TRIAD_OUTPOST)
 
-        gameService.handleJoin(room.gameState, "P1", "session-1")
-        gameService.handleJoin(room.gameState, "P2", "session-2")
-        gameService.handleJoin(room.gameState, "P3", "session-3")
+        playerService.handleJoin(room.gameState, "P1", "session-1")
+        playerService.handleJoin(room.gameState, "P2", "session-2")
+        playerService.handleJoin(room.gameState, "P3", "session-3")
         // Combat-Units manuell platzieren (werden nicht mehr automatisch gesetzt).
         room.gameState.units.add(GameUnit("P1", 5, 8, UnitType.ARCHER))
         room.gameState.units.add(GameUnit("P1", 4, 9, UnitType.INFANTRY))
         room.gameState.units.add(GameUnit("P1", 6, 9, UnitType.CAVALRY))
 
-        // P1-Start-Positionen (siehe GameService.startTriadOutpostGame):
-        //   ARCHER (5,8), INFANTRY (4,9), CAVALRY (6,9), Basis (5,9)
-        gameService.handleMove(
-            room.gameState,
-            Move("P1", UnitType.INFANTRY, 4, 9, 4, 10)
-        )
+        turnService.handleMove(room.gameState, Move("P1", UnitType.INFANTRY, 4, 9, 4, 10))
         assertEquals("P1", room.gameState.currentTurn)
 
-        gameService.handleMove(
-            room.gameState,
-            Move("P1", UnitType.ARCHER, 5, 8, 5, 7)
-        )
+        turnService.handleMove(room.gameState, Move("P1", UnitType.ARCHER, 5, 8, 5, 7))
         assertEquals("P1", room.gameState.currentTurn)
 
-        gameService.handleMove(
-            room.gameState,
-            Move("P1", UnitType.CAVALRY, 6, 9, 6, 10)
-        )
-        val state = gameService.endTurn(room.gameState, "P1")
+        turnService.handleMove(room.gameState, Move("P1", UnitType.CAVALRY, 6, 9, 6, 10))
+        val state = turnService.endTurn(room.gameState, "P1")
 
         assertEquals("P2", state.currentTurn)
     }
 
     @Test
     fun `triad outpost endTurn forces switch with units remaining`() {
-
+        val playerService = TestServiceFactory.createPlayerService()
+        val turnService = TestServiceFactory.createTurnService()
         val roomRegistry = RoomRegistry()
-        val gameService = TestServiceFactory.createGameService()
 
         val room = roomRegistry.createRoom(GameMode.TRIAD_OUTPOST)
 
-        gameService.handleJoin(room.gameState, "P1", "session-1")
-        gameService.handleJoin(room.gameState, "P2", "session-2")
-        gameService.handleJoin(room.gameState, "P3", "session-3")
+        playerService.handleJoin(room.gameState, "P1", "session-1")
+        playerService.handleJoin(room.gameState, "P2", "session-2")
+        playerService.handleJoin(room.gameState, "P3", "session-3")
 
         // P1 bewegt nur INFANTRY, ARCHER und CAVALRY bleiben.
-        gameService.handleMove(
-            room.gameState,
-            Move("P1", UnitType.INFANTRY, 4, 9, 4, 10)
-        )
+        turnService.handleMove(room.gameState, Move("P1", UnitType.INFANTRY, 4, 9, 4, 10))
         assertEquals("P1", room.gameState.currentTurn)
 
         // Trotz unbewegter Einheiten beendet P1 manuell seinen Zug.
-        val state = gameService.endTurn(room.gameState, "P1")
+        val state = turnService.endTurn(room.gameState, "P1")
 
         assertEquals("P2", state.currentTurn)
     }
 
     @Test
     fun `battlefield peaks switches turn after all three units moved`() {
-
+        val playerService = TestServiceFactory.createPlayerService()
+        val turnService = TestServiceFactory.createTurnService()
         val roomRegistry = RoomRegistry()
-        val gameService = TestServiceFactory.createGameService()
 
         val room = roomRegistry.createRoom(GameMode.BATTLEFIELD_PEAKS)
 
-        gameService.handleJoin(room.gameState, "P1", "session-1")
-        gameService.handleJoin(room.gameState, "P2", "session-2")
-        gameService.handleJoin(room.gameState, "P3", "session-3")
-        gameService.handleJoin(room.gameState, "P4", "session-4")
+        playerService.handleJoin(room.gameState, "P1", "session-1")
+        playerService.handleJoin(room.gameState, "P2", "session-2")
+        playerService.handleJoin(room.gameState, "P3", "session-3")
+        playerService.handleJoin(room.gameState, "P4", "session-4")
         // Combat-Units manuell platzieren
         room.gameState.units.add(GameUnit("P1", 5, 9, UnitType.ARCHER))
         room.gameState.units.add(GameUnit("P1", 6, 9, UnitType.INFANTRY))
         room.gameState.units.add(GameUnit("P1", 7, 9, UnitType.CAVALRY))
 
-        // P1-Start-Positionen (siehe GameService.startBattlefieldPeaksGame):
-        //   ARCHER (5,9), INFANTRY (6,9), CAVALRY (7,9), Basis (6,10)
-        gameService.handleMove(
-            room.gameState,
-            Move("P1", UnitType.INFANTRY, 6, 9, 6, 8)
-        )
+        turnService.handleMove(room.gameState, Move("P1", UnitType.INFANTRY, 6, 9, 6, 8))
         assertEquals("P1", room.gameState.currentTurn)
 
-        gameService.handleMove(
-            room.gameState,
-            Move("P1", UnitType.ARCHER, 5, 9, 5, 10)
-        )
+        turnService.handleMove(room.gameState, Move("P1", UnitType.ARCHER, 5, 9, 5, 10))
         assertEquals("P1", room.gameState.currentTurn)
 
-        gameService.handleMove(
-            room.gameState,
-            Move("P1", UnitType.CAVALRY, 7, 9, 7, 10)
-        )
-        val state = gameService.endTurn(room.gameState, "P1")
+        turnService.handleMove(room.gameState, Move("P1", UnitType.CAVALRY, 7, 9, 7, 10))
+        val state = turnService.endTurn(room.gameState, "P1")
 
         assertEquals("P2", state.currentTurn)
     }
-
 }

@@ -4,67 +4,67 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import at.aau.hexabrawl.websocketserver.TestServiceFactory
-import at.aau.hexabrawl.websocketserver.service.GameService
+import at.aau.hexabrawl.websocketserver.service.BoardService
+import at.aau.hexabrawl.websocketserver.service.PlayerService
 
 
 class FieldTest {
 
-    private lateinit var gameService: GameService
+    private lateinit var playerService: PlayerService
+    private lateinit var boardService: BoardService
+    private lateinit var gameState: GameState
 
     @BeforeEach
     fun setup() {
-        gameService = TestServiceFactory.createGameService()
+        playerService = TestServiceFactory.createPlayerService()
+        boardService = BoardService()
+        gameState = GameState()
     }
 
     @Test
     fun `all board fields are created on game start`() {
-        gameService.handleJoin("Alice")
-        gameService.handleJoin("Bob")
-        val state = gameService.getCurrentState()
+        playerService.handleJoin(gameState, "Alice", "s1")
+        playerService.handleJoin(gameState, "Bob", "s2")
 
         // 9x9 = 81 Felder
-        assertEquals(81, state.fields.size)
+        assertEquals(81, gameState.fields.size)
     }
 
     @Test
     fun `Alice has starting territory`() {
-        gameService.handleJoin("Alice")
-        gameService.handleJoin("Bob")
-        val state = gameService.getCurrentState()
+        playerService.handleJoin(gameState, "Alice", "s1")
+        playerService.handleJoin(gameState, "Bob", "s2")
 
-        val aliceFields = state.fields.filter { it.owner == "Alice" }
+        val aliceFields = gameState.fields.filter { it.owner == "Alice" }
         assertEquals(7, aliceFields.size)  // Basis + 6 angrenzende Felder
     }
 
     @Test
     fun `Bob has starting territory`() {
-        gameService.handleJoin("Alice")
-        gameService.handleJoin("Bob")
-        val state = gameService.getCurrentState()
+        playerService.handleJoin(gameState, "Alice", "s1")
+        playerService.handleJoin(gameState, "Bob", "s2")
 
-        val bobFields = state.fields.filter { it.owner == "Bob" }
+        val bobFields = gameState.fields.filter { it.owner == "Bob" }
         assertEquals(7, bobFields.size)
     }
 
     @Test
     fun `most fields are neutral on game start`() {
-        gameService.handleJoin("Alice")
-        gameService.handleJoin("Bob")
-        val state = gameService.getCurrentState()
+        playerService.handleJoin(gameState, "Alice", "s1")
+        playerService.handleJoin(gameState, "Bob", "s2")
 
-        val neutralFields = state.fields.filter { it.owner == null }
+        val neutralFields = gameState.fields.filter { it.owner == null }
         assertEquals(81 - 14, neutralFields.size)  // 67 neutral
     }
 
     @Test
     fun `Alice and Bob have non-overlapping territories`() {
-        gameService.handleJoin("Alice")
-        gameService.handleJoin("Bob")
-        val state = gameService.getCurrentState()
+        playerService.handleJoin(gameState, "Alice", "s1")
+        playerService.handleJoin(gameState, "Bob", "s2")
 
-        val alicePositions = state.fields.filter { it.owner == "Alice" }
+        val alicePositions = gameState.fields.filter { it.owner == "Alice" }
             .map { it.x to it.y }.toSet()
-        val bobPositions = state.fields.filter { it.owner == "Bob" }
+        val bobPositions = gameState.fields.filter { it.owner == "Bob" }
             .map { it.x to it.y }.toSet()
 
         assertTrue(alicePositions.intersect(bobPositions).isEmpty())
@@ -72,35 +72,33 @@ class FieldTest {
 
     @Test
     fun `initializeGame clears all fields`() {
-        gameService.handleJoin("Alice")
-        gameService.handleJoin("Bob")
-        gameService.initializeGame()
+        playerService.handleJoin(gameState, "Alice", "s1")
+        playerService.handleJoin(gameState, "Bob", "s2")
+        boardService.initializeGame(gameState)
 
-        assertTrue(gameService.getCurrentState().fields.isEmpty())
+        assertTrue(gameState.fields.isEmpty())
     }
 
     @Test
     fun `resetToStartCondition re-initializes board`() {
-        gameService.handleJoin("Alice")
-        gameService.handleJoin("Bob")
-        gameService.resetToStartCondition()
+        playerService.handleJoin(gameState, "Alice", "s1")
+        playerService.handleJoin(gameState, "Bob", "s2")
+        boardService.resetToStartCondition(gameState)
 
-        val state = gameService.getCurrentState()
-        assertEquals(81, state.fields.size)
-        assertEquals(7, state.fields.count { it.owner == "Alice" })
-        assertEquals(7, state.fields.count { it.owner == "Bob" })
+        assertEquals(81, gameState.fields.size)
+        assertEquals(7, gameState.fields.count { it.owner == "Alice" })
+        assertEquals(7, gameState.fields.count { it.owner == "Bob" })
     }
 
     @Test
     fun `fields have correct coordinates`() {
-        gameService.handleJoin("Alice")
-        gameService.handleJoin("Bob")
-        val state = gameService.getCurrentState()
+        playerService.handleJoin(gameState, "Alice", "s1")
+        playerService.handleJoin(gameState, "Bob", "s2")
 
         // Sanity check: jedes (x,y) im Raster existiert genau einmal
-        for (x in 0 until GameService.DUAL_VALLEY_BOARD_COLS) {
-            for (y in 0 until GameService.DUAL_VALLEY_BOARD_ROWS) {
-                val count = state.fields.count { it.x == x && it.y == y }
+        for (x in 0 until BoardService.DUAL_VALLEY_BOARD_COLS) {
+            for (y in 0 until BoardService.DUAL_VALLEY_BOARD_ROWS) {
+                val count = gameState.fields.count { it.x == x && it.y == y }
                 assertEquals(1, count, "Feld ($x,$y) sollte genau einmal existieren")
             }
         }

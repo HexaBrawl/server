@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service
  * Handhabt die drei Modes (DUAL_VALLEY, TRIAD_OUTPOST, BATTLEFIELD_PEAKS) mit
  * ihren jeweiligen Board-Dimensionen und Startgebiet-Layouts.
  *
- * Wird vom GameService aufgerufen, sobald die Mode-Spielerzahl erreicht ist.
+ * Wird vom PlayerService aufgerufen, sobald die Mode-Spielerzahl erreicht ist.
  */
 @Service
 class BoardService {

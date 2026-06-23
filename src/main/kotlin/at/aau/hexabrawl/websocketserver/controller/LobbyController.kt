@@ -1,11 +1,13 @@
 package at.aau.hexabrawl.websocketserver.controller
 
 import at.aau.hexabrawl.websocketserver.model.ErrorCode
-import at.aau.hexabrawl.websocketserver.service.GameService
 import at.aau.hexabrawl.websocketserver.model.GameState
 import at.aau.hexabrawl.websocketserver.model.JoinRequest
 import at.aau.hexabrawl.websocketserver.model.LeaveRequest
 import at.aau.hexabrawl.websocketserver.model.ReconnectRequest
+import at.aau.hexabrawl.websocketserver.service.EconomyService
+import at.aau.hexabrawl.websocketserver.service.PlayerService
+import at.aau.hexabrawl.websocketserver.service.ReconnectResult
 import org.springframework.messaging.handler.annotation.DestinationVariable
 import org.springframework.messaging.handler.annotation.MessageMapping
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
@@ -21,13 +23,14 @@ import org.springframework.stereotype.Controller
  */
 @Controller
 class LobbyController(
-    private val gameService: GameService,
+    private val playerService: PlayerService,
+    private val economyService: EconomyService,
     private val contextResolver: GameContextResolver,
     private val messagingTemplate: SimpMessagingTemplate
 ) {
 
     private fun sendRoomState(roomId: String, state: GameState) {
-        gameService.recomputePlayerStats(state)
+        economyService.recomputePlayerStats(state)
         messagingTemplate.convertAndSend("/topic/rooms/${roomId}/state", state)
     }
 
@@ -40,7 +43,7 @@ class LobbyController(
         val sessionId = headerAccessor.sessionId ?: ""
 
         val ctx = contextResolver.resolveRoom(sessionId, roomId) ?: return null
-        val currentState = gameService.getCurrentState(ctx.room.gameState)
+        val currentState = ctx.room.gameState
 
         if (currentState.players.size >= ctx.room.mode.maxPlayers &&
             !currentState.players.any { it.name == request.name }
@@ -52,7 +55,7 @@ class LobbyController(
         val requestedColor = request.color
         if (requestedColor != null &&
             !currentState.players.any { it.name == request.name } &&
-            gameService.isColorTaken(ctx.room.gameState, requestedColor)
+            playerService.isColorTaken(currentState, requestedColor)
         ) {
             contextResolver.sendError(
                 sessionId,
@@ -62,8 +65,8 @@ class LobbyController(
             return null
         }
 
-        val state = gameService.handleJoin(
-            ctx.room.gameState,
+        val state = playerService.handleJoin(
+            currentState,
             request.name,
             sessionId,
             request.color
@@ -81,7 +84,7 @@ class LobbyController(
         val sessionId = headerAccessor.sessionId ?: ""
 
         val ctx = contextResolver.resolveRoom(sessionId, roomId) ?: return null
-        val state = gameService.getCurrentState(ctx.room.gameState)
+        val state = ctx.state
         sendRoomState(roomId, state)
         return state
     }
@@ -90,9 +93,6 @@ class LobbyController(
      * Reconnect: wartender Spieler kommt nach Grace Period zurueck.
      *
      * Identifikation via playerName + joinCode (Memory-Persistenz im Client).
-     * Bei Erfolg wird connected = true, disconnectedAt = null und die neue
-     * sessionId an den Player gebunden, sodass weitere Messages korrekt
-     * ankommen.
      */
     @MessageMapping("/rooms/{roomId}/reconnect")
     fun reconnectRoom(
@@ -109,20 +109,16 @@ class LobbyController(
             return null
         }
 
-        val state = ctx.state
-        val player = state.players.find { it.name == request.playerName }
-        if (player == null || player.connected) {
-            contextResolver.sendError(sessionId, ErrorCode.RECONNECT_REJECTED, "Kein wartender Spieler mit diesem Namen.")
+        val result = playerService.handleReconnect(ctx.state, request.playerName, sessionId)
+
+        if (result is ReconnectResult.Rejected) {
+            contextResolver.sendError(sessionId, result.errorCode, result.message)
             return null
         }
 
-        synchronized(state.lock) {
-            player.connected = true
-            player.disconnectedAt = null
-            player.sessionId = sessionId
-        }
-        sendRoomState(roomId, state)
-        return state
+        val reconnected = (result as ReconnectResult.Reconnected).state
+        sendRoomState(roomId, reconnected)
+        return reconnected
     }
 
     /**
@@ -146,7 +142,7 @@ class LobbyController(
             it.name == request.playerName && it.sessionId == sessionId
         } ?: return null
 
-        gameService.hardDelete(state, player)
+        playerService.hardDelete(state, player)
         sendRoomState(roomId, state)
         return state
     }

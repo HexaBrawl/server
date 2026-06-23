@@ -8,7 +8,9 @@ import org.mockito.Mockito.*
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import at.aau.hexabrawl.websocketserver.TestServiceFactory
-import at.aau.hexabrawl.websocketserver.service.GameService
+import at.aau.hexabrawl.websocketserver.service.CheatGiftService
+import at.aau.hexabrawl.websocketserver.service.EconomyService
+import at.aau.hexabrawl.websocketserver.service.PlayerService
 
 /**
  * Tests fuer den Cheat-Geschenk respond-steal Room-Endpoint.
@@ -19,7 +21,9 @@ class RespondCheatStealRoomTest {
 
     private lateinit var controller: CheatController
     private lateinit var lobbyController: LobbyController
-    private lateinit var gameService: GameService
+    private lateinit var cheatGiftService: CheatGiftService
+    private lateinit var playerService: PlayerService
+    private lateinit var economyService: EconomyService
     private lateinit var roomRegistry: RoomRegistry
     private lateinit var messagingTemplate: SimpMessagingTemplate
     private lateinit var aliceHeader: SimpMessageHeaderAccessor
@@ -27,12 +31,14 @@ class RespondCheatStealRoomTest {
 
     @BeforeEach
     fun setup() {
-        gameService = TestServiceFactory.createGameService()
+        cheatGiftService = TestServiceFactory.createCheatGiftService()
+        playerService = TestServiceFactory.createPlayerService()
+        economyService = EconomyService()
         roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java)
         val contextResolver = GameContextResolver(roomRegistry, messagingTemplate)
-        controller = CheatController(gameService, contextResolver, messagingTemplate)
-        lobbyController = LobbyController(gameService, contextResolver, messagingTemplate)
+        controller = CheatController(cheatGiftService, economyService, contextResolver, messagingTemplate)
+        lobbyController = LobbyController(playerService, economyService, contextResolver, messagingTemplate)
         aliceHeader = mock(SimpMessageHeaderAccessor::class.java)
         `when`(aliceHeader.sessionId).thenReturn("session-alice")
         bobHeader = mock(SimpMessageHeaderAccessor::class.java)

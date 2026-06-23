@@ -8,7 +8,8 @@ import org.mockito.Mockito.*
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import at.aau.hexabrawl.websocketserver.TestServiceFactory
-import at.aau.hexabrawl.websocketserver.service.GameService
+import at.aau.hexabrawl.websocketserver.service.EconomyService
+import at.aau.hexabrawl.websocketserver.service.PlayerService
 
 /**
  * Tests fuer den Buy-Unit Room-Endpoint (#132).
@@ -19,19 +20,21 @@ class BuyUnitRoomTest {
 
     private lateinit var controller: PurchaseController
     private lateinit var lobbyController: LobbyController
-    private lateinit var gameService: GameService
+    private lateinit var economyService: EconomyService
+    private lateinit var playerService: PlayerService
     private lateinit var roomRegistry: RoomRegistry
     private lateinit var messagingTemplate: SimpMessagingTemplate
     private lateinit var headerAccessor: SimpMessageHeaderAccessor
 
     @BeforeEach
     fun setup() {
-        gameService = TestServiceFactory.createGameService()
+        economyService = EconomyService()
+        playerService = TestServiceFactory.createPlayerService()
         roomRegistry = RoomRegistry()
         messagingTemplate = mock(SimpMessagingTemplate::class.java)
         val contextResolver = GameContextResolver(roomRegistry, messagingTemplate)
-        controller = PurchaseController(gameService, contextResolver, messagingTemplate)
-        lobbyController = LobbyController(gameService, contextResolver, messagingTemplate)
+        controller = PurchaseController(economyService, contextResolver, messagingTemplate)
+        lobbyController = LobbyController(playerService, economyService, contextResolver, messagingTemplate)
         headerAccessor = mock(SimpMessageHeaderAccessor::class.java)
         `when`(headerAccessor.sessionId).thenReturn("session-alice")
     }
@@ -70,7 +73,7 @@ class BuyUnitRoomTest {
         val result = controller.buyUnitRoom(room.roomId, request, headerAccessor)
 
         assertNotNull(result)
-        assertEquals(10 - GameService.UNIT_PRICE, alice.gold)
+        assertEquals(10 - EconomyService.UNIT_PRICE, alice.gold)
         val placed = result!!.units.first { it.x == 3 && it.y == 3 && it.type == UnitType.INFANTRY }
         assertEquals("Alice", placed.player)
         assertTrue(placed.hasMovedThisTurn)
