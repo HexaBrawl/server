@@ -7,6 +7,7 @@ import at.aau.hexabrawl.websocketserver.model.LeaveRequest
 import at.aau.hexabrawl.websocketserver.model.ReconnectRequest
 import at.aau.hexabrawl.websocketserver.service.EconomyService
 import at.aau.hexabrawl.websocketserver.service.PlayerService
+import at.aau.hexabrawl.websocketserver.service.ReconnectResult
 import org.springframework.messaging.handler.annotation.DestinationVariable
 import org.springframework.messaging.handler.annotation.MessageMapping
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
@@ -92,9 +93,6 @@ class LobbyController(
      * Reconnect: wartender Spieler kommt nach Grace Period zurueck.
      *
      * Identifikation via playerName + joinCode (Memory-Persistenz im Client).
-     * Bei Erfolg wird connected = true, disconnectedAt = null und die neue
-     * sessionId an den Player gebunden, sodass weitere Messages korrekt
-     * ankommen.
      */
     @MessageMapping("/rooms/{roomId}/reconnect")
     fun reconnectRoom(
@@ -111,20 +109,16 @@ class LobbyController(
             return null
         }
 
-        val state = ctx.state
-        val player = state.players.find { it.name == request.playerName }
-        if (player == null || player.connected) {
-            contextResolver.sendError(sessionId, ErrorCode.RECONNECT_REJECTED, "Kein wartender Spieler mit diesem Namen.")
+        val result = playerService.handleReconnect(ctx.state, request.playerName, sessionId)
+
+        if (result is ReconnectResult.Rejected) {
+            contextResolver.sendError(sessionId, result.errorCode, result.message)
             return null
         }
 
-        synchronized(state.lock) {
-            player.connected = true
-            player.disconnectedAt = null
-            player.sessionId = sessionId
-        }
-        sendRoomState(roomId, state)
-        return state
+        val reconnected = (result as ReconnectResult.Reconnected).state
+        sendRoomState(roomId, reconnected)
+        return reconnected
     }
 
     /**
