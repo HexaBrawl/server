@@ -1,5 +1,6 @@
 package at.aau.hexabrawl.websocketserver.service
 
+import at.aau.hexabrawl.websocketserver.model.ErrorCode
 import at.aau.hexabrawl.websocketserver.model.GameState
 import at.aau.hexabrawl.websocketserver.model.GameUnit
 import at.aau.hexabrawl.websocketserver.model.Player
@@ -78,36 +79,44 @@ class EconomyService {
         return true
     }
 
-    /**
-     * Kauft eine neue Einheit und platziert sie an (x, y).
-     * Setzt voraus, dass der Controller bereits alle Validierungen
-     * durchgefuehrt hat.
-     */
     fun buyUnit(
         state: GameState,
         playerName: String,
         type: UnitType,
         x: Int,
         y: Int
-    ): GameState = synchronized(state.lock) {
-        val player = state.players.find { it.name == playerName } ?: return state
-
-        state.units.removeIf {
-            it.x == x && it.y == y && it.type == UnitType.SKELETON
+    ): BuyUnitResult = synchronized(state.lock) {
+        if (type == UnitType.BASE || type == UnitType.SKELETON) {
+            return BuyUnitResult.Rejected(ErrorCode.INVALID_PLACEMENT, "Dieser Einheitstyp kann nicht gekauft werden.")
         }
 
+        val field = state.fields.firstOrNull { it.x == x && it.y == y }
+        if (field?.owner != playerName) {
+            return BuyUnitResult.Rejected(ErrorCode.INVALID_PLACEMENT, "Einheit kann nur auf eigenen Feldern platziert werden.")
+        }
+
+        if (field.isSkeleton) {
+            return BuyUnitResult.Rejected(ErrorCode.INVALID_PLACEMENT, "Einheit kann nicht auf abgeschnittenen Feldern platziert werden.")
+        }
+
+        val occupiedByOwn = state.units.any {
+            it.x == x && it.y == y && it.player == playerName && it.type != UnitType.SKELETON
+        }
+        if (occupiedByOwn) {
+            return BuyUnitResult.Rejected(ErrorCode.INVALID_PLACEMENT, "Feld ist bereits besetzt.")
+        }
+
+        val player = state.players.find { it.name == playerName }
+            ?: return BuyUnitResult.Rejected(ErrorCode.INVALID_PLACEMENT, "Spieler nicht gefunden.")
+
+        if (player.gold < UNIT_PRICE) {
+            return BuyUnitResult.Rejected(ErrorCode.INSUFFICIENT_GOLD, "Nicht genug Gold.")
+        }
+
+        state.units.removeIf { it.x == x && it.y == y && it.type == UnitType.SKELETON }
         player.gold -= UNIT_PRICE
+        state.units.add(GameUnit(player = playerName, x = x, y = y, type = type, hasMovedThisTurn = true))
 
-        state.units.add(
-            GameUnit(
-                player = playerName,
-                x = x,
-                y = y,
-                type = type,
-                hasMovedThisTurn = true
-            )
-        )
-
-        return state
+        return BuyUnitResult.Placed(state)
     }
 }
