@@ -25,6 +25,11 @@ class DisconnectCleanupService(
         const val CLEANUP_INTERVAL_MS = 5_000L
     }
 
+    /**
+     * Wird alle [CLEANUP_INTERVAL_MS] Millisekunden ausgeführt.
+     * Entfernt Spieler, deren Soft-Disconnect älter als [GRACE_PERIOD_MS] ist,
+     * und broadcastet danach den aktualisierten GameState an alle Room-Subscriber.
+     */
     @Scheduled(fixedDelay = CLEANUP_INTERVAL_MS)
     fun cleanupExpired() {
         val cutoff = System.currentTimeMillis() - GRACE_PERIOD_MS
